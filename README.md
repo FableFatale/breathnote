@@ -8,9 +8,12 @@ newer.
 - Five connected learning lessons with local completion progress and streaks
 - Real microphone permission flow
 - Real-time local pitch detection for single-note practice and tuning
+- Shared, persisted microphone detection sensitivity for practice and tuning
 - Note-by-note practice for four built-in songs
 - Local custom-song creation with notation such as `4↑ 4↑ 6↑ 6↑`
 - Generated guide tones with `0.5×` / `1×` speed and loop controls
+- System, light, and dark appearance modes
+- Chinese, English, and Japanese interfaces
 - Configurable harmonica key, haptics, text scale, contrast, and motion
 - Local nickname, practice statistics, and data-clear controls
 

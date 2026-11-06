@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../localization/app_strings.dart';
 import '../theme/app_theme.dart';
 
 class SectionLabel extends StatelessWidget {
@@ -134,7 +135,7 @@ class PrivacyNote extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: Text(
-            '练习声音只在设备本地处理，不会上传或保存。',
+            context.strings.t('privacyNote'),
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ),
@@ -156,73 +157,46 @@ class HarmonicaDiagram extends StatelessWidget {
         : int.tryParse(activeTab!.replaceAll(RegExp(r'[^0-9]'), ''));
     final isBlow = activeTab?.contains('↑') ?? true;
 
-    return Column(
+    return Row(
       children: [
-        Row(
-          children: [
-            SizedBox(
-              width: 30,
-              child: Text('吹 ↑', style: Theme.of(context).textTheme.bodySmall),
-            ),
-            Expanded(
-              child: Row(
-                children: List.generate(10, (index) {
-                  final hole = index + 1;
-                  final active = activeHole == hole && isBlow;
-                  return Expanded(
-                    child: Container(
-                      height: 38,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: active
-                            ? palette.primary.withValues(alpha: 0.12)
-                            : palette.surface,
-                        border: Border.all(
-                          color: active ? palette.primary : palette.outline,
-                          width: active ? 2 : 1,
-                        ),
-                      ),
-                      child: Text(
-                        '$hole',
-                        style: TextStyle(
-                          color: active ? palette.primary : palette.muted,
-                          fontSize: 11,
-                          fontWeight: active
-                              ? FontWeight.w800
-                              : FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  );
-                }),
+        SizedBox(
+          width: 34,
+          height: 88,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              Text(
+                context.strings.t('blow'),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-            ),
-          ],
+              Text(
+                context.strings.t('draw'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
         ),
-        Row(
-          children: [
-            SizedBox(
-              width: 30,
-              child: Text('吸 ↓', style: Theme.of(context).textTheme.bodySmall),
-            ),
-            Expanded(
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: SizedBox(
+              height: 88,
               child: Row(
                 children: List.generate(10, (index) {
                   final hole = index + 1;
-                  final active = activeHole == hole && !isBlow;
+                  final active = activeHole == hole;
                   return Expanded(
                     child: Container(
-                      height: 18,
                       decoration: BoxDecoration(
                         color: active
-                            ? palette.primary.withValues(alpha: 0.12)
+                            ? palette.primary.withValues(alpha: 0.08)
                             : palette.surface,
                         border: Border(
                           left: BorderSide(
                             color: active ? palette.primary : palette.outline,
                             width: active ? 2 : 1,
                           ),
-                          right: index == 9
+                          right: index == 9 || active
                               ? BorderSide(
                                   color: active
                                       ? palette.primary
@@ -230,18 +204,54 @@ class HarmonicaDiagram extends StatelessWidget {
                                   width: active ? 2 : 1,
                                 )
                               : BorderSide.none,
+                          top: BorderSide(
+                            color: active ? palette.primary : palette.outline,
+                            width: active ? 2 : 1,
+                          ),
                           bottom: BorderSide(
                             color: active ? palette.primary : palette.outline,
                             width: active ? 2 : 1,
                           ),
                         ),
                       ),
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: Center(
+                              child: Text(
+                                '$hole',
+                                style: TextStyle(
+                                  color: active && isBlow
+                                      ? palette.primary
+                                      : palette.muted,
+                                  fontSize: 11,
+                                  fontWeight: active
+                                      ? FontWeight.w800
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Container(height: 1, color: palette.outline),
+                          Expanded(
+                            child: active && !isBlow
+                                ? Center(
+                                    child: Icon(
+                                      Icons.arrow_downward_rounded,
+                                      color: palette.primary,
+                                      size: 14,
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }),
               ),
             ),
-          ],
+          ),
         ),
       ],
     );

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../localization/app_strings.dart';
 import '../services/guide_tone_service.dart';
 import '../services/haptics.dart';
 import '../services/pitch_service.dart';
@@ -44,26 +45,26 @@ class _HomeShellState extends State<HomeShell> {
             unawaited(GuideToneService().stop());
             unawaited(AppHaptics.selection(context));
           },
-          destinations: const [
+          destinations: [
             NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: '学习',
+              icon: const Icon(Icons.home_outlined),
+              selectedIcon: const Icon(Icons.home_rounded),
+              label: context.strings.t('navLearn'),
             ),
             NavigationDestination(
-              icon: Icon(Icons.library_music_outlined),
-              selectedIcon: Icon(Icons.library_music_rounded),
-              label: '曲谱',
+              icon: const Icon(Icons.library_music_outlined),
+              selectedIcon: const Icon(Icons.library_music_rounded),
+              label: context.strings.t('navSongs'),
             ),
             NavigationDestination(
-              icon: Icon(Icons.speed_outlined),
-              selectedIcon: Icon(Icons.speed_rounded),
-              label: '调音',
+              icon: const Icon(Icons.speed_outlined),
+              selectedIcon: const Icon(Icons.speed_rounded),
+              label: context.strings.t('navTuner'),
             ),
             NavigationDestination(
-              icon: Icon(Icons.person_outline_rounded),
-              selectedIcon: Icon(Icons.person_rounded),
-              label: '我的',
+              icon: const Icon(Icons.person_outline_rounded),
+              selectedIcon: const Icon(Icons.person_rounded),
+              label: context.strings.t('navProfile'),
             ),
           ],
         ),

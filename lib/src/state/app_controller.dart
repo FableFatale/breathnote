@@ -17,6 +17,9 @@ class AppController extends ChangeNotifier {
   bool hapticsEnabled = true;
   bool highContrast = false;
   bool reduceMotion = false;
+  ThemeMode themeMode = ThemeMode.system;
+  String languageCode = 'zh';
+  double microphoneSensitivity = 0.68;
   double textScale = 1;
   int practiceSeconds = 0;
   int bestScore = 0;
@@ -55,6 +58,15 @@ class AppController extends ChangeNotifier {
       hapticsEnabled = values['hapticsEnabled'] as bool? ?? hapticsEnabled;
       highContrast = values['highContrast'] as bool? ?? highContrast;
       reduceMotion = values['reduceMotion'] as bool? ?? reduceMotion;
+      themeMode = _decodeThemeMode(values['themeMode']);
+      final savedLanguage = values['languageCode'] as String?;
+      if (const {'zh', 'en', 'ja'}.contains(savedLanguage)) {
+        languageCode = savedLanguage!;
+      }
+      microphoneSensitivity =
+          ((values['microphoneSensitivity'] as num?)?.toDouble() ??
+                  microphoneSensitivity)
+              .clamp(0.0, 1.0);
       textScale = (values['textScale'] as num?)?.toDouble() ?? textScale;
       practiceSeconds =
           (values['practiceSeconds'] as num?)?.toInt() ?? practiceSeconds;
@@ -112,6 +124,30 @@ class AppController extends ChangeNotifier {
     reduceMotion = value;
     notifyListeners();
     await _persist('reduceMotion', value);
+  }
+
+  Future<void> setThemeMode(ThemeMode value) async {
+    if (value == themeMode) return;
+    themeMode = value;
+    notifyListeners();
+    await _persist('themeMode', value.name);
+  }
+
+  Future<void> setLanguageCode(String value) async {
+    if (!const {'zh', 'en', 'ja'}.contains(value) || value == languageCode) {
+      return;
+    }
+    languageCode = value;
+    notifyListeners();
+    await _persist('languageCode', value);
+  }
+
+  Future<void> setMicrophoneSensitivity(double value) async {
+    final next = value.clamp(0.0, 1.0).toDouble();
+    if ((next - microphoneSensitivity).abs() < 0.001) return;
+    microphoneSensitivity = next;
+    notifyListeners();
+    await _persist('microphoneSensitivity', next);
   }
 
   Future<void> setTextScale(double value) async {
@@ -185,6 +221,9 @@ class AppController extends ChangeNotifier {
     hapticsEnabled = true;
     highContrast = false;
     reduceMotion = false;
+    themeMode = ThemeMode.system;
+    languageCode = 'zh';
+    microphoneSensitivity = 0.68;
     textScale = 1;
     practiceSeconds = 0;
     bestScore = 0;
@@ -222,6 +261,14 @@ class AppController extends ChangeNotifier {
     final month = date.month.toString().padLeft(2, '0');
     final day = date.day.toString().padLeft(2, '0');
     return '${date.year}-$month-$day';
+  }
+
+  static ThemeMode _decodeThemeMode(Object? value) {
+    return switch (value) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
   }
 }
 

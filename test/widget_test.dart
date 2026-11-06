@@ -54,14 +54,17 @@ void main() {
     expect(find.text('10 孔布鲁斯口琴'), findsOneWidget);
     expect(find.text('完成本课'), findsOneWidget);
 
-    await tester.pageBack();
+    await tester.tap(find.byIcon(Icons.arrow_back).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('吹响第一个音').first);
     await tester.pumpAndSettle();
     expect(find.text('目标音'), findsOneWidget);
-    expect(find.text('开始练习'), findsOneWidget);
-    expect(find.text('播放示范'), findsOneWidget);
-    expect(find.textContaining('4↑'), findsWidgets);
+    expect(find.text('准备'), findsOneWidget);
+    expect(find.text('单音'), findsOneWidget);
+    expect(find.text('跟吹'), findsOneWidget);
+    expect(find.byKey(const Key('practice-primary-control')), findsOneWidget);
+    expect(find.text('循环'), findsOneWidget);
+    expect(find.text('吹出 F5 音'), findsOneWidget);
   });
 
   testWidgets('opens built-in song practice', (tester) async {
@@ -151,6 +154,71 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('accessibility-setting')));
     await tester.tap(find.byKey(const Key('accessibility-setting')));
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('switches language across the whole app', (tester) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await pumpBreathnote(tester, controller: controller);
+
+    await tester.tap(find.text('我的'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('appearance-language-setting')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('English'));
+    await tester.pumpAndSettle();
+
+    expect(controller.languageCode, 'en');
+    expect(find.text('Theme'), findsWidgets);
+    expect(find.text('Profile'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Learn'));
+    await tester.pumpAndSettle();
+    expect(find.text('LEARNING PATH'), findsOneWidget);
+    expect(find.text('Start with one breath'), findsOneWidget);
+  });
+
+  testWidgets('applies theme mode and shared microphone sensitivity', (
+    tester,
+  ) async {
+    final controller = AppController()
+      ..themeMode = ThemeMode.dark
+      ..microphoneSensitivity = 0.82;
+    addTearDown(controller.dispose);
+    await pumpBreathnote(tester, controller: controller);
+
+    final context = tester.element(find.byType(Scaffold).first);
+    expect(Theme.of(context).brightness, Brightness.dark);
+
+    await tester.tap(find.text('调音'));
+    await tester.pumpAndSettle();
+    final slider = tester.widget<Slider>(find.byType(Slider));
+    expect(slider.value, closeTo(0.82, 0.001));
+    expect(find.text('82%'), findsOneWidget);
+  });
+
+  testWidgets('practice layout fits a small Android viewport', (tester) async {
+    final controller = AppController()..textScale = 1.2;
+    addTearDown(controller.dispose);
+    await pumpBreathnote(
+      tester,
+      controller: controller,
+      size: const Size(360, 800),
+    );
+
+    await tester.drag(
+      find.byType(CustomScrollView).first,
+      const Offset(0, -420),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('吹响第一个音').first);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('practice-primary-control')), findsOneWidget);
+    expect(find.text('目标音'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

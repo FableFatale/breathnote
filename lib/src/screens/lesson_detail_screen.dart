@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../localization/app_strings.dart';
 import '../services/haptics.dart';
 import '../state/app_controller.dart';
 import '../theme/app_theme.dart';
@@ -20,14 +21,14 @@ class LessonDetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.colors;
     return Scaffold(
-      appBar: AppBar(title: const Text('认识你的口琴')),
+      appBar: AppBar(title: Text(context.strings.lessonTitle('lesson_1'))),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
-          const SectionLabel('第 1 课 · 基础'),
+          SectionLabel(context.strings.t('lessonOneLabel')),
           const SizedBox(height: 8),
           Text(
-            '先认识 10 个孔，\n再吹出第一个音。',
+            context.strings.t('lessonOneHero'),
             style: Theme.of(context).textTheme.displaySmall,
           ),
           const SizedBox(height: 24),
@@ -38,14 +39,14 @@ class LessonDetailScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '10 孔布鲁斯口琴',
+                    context.strings.t('tenHoleHarmonica'),
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 16),
                   const HarmonicaDiagram(activeTab: null),
                   const SizedBox(height: 14),
                   Text(
-                    '左侧是低音区，右侧是高音区。数字表示孔位，↑ 表示吹气，↓ 表示吸气。',
+                    context.strings.t('harmonicaIntro'),
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
@@ -55,22 +56,22 @@ class LessonDetailScreen extends StatelessWidget {
           const SizedBox(height: 14),
           _Instruction(
             number: '1',
-            title: '自然握住',
-            detail: '用双手托住口琴，不要遮住背面的出音口。',
+            title: context.strings.t('holdNaturally'),
+            detail: context.strings.t('holdNaturallyDetail'),
             color: palette.primary,
           ),
           const SizedBox(height: 10),
           _Instruction(
             number: '2',
-            title: '放松嘴唇',
-            detail: '把口琴轻轻含入口中，让嘴唇自然包住孔位。',
+            title: context.strings.t('relaxLips'),
+            detail: context.strings.t('relaxLipsDetail'),
             color: palette.accentInk,
           ),
           const SizedBox(height: 10),
           _Instruction(
             number: '3',
-            title: '使用腹部呼吸',
-            detail: '保持肩膀放松，用稳定、轻柔的气流发声。',
+            title: context.strings.t('bellyBreathing'),
+            detail: context.strings.t('bellyBreathingDetail'),
             color: palette.success,
           ),
           const SizedBox(height: 24),
@@ -79,7 +80,7 @@ class LessonDetailScreen extends StatelessWidget {
             child: FilledButton.icon(
               onPressed: () => _complete(context),
               icon: const Icon(Icons.check_rounded),
-              label: const Text('完成本课'),
+              label: Text(context.strings.t('completeLesson')),
             ),
           ),
         ],

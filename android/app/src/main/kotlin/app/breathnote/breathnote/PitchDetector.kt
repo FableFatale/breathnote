@@ -35,7 +35,7 @@ class PitchDetector(
     private val recentFrequencies = ArrayDeque<Double>()
 
     fun start(initialSensitivity: Double): Boolean {
-        sensitivity = initialSensitivity.coerceIn(0.2, 1.0)
+        sensitivity = initialSensitivity.coerceIn(0.0, 1.0)
         if (running) return true
 
         return try {
@@ -182,7 +182,9 @@ class PitchDetector(
         }
         val rms = sqrt(sumSquares / count)
         val levelDb = if (rms > 0) 20 * log10(rms) else -120.0
-        val thresholdDb = -35.0 - sensitivity.coerceIn(0.2, 1.0) * 35.0
+        val normalizedSensitivity = sensitivity.coerceIn(0.0, 1.0)
+        val thresholdDb = -38.0 - normalizedSensitivity * 34.0
+        val confidenceThreshold = 0.80 - normalizedSensitivity * 0.30
 
         if (levelDb < thresholdDb) {
             onReading(silentReading(levelDb))
@@ -190,7 +192,7 @@ class PitchDetector(
         }
 
         val estimate = yin(samples, count)
-        if (estimate == null || estimate.confidence < 0.62) {
+        if (estimate == null || estimate.confidence < confidenceThreshold) {
             onReading(silentReading(levelDb))
             return
         }

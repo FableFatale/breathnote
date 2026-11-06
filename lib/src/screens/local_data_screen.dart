@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../localization/app_strings.dart';
 import '../services/haptics.dart';
 import '../state/app_controller.dart';
 import '../theme/app_theme.dart';
@@ -12,16 +13,16 @@ class LocalDataScreen extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('清除本机数据'),
-        content: const Text('练习记录、课程进度、自定义曲谱和显示设置都会被删除。此操作无法撤销。'),
+        title: Text(context.strings.t('clearLocalData')),
+        content: Text(context.strings.t('clearLocalDataBody')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(context.strings.t('commonCancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('确认清除'),
+            child: Text(context.strings.t('confirmClear')),
           ),
         ],
       ),
@@ -31,8 +32,9 @@ class LocalDataScreen extends StatelessWidget {
     if (!context.mounted) return;
     await AppHaptics.warning(context);
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('本机数据已清除')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.strings.t('localDataCleared'))),
+    );
   }
 
   @override
@@ -40,7 +42,7 @@ class LocalDataScreen extends StatelessWidget {
     final controller = AppScope.of(context);
     final palette = context.colors;
     return Scaffold(
-      appBar: AppBar(title: const Text('本机数据与隐私')),
+      appBar: AppBar(title: Text(context.strings.t('localDataPrivacy'))),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
@@ -53,12 +55,12 @@ class LocalDataScreen extends StatelessWidget {
                   Icon(Icons.shield_outlined, color: palette.success, size: 34),
                   const SizedBox(height: 12),
                   Text(
-                    '音频只在设备上分析',
+                    context.strings.t('audioAnalyzedOnDevice'),
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '麦克风数据用于实时音高检测。原始音频不会保存，也不会上传。关闭练习或调音页面后，麦克风会停止。',
+                    context.strings.t('audioPrivacyDetail'),
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
@@ -66,33 +68,39 @@ class LocalDataScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          const SectionLabel('本机保存的内容'),
+          SectionLabel(context.strings.t('locallySavedContent')),
           const SizedBox(height: 10),
           Card(
             child: Column(
               children: [
                 _DataRow(
                   icon: Icons.calendar_today_rounded,
-                  title: '练习日期',
-                  value: '${controller.practiceDates.length} 天',
+                  title: context.strings.t('practiceDates'),
+                  value: context.strings.t('commonDays', {
+                    'count': controller.practiceDates.length,
+                  }),
                 ),
                 const Divider(height: 1),
                 _DataRow(
                   icon: Icons.timer_outlined,
-                  title: '练习时长',
-                  value: '${controller.practiceMinutes} 分钟',
+                  title: context.strings.t('practiceTime'),
+                  value: context.strings.t('commonMinutes', {
+                    'count': controller.practiceMinutes,
+                  }),
                 ),
                 const Divider(height: 1),
                 _DataRow(
                   icon: Icons.task_alt_rounded,
-                  title: '课程进度',
+                  title: context.strings.t('courseProgress'),
                   value: '${controller.completedLessons.length}/5',
                 ),
                 const Divider(height: 1),
                 _DataRow(
                   icon: Icons.queue_music_rounded,
-                  title: '自定义曲谱',
-                  value: '${controller.customSongs.length} 首',
+                  title: context.strings.t('customSongs'),
+                  value: context.strings.t('commonSongs', {
+                    'count': controller.customSongs.length,
+                  }),
                 ),
               ],
             ),
@@ -103,7 +111,10 @@ class LocalDataScreen extends StatelessWidget {
             child: OutlinedButton.icon(
               onPressed: () => _clearData(context),
               icon: Icon(Icons.delete_outline_rounded, color: palette.danger),
-              label: Text('清除全部本机数据', style: TextStyle(color: palette.danger)),
+              label: Text(
+                context.strings.t('clearAllLocalData'),
+                style: TextStyle(color: palette.danger),
+              ),
             ),
           ),
         ],

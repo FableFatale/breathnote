@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../localization/app_strings.dart';
 import '../models/pitch_reading.dart';
 import '../models/practice_note.dart';
+import '../models/song.dart';
 import '../services/guide_tone_service.dart';
 import '../services/haptics.dart';
 import '../services/pitch_service.dart';
@@ -68,7 +70,7 @@ class _PracticeScreenState extends State<PracticeScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
-      _stopAll(resetStatus: true);
+      unawaited(_stopAll(resetStatus: true));
     }
   }
 
@@ -77,13 +79,18 @@ class _PracticeScreenState extends State<PracticeScreen>
     WidgetsBinding.instance.removeObserver(this);
     _guideTimer?.cancel();
     _subscription?.cancel();
-    _pitchService.stop();
-    _guideToneService.stop();
+    unawaited(_pitchService.stop());
+    unawaited(_guideToneService.stop());
     super.dispose();
   }
 
   Future<void> _requestAndStart() async {
     if (_status == _PracticeStatus.requestingPermission || _completed) return;
+    if (_guidePlaying) {
+      _resumeAfterGuide = false;
+      await _stopGuideAndResume();
+    }
+    if (!mounted) return;
     setState(() {
       _status = _PracticeStatus.requestingPermission;
       _errorMessage = null;
@@ -104,7 +111,8 @@ class _PracticeScreenState extends State<PracticeScreen>
       if (!mounted) return;
       setState(() {
         _status = _PracticeStatus.error;
-        _errorMessage = error.message ?? '无法启动麦克风。';
+        _errorMessage =
+            error.message ?? context.strings.t('microphoneStartError');
       });
     }
   }
@@ -116,18 +124,32 @@ class _PracticeScreenState extends State<PracticeScreen>
         if (!mounted) return;
         setState(() {
           _status = _PracticeStatus.error;
-          _errorMessage = '麦克风读取失败，请重试。';
+          _errorMessage = context.strings.t('microphoneReadError');
         });
       },
     );
-    final started = await _pitchService.start();
+    final started = await _pitchService.start(
+      sensitivity: AppScope.of(context).microphoneSensitivity,
+    );
     if (!mounted) return;
     setState(() {
       _status = started ? _PracticeStatus.listening : _PracticeStatus.error;
-      _errorMessage = started ? null : '无法启动麦克风，请检查系统设置。';
+      _errorMessage = started
+          ? null
+          : context.strings.t('microphoneSettingsError');
       _startedAt ??= DateTime.now();
     });
     if (started) await AppHaptics.light(context);
+  }
+
+  Future<void> _stopListening() async {
+    await _pitchService.stop();
+    if (!mounted) return;
+    setState(() {
+      _status = _PracticeStatus.idle;
+      _reading = const PitchReading.silent();
+      _stableSince = null;
+    });
   }
 
   Future<void> _stopAll({required bool resetStatus}) async {
@@ -154,7 +176,7 @@ class _PracticeScreenState extends State<PracticeScreen>
     if (matches) {
       _stableSince ??= now;
       if (now.difference(_stableSince!).inMilliseconds >= 450) {
-        _complete(cents);
+        unawaited(_complete(cents));
         return;
       }
     } else {
@@ -190,6 +212,7 @@ class _PracticeScreenState extends State<PracticeScreen>
   }
 
   Future<void> _toggleGuide() async {
+    if (_completed) return;
     if (_guidePlaying) {
       await _stopGuideAndResume();
       return;
@@ -224,7 +247,7 @@ class _PracticeScreenState extends State<PracticeScreen>
       setState(() {
         _guidePlaying = false;
         _status = _PracticeStatus.error;
-        _errorMessage = error.message ?? '无法播放示范音。';
+        _errorMessage = error.message ?? context.strings.t('guideToneError');
       });
     }
   }
@@ -241,6 +264,28 @@ class _PracticeScreenState extends State<PracticeScreen>
     if (shouldResume) await _beginListening();
   }
 
+  Future<void> _toggleSpeed() async {
+    if (_completed) return;
+    if (_guidePlaying) {
+      _resumeAfterGuide = false;
+      await _stopGuideAndResume();
+    }
+    if (!mounted) return;
+    setState(() => _guideSpeed = _guideSpeed == 1 ? 0.5 : 1);
+    await AppHaptics.selection(context);
+  }
+
+  Future<void> _toggleLoop() async {
+    if (_completed) return;
+    if (_guidePlaying) {
+      _resumeAfterGuide = false;
+      await _stopGuideAndResume();
+    }
+    if (!mounted) return;
+    setState(() => _guideLoop = !_guideLoop);
+    await AppHaptics.selection(context);
+  }
+
   Future<void> _restart() async {
     await _stopAll(resetStatus: true);
     if (!mounted) return;
@@ -248,334 +293,628 @@ class _PracticeScreenState extends State<PracticeScreen>
       _completed = false;
       _score = 0;
       _startedAt = null;
+      _errorMessage = null;
     });
+  }
+
+  Future<void> _handlePrimaryAction() async {
+    if (_completed) {
+      Navigator.of(context).pop();
+      return;
+    }
+    if (_guidePlaying) {
+      _resumeAfterGuide = false;
+      await _stopGuideAndResume();
+      return;
+    }
+    if (_status == _PracticeStatus.listening) {
+      await _stopListening();
+      return;
+    }
+    await _requestAndStart();
   }
 
   @override
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
     final palette = context.colors;
-    final targetFrequency = widget.target.frequencyForKey(
-      controller.harmonicaKey,
-    );
+    final strings = context.strings;
+    final noteWithOctave = widget.target.labelForKey(controller.harmonicaKey);
+    final note = noteWithOctave.replaceAll(RegExp(r'\d+$'), '');
     final cents = _reading.detected
         ? widget.target.centsFromFrequency(
             _reading.frequency,
             controller.harmonicaKey,
           )
         : 0.0;
-    final stableProgress = _stableSince == null
-        ? 0.0
-        : DateTime.now()
-                  .difference(_stableSince!)
-                  .inMilliseconds
-                  .clamp(0, 450) /
-              450;
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  '第 ${widget.step} 步，共 5 步',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-              Text(
-                '${(widget.step / 5 * 100).round()}%',
-                style: TextStyle(
-                  color: palette.primary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: widget.step / 5,
-              minHeight: 6,
-              backgroundColor: palette.surfaceHigh,
+      appBar: AppBar(
+        toolbarHeight: 84,
+        backgroundColor: palette.surfaceHigh,
+        titleSpacing: 4,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              strings.lessonTitle(widget.lessonId),
+              style: Theme.of(context).textTheme.titleMedium,
             ),
-          ),
-          const SizedBox(height: 26),
-          if (_completed)
-            _CompletionCard(score: _score)
-          else ...[
-            Center(
-              child: Column(
-                children: [
-                  const SectionLabel('目标音'),
-                  const SizedBox(height: 4),
-                  Text(
-                    widget.target.labelForKey(controller.harmonicaKey),
-                    style: Theme.of(context).textTheme.displaySmall
-                        ?.copyWith(fontSize: 54, color: palette.primary),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${widget.target.tab} · ${targetFrequency.toStringAsFixed(1)} Hz',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
+            const SizedBox(height: 2),
+            Text(
+              strings.t('lessonSubtitle', {'number': widget.step}),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
-            const SizedBox(height: 20),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
+          ],
+        ),
+        actions: [
+          PopupMenuButton<String>(
+            tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+            icon: const Icon(Icons.more_horiz_rounded),
+            onSelected: (value) {
+              if (value == 'restart') unawaited(_restart());
+              if (value == 'settings') {
+                unawaited(_pitchService.openAppSettings());
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'restart',
+                child: Row(
                   children: [
-                    HarmonicaDiagram(activeTab: widget.target.tab),
-                    const SizedBox(height: 16),
-                    Text(
-                      widget.instruction,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
+                    const Icon(Icons.replay_rounded),
+                    const SizedBox(width: 12),
+                    Text(strings.t('practiceAgain')),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 14),
-            _DetectedNoteCard(
-              reading: _reading,
-              cents: cents,
-              stableProgress: stableProgress,
-              listening: _status == _PracticeStatus.listening,
-            ),
-          ],
-          const SizedBox(height: 16),
-          _GuideControls(
-            playing: _guidePlaying,
-            speed: _guideSpeed,
-            loop: _guideLoop,
-            onPlay: _completed ? null : _toggleGuide,
-            onSpeedChanged: _completed
-                ? null
-                : (value) async {
-                    final wasPlaying = _guidePlaying;
-                    if (wasPlaying) await _stopGuideAndResume();
-                    if (!context.mounted) return;
-                    setState(() => _guideSpeed = value);
-                    await AppHaptics.selection(context);
-                  },
-            onLoopChanged: _completed
-                ? null
-                : (value) async {
-                    final wasPlaying = _guidePlaying;
-                    if (wasPlaying) await _stopGuideAndResume();
-                    if (!context.mounted) return;
-                    setState(() => _guideLoop = value);
-                    await AppHaptics.selection(context);
-                  },
+              if (_status == _PracticeStatus.permanentlyDenied)
+                PopupMenuItem(
+                  value: 'settings',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.settings_rounded),
+                      const SizedBox(width: 12),
+                      Text(strings.t('commonOpenSettings')),
+                    ],
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(height: 16),
-          if (!_completed)
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _status == _PracticeStatus.requestingPermission
-                    ? null
-                    : _status == _PracticeStatus.listening
-                    ? () => _stopAll(resetStatus: true)
-                    : _requestAndStart,
-                icon: Icon(
-                  _status == _PracticeStatus.listening
-                      ? Icons.stop_rounded
-                      : Icons.mic_rounded,
-                ),
-                label: Text(_primaryButtonLabel),
+          const SizedBox(width: 4),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+              child: Column(
+                children: [
+                  const _StageProgress(),
+                  const SizedBox(height: 28),
+                  Row(
+                    children: [
+                      SectionLabel(strings.t('targetNote')),
+                      const Spacer(),
+                      Text(
+                        _tabDescription(strings),
+                        style: TextStyle(
+                          color: palette.muted,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  AnimatedSwitcher(
+                    duration: controller.reduceMotion
+                        ? Duration.zero
+                        : const Duration(milliseconds: 240),
+                    child: _completed
+                        ? _CompletionDisplay(score: _score)
+                        : Column(
+                            key: const ValueKey('target-note'),
+                            children: [
+                              Text(
+                                note,
+                                style: TextStyle(
+                                  color: palette.primary,
+                                  fontFamily: 'serif',
+                                  fontSize: 82,
+                                  height: 1,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                strings.lessonInstruction(widget.lessonId),
+                                style: TextStyle(
+                                  color: palette.muted,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                  ),
+                  const SizedBox(height: 38),
+                  HarmonicaDiagram(activeTab: widget.target.tab),
+                  const SizedBox(height: 26),
+                  _UpcomingNotes(activeTab: widget.target.tab),
+                  const SizedBox(height: 34),
+                  _GuidanceTile(
+                    icon: _guidanceIcon,
+                    title: _guidanceTitle(noteWithOctave, cents),
+                    detail: _guidanceDetail,
+                    color: _guidanceColor(palette, cents),
+                    onTap: _completed ? null : _toggleGuide,
+                  ),
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      _errorMessage!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: palette.danger),
+                    ),
+                  ],
+                  if (_status == _PracticeStatus.permanentlyDenied) ...[
+                    const SizedBox(height: 4),
+                    TextButton.icon(
+                      onPressed: _pitchService.openAppSettings,
+                      icon: const Icon(Icons.settings_rounded),
+                      label: Text(strings.t('commonOpenSettings')),
+                    ),
+                  ],
+                ],
               ),
-            )
-          else
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _restart,
-                    icon: const Icon(Icons.replay_rounded),
-                    label: const Text('再练一次'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.check_rounded),
-                    label: const Text('完成'),
-                  ),
-                ),
-              ],
             ),
-          if (_status == _PracticeStatus.permanentlyDenied) ...[
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: _pitchService.openAppSettings,
-              icon: const Icon(Icons.settings_rounded),
-              label: const Text('打开系统设置'),
+          ),
+          SafeArea(
+            top: false,
+            minimum: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+            child: _ControlDock(
+              speed: _guideSpeed,
+              loop: _guideLoop,
+              completed: _completed,
+              active: _guidePlaying || _status == _PracticeStatus.listening,
+              waiting: _status == _PracticeStatus.requestingPermission,
+              onSpeed: _completed ? _restart : _toggleSpeed,
+              onPrimary: _handlePrimaryAction,
+              onLoop: _toggleLoop,
             ),
-          ],
-          if (_errorMessage != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              _errorMessage!,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: palette.danger),
-            ),
-          ],
-          const SizedBox(height: 14),
-          const PrivacyNote(),
+          ),
         ],
       ),
     );
   }
 
-  String get _primaryButtonLabel {
-    return switch (_status) {
-      _PracticeStatus.requestingPermission => '正在请求权限',
-      _PracticeStatus.listening => '停止聆听',
-      _PracticeStatus.denied => '重新授权麦克风',
-      _PracticeStatus.permanentlyDenied => '权限未开启',
-      _PracticeStatus.error => '重试',
-      _ => '开始练习',
-    };
+  String _tabDescription(AppStrings strings) {
+    final hole = widget.target.tab.replaceAll(RegExp(r'[^0-9]'), '');
+    return strings.t(widget.target.tab.contains('↓') ? 'drawTab' : 'blowTab', {
+      'tab': hole,
+    });
+  }
+
+  IconData get _guidanceIcon {
+    if (_completed) return Icons.check_rounded;
+    if (_guidePlaying) return Icons.volume_up_rounded;
+    if (_status == _PracticeStatus.listening) {
+      return _reading.detected
+          ? Icons.graphic_eq_rounded
+          : Icons.hearing_rounded;
+    }
+    if (_status == _PracticeStatus.denied ||
+        _status == _PracticeStatus.permanentlyDenied ||
+        _status == _PracticeStatus.error) {
+      return Icons.mic_off_rounded;
+    }
+    return Icons.multiline_chart_rounded;
+  }
+
+  String _guidanceTitle(String note, double cents) {
+    final strings = context.strings;
+    if (_completed) return strings.t('pitchStable');
+    if (_guidePlaying) return strings.t('guidePlaying');
+    if (_status == _PracticeStatus.requestingPermission) {
+      return strings.t('requestingPermission');
+    }
+    if (_status == _PracticeStatus.listening) {
+      if (!_reading.detected) return strings.t('listening');
+      return strings.t('detectedPitch', {
+        'note': _reading.noteWithOctave,
+        'cents': '${cents >= 0 ? '+' : ''}${cents.round()}',
+      });
+    }
+    if (_status == _PracticeStatus.permanentlyDenied) {
+      return strings.t('permissionOff');
+    }
+    if (_status == _PracticeStatus.denied) {
+      return strings.t('grantMicrophoneAgain');
+    }
+    if (_status == _PracticeStatus.error) return strings.t('commonRetry');
+    return strings.t('playTargetNote', {'note': note});
+  }
+
+  String get _guidanceDetail {
+    final strings = context.strings;
+    if (_completed) return strings.t('score', {'score': _score});
+    if (_guidePlaying) return strings.t('guidePlayingDetail');
+    if (_status == _PracticeStatus.listening) {
+      if (_reading.detected && _stableSince != null) {
+        return strings.t('keepThisPitch');
+      }
+      return strings.t('waitingStablePitch');
+    }
+    return widget.instruction.isEmpty
+        ? strings.t('tapPlayToStart')
+        : widget.instruction;
+  }
+
+  Color _guidanceColor(AppPalette palette, double cents) {
+    if (_completed) return palette.success;
+    if (_status == _PracticeStatus.listening &&
+        _reading.detected &&
+        cents.abs() <= 25) {
+      return palette.success;
+    }
+    if (_status == _PracticeStatus.denied ||
+        _status == _PracticeStatus.permanentlyDenied ||
+        _status == _PracticeStatus.error) {
+      return palette.danger;
+    }
+    return palette.accent;
   }
 }
 
-class _DetectedNoteCard extends StatelessWidget {
-  const _DetectedNoteCard({
-    required this.reading,
-    required this.cents,
-    required this.stableProgress,
-    required this.listening,
-  });
+class _StageProgress extends StatelessWidget {
+  const _StageProgress();
 
-  final PitchReading reading;
-  final double cents;
-  final double stableProgress;
-  final bool listening;
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    final palette = context.colors;
+    return Semantics(
+      label: '${strings.t('stageSingle')}, 2 / 3',
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _StageNode(label: strings.t('stagePrepare'), state: _StageState.done),
+          _StageLine(color: palette.outline),
+          _StageNode(
+            label: strings.t('stageSingle'),
+            state: _StageState.active,
+          ),
+          _StageLine(color: palette.outline),
+          _StageNode(
+            label: strings.t('stageFollow'),
+            state: _StageState.pending,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _StageState { done, active, pending }
+
+class _StageNode extends StatelessWidget {
+  const _StageNode({required this.label, required this.state});
+
+  final String label;
+  final _StageState state;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.colors;
-    final matched = reading.detected && cents.abs() <= 25;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Icon(
-                  listening ? Icons.graphic_eq_rounded : Icons.mic_off_rounded,
-                  color: listening ? palette.success : palette.muted,
+    final color = switch (state) {
+      _StageState.done => palette.success,
+      _StageState.active => palette.primary,
+      _StageState.pending => palette.muted,
+    };
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: state == _StageState.pending ? palette.outline : color,
+            ),
+          ),
+          child: state == _StageState.done
+              ? Icon(Icons.check_rounded, color: color, size: 18)
+              : Text(
+                  state == _StageState.active ? '2' : '3',
+                  style: TextStyle(color: color, fontSize: 12),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    listening ? '正在聆听' : '麦克风未启动',
-                    style: TextStyle(
-                      color: listening ? palette.success : palette.muted,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                if (reading.detected)
-                  Text(
-                    '${cents >= 0 ? '+' : ''}${cents.round()} 音分',
-                    style: TextStyle(
-                      color: matched ? palette.success : palette.accentInk,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              reading.detected ? reading.noteWithOctave : '--',
-              style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                fontSize: 42,
-                color: matched ? palette.success : palette.text,
-              ),
-            ),
-            const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: stableProgress,
-                minHeight: 8,
-                backgroundColor: palette.surfaceHigh,
-                color: palette.success,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              matched ? '保持这个音' : '稳定匹配约半秒即可完成',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
         ),
-      ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: state == _StageState.active
+                ? FontWeight.w700
+                : FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }
 
-class _GuideControls extends StatelessWidget {
-  const _GuideControls({
-    required this.playing,
-    required this.speed,
-    required this.loop,
-    required this.onPlay,
-    required this.onSpeedChanged,
-    required this.onLoopChanged,
-  });
+class _StageLine extends StatelessWidget {
+  const _StageLine({required this.color});
 
-  final bool playing;
-  final double speed;
-  final bool loop;
-  final VoidCallback? onPlay;
-  final ValueChanged<double>? onSpeedChanged;
-  final ValueChanged<bool>? onLoopChanged;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            FilledButton.tonalIcon(
-              onPressed: onPlay,
-              icon: Icon(
-                playing ? Icons.stop_rounded : Icons.volume_up_rounded,
+    return Container(
+      width: 30,
+      height: 1,
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      color: color,
+    );
+  }
+}
+
+class _UpcomingNotes extends StatelessWidget {
+  const _UpcomingNotes({required this.activeTab});
+
+  final String activeTab;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.colors;
+    final preview = songs.first.notes;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: List.generate(preview.length, (index) {
+        final note = preview[index];
+        final active = index == 1 && note.tab == activeTab;
+        final direction = note.tab.contains('↓') ? '↓' : '↑';
+        final hole = note.tab.replaceAll(RegExp(r'[^0-9]'), '');
+        return Opacity(
+          opacity: index == 0 ? 0.35 : 1,
+          child: Column(
+            children: [
+              Text(
+                hole,
+                style: TextStyle(
+                  color: active ? palette.primary : palette.muted,
+                  fontSize: 20,
+                  fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+                ),
               ),
-              label: Text(playing ? '停止示范' : '播放示范'),
-            ),
-            SegmentedButton<double>(
-              segments: const [
-                ButtonSegment(value: 0.5, label: Text('0.5×')),
-                ButtonSegment(value: 1, label: Text('1×')),
+              const SizedBox(height: 6),
+              Text(
+                direction,
+                style: TextStyle(
+                  color: active ? palette.primary : palette.muted,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Container(
+                width: 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: active ? palette.accent : Colors.transparent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _GuidanceTile extends StatelessWidget {
+  const _GuidanceTile({
+    required this.icon,
+    required this.title,
+    required this.detail,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String detail;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.colors;
+    return Material(
+      color: palette.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: palette.outline),
+      ),
+      elevation: Theme.of(context).brightness == Brightness.light ? 1 : 0,
+      shadowColor: const Color(0x242A2118),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 96),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            child: Row(
+              children: [
+                Icon(icon, color: color, size: 25),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        detail,
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                if (onTap != null) ...[
+                  const SizedBox(width: 8),
+                  Icon(Icons.chevron_right_rounded, color: palette.accent),
+                ],
               ],
-              selected: {speed},
-              showSelectedIcon: false,
-              onSelectionChanged: onSpeedChanged == null
-                  ? null
-                  : (value) => onSpeedChanged!(value.first),
             ),
-            FilterChip(
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ControlDock extends StatelessWidget {
+  const _ControlDock({
+    required this.speed,
+    required this.loop,
+    required this.completed,
+    required this.active,
+    required this.waiting,
+    required this.onSpeed,
+    required this.onPrimary,
+    required this.onLoop,
+  });
+
+  final double speed;
+  final bool loop;
+  final bool completed;
+  final bool active;
+  final bool waiting;
+  final VoidCallback onSpeed;
+  final VoidCallback onPrimary;
+  final VoidCallback onLoop;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.colors;
+    final strings = context.strings;
+    return Container(
+      height: 112,
+      decoration: BoxDecoration(
+        color: palette.surfaceHigh,
+        borderRadius: BorderRadius.circular(32),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: _DockButton(
+              icon: completed ? Icons.replay_rounded : Icons.speed_rounded,
+              label: completed ? strings.t('practiceAgain') : '$speed×',
+              color: palette.muted,
+              onTap: onSpeed,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Semantics(
+            button: true,
+            label: completed
+                ? strings.t('commonDone')
+                : active
+                ? strings.t('stopListening')
+                : strings.t('startPractice'),
+            child: FilledButton(
+              key: const Key('practice-primary-control'),
+              onPressed: waiting ? null : onPrimary,
+              style: FilledButton.styleFrom(
+                fixedSize: const Size(84, 84),
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+              child: waiting
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      completed
+                          ? Icons.check_rounded
+                          : active
+                          ? Icons.stop_rounded
+                          : Icons.play_arrow_rounded,
+                      size: 34,
+                    ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: _DockButton(
+              icon: Icons.repeat_rounded,
+              label: strings.t('loop'),
+              color: loop ? palette.primary : palette.muted,
               selected: loop,
-              onSelected: onLoopChanged,
-              avatar: const Icon(Icons.repeat_rounded, size: 18),
-              label: const Text('循环'),
+              onTap: completed ? null : onLoop,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DockButton extends StatelessWidget {
+  const _DockButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+    this.selected = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback? onTap;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkResponse(
+      onTap: onTap,
+      radius: 36,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: 64, minHeight: 64),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 25),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              ),
             ),
           ],
         ),
@@ -584,46 +923,37 @@ class _GuideControls extends StatelessWidget {
   }
 }
 
-class _CompletionCard extends StatelessWidget {
-  const _CompletionCard({required this.score});
+class _CompletionDisplay extends StatelessWidget {
+  const _CompletionDisplay({required this.score});
 
   final int score;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.colors;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: palette.success.withValues(alpha: 0.14),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.check_rounded,
-                color: palette.success,
-                size: 42,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text('音高稳定', style: Theme.of(context).textTheme.headlineSmall),
-            const SizedBox(height: 6),
-            Text(
-              '本次得分 $score',
-              style: TextStyle(
-                color: palette.primary,
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
+    return Column(
+      key: const ValueKey('completion'),
+      children: [
+        Container(
+          width: 82,
+          height: 82,
+          decoration: BoxDecoration(
+            color: palette.success.withValues(alpha: 0.14),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.check_rounded, color: palette.success, size: 46),
         ),
-      ),
+        const SizedBox(height: 12),
+        Text(
+          context.strings.t('pitchStable'),
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          context.strings.t('score', {'score': score}),
+          style: TextStyle(color: palette.primary, fontWeight: FontWeight.w800),
+        ),
+      ],
     );
   }
 }

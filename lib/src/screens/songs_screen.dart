@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../localization/app_strings.dart';
 import '../models/song.dart';
 import '../services/haptics.dart';
 import '../state/app_controller.dart';
@@ -18,7 +19,7 @@ class SongsScreen extends StatefulWidget {
 
 class _SongsScreenState extends State<SongsScreen> {
   final _searchController = TextEditingController();
-  String _filter = '全部';
+  String _filter = 'all';
   String _query = '';
 
   @override
@@ -53,12 +54,12 @@ class _SongsScreenState extends State<SongsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '添加自定义曲谱',
+                      context.strings.t('addCustomSong'),
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '使用孔位和方向输入旋律，例如 4↑ 4↑ 6↑ 6↑。',
+                      context.strings.t('customSongHelp'),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 16),
@@ -66,9 +67,9 @@ class _SongsScreenState extends State<SongsScreen> {
                       key: const Key('custom-song-title'),
                       controller: titleController,
                       textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        labelText: '曲名',
-                        hintText: '我的练习曲',
+                      decoration: InputDecoration(
+                        labelText: context.strings.t('songName'),
+                        hintText: context.strings.t('songNameHint'),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -77,8 +78,8 @@ class _SongsScreenState extends State<SongsScreen> {
                       controller: notationController,
                       minLines: 3,
                       maxLines: 5,
-                      decoration: const InputDecoration(
-                        labelText: '数字曲谱',
+                      decoration: InputDecoration(
+                        labelText: context.strings.t('numberNotation'),
                         hintText: '4↑ 4↑ 6↑ 6↑ 6↓ 6↓ 6↑',
                       ),
                     ),
@@ -98,7 +99,9 @@ class _SongsScreenState extends State<SongsScreen> {
                           final title = titleController.text.trim();
                           if (title.isEmpty) {
                             setSheetState(() {
-                              validationMessage = '请输入曲名。';
+                              validationMessage = context.strings.t(
+                                'enterSongName',
+                              );
                             });
                             return;
                           }
@@ -109,15 +112,21 @@ class _SongsScreenState extends State<SongsScreen> {
                             );
                             if (!sheetContext.mounted) return;
                             Navigator.of(sheetContext).pop(created);
-                          } on FormatException catch (error) {
+                          } on HarmonicaTabFormatException catch (error) {
                             unawaited(AppHaptics.warning(context));
                             setSheetState(() {
-                              validationMessage = error.message;
+                              validationMessage = context.strings.t(
+                                error.code,
+                                {
+                                  if (error.token != null)
+                                    'token': error.token!,
+                                },
+                              );
                             });
                           }
                         },
                         icon: const Icon(Icons.add_rounded),
-                        label: const Text('保存并开始练习'),
+                        label: Text(context.strings.t('saveAndPractice')),
                       ),
                     ),
                   ],
@@ -139,16 +148,18 @@ class _SongsScreenState extends State<SongsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('删除自定义曲谱'),
-        content: Text('将从本机删除「${song.title}」。'),
+        title: Text(context.strings.t('deleteCustomSong')),
+        content: Text(
+          context.strings.t('deleteCustomSongBody', {'title': song.title}),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
+            child: Text(context.strings.t('commonCancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
+            child: Text(context.strings.t('commonDelete')),
           ),
         ],
       ),
@@ -164,11 +175,22 @@ class _SongsScreenState extends State<SongsScreen> {
     final controller = AppScope.of(context);
     final palette = context.colors;
     final visible = controller.allSongs.where((song) {
-      final filterMatches = _filter == '全部' || song.level == _filter;
+      final filterMatches =
+          _filter == 'all' ||
+          (_filter == 'easy' && song.level == '简单') ||
+          (_filter == 'advanced' && song.level == '进阶');
       final query = _query.toLowerCase();
+      final localizedTitle = context.strings
+          .songTitle(song.id, song.title)
+          .toLowerCase();
+      final localizedSubtitle = context.strings
+          .songSubtitle(song.id, song.subtitle)
+          .toLowerCase();
       final queryMatches =
           song.title.toLowerCase().contains(query) ||
-          song.subtitle.toLowerCase().contains(query);
+          song.subtitle.toLowerCase().contains(query) ||
+          localizedTitle.contains(query) ||
+          localizedSubtitle.contains(query);
       return filterMatches && queryMatches;
     }).toList();
 
@@ -183,10 +205,12 @@ class _SongsScreenState extends State<SongsScreen> {
               children: [
                 Row(
                   children: [
-                    const Expanded(child: SectionLabel('曲谱库')),
+                    Expanded(
+                      child: SectionLabel(context.strings.t('songsLibrary')),
+                    ),
                     IconButton.filled(
                       key: const Key('add-custom-song'),
-                      tooltip: '添加自定义曲谱',
+                      tooltip: context.strings.t('addCustomSong'),
                       onPressed: _createSong,
                       icon: const Icon(Icons.add_rounded),
                     ),
@@ -194,19 +218,19 @@ class _SongsScreenState extends State<SongsScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '选一首，\n把旋律吹出来。',
+                  context.strings.t('songsHero'),
                   style: Theme.of(context).textTheme.displaySmall,
                 ),
                 const SizedBox(height: 18),
                 SearchBar(
                   controller: _searchController,
-                  hintText: '搜索曲目',
+                  hintText: context.strings.t('searchSongs'),
                   leading: const Icon(Icons.search_rounded),
                   trailing: _query.isEmpty
                       ? null
                       : [
                           IconButton(
-                            tooltip: '清除搜索',
+                            tooltip: context.strings.t('clearSearch'),
                             onPressed: () {
                               _searchController.clear();
                               setState(() => _query = '');
@@ -223,10 +247,19 @@ class _SongsScreenState extends State<SongsScreen> {
                 ),
                 const SizedBox(height: 14),
                 SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: '全部', label: Text('全部')),
-                    ButtonSegment(value: '简单', label: Text('简单')),
-                    ButtonSegment(value: '进阶', label: Text('进阶')),
+                  segments: [
+                    ButtonSegment(
+                      value: 'all',
+                      label: Text(context.strings.t('all')),
+                    ),
+                    ButtonSegment(
+                      value: 'easy',
+                      label: Text(context.strings.t('easy')),
+                    ),
+                    ButtonSegment(
+                      value: 'advanced',
+                      label: Text(context.strings.t('advanced')),
+                    ),
                   ],
                   selected: {_filter},
                   showSelectedIcon: false,
@@ -241,11 +274,11 @@ class _SongsScreenState extends State<SongsScreen> {
           ),
         ),
         if (visible.isEmpty)
-          const SliverFillRemaining(
+          SliverFillRemaining(
             child: EmptyState(
               icon: Icons.music_off_rounded,
-              title: '没有找到匹配的曲目',
-              detail: '试试更短的关键词，或切换难度。',
+              title: context.strings.t('noSongs'),
+              detail: context.strings.t('noSongsDetail'),
             ),
           )
         else
@@ -315,13 +348,13 @@ class _SongTile extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            song.title,
+                            context.strings.songTitle(song.id, song.title),
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                         ),
                         if (song.isCustom)
                           Pill(
-                            label: '自定义',
+                            label: context.strings.t('custom'),
                             color: palette.surfaceHigh,
                             foreground: palette.accentInk,
                           ),
@@ -329,7 +362,12 @@ class _SongTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      song.subtitle,
+                      song.isCustom
+                          ? context.strings.t('customSongSubtitle')
+                          : context.strings.songSubtitle(
+                              song.id,
+                              song.subtitle,
+                            ),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 8),
@@ -348,7 +386,9 @@ class _SongTile extends StatelessWidget {
               ),
               if (onDelete != null)
                 IconButton(
-                  tooltip: '删除 ${song.title}',
+                  tooltip: context.strings.t('deleteSongTooltip', {
+                    'title': song.title,
+                  }),
                   onPressed: onDelete,
                   icon: Icon(
                     Icons.delete_outline_rounded,

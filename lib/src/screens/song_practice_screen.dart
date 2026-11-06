@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../localization/app_strings.dart';
 import '../models/pitch_reading.dart';
 import '../models/song.dart';
 import '../services/guide_tone_service.dart';
@@ -97,7 +98,8 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       if (!mounted) return;
       setState(() {
         _status = _SongStatus.error;
-        _errorMessage = error.message ?? '无法启动麦克风。';
+        _errorMessage =
+            error.message ?? context.strings.t('microphoneStartError');
       });
     }
   }
@@ -109,15 +111,19 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         if (!mounted) return;
         setState(() {
           _status = _SongStatus.error;
-          _errorMessage = '麦克风读取失败，请重试。';
+          _errorMessage = context.strings.t('microphoneReadError');
         });
       },
     );
-    final started = await _pitchService.start();
+    final started = await _pitchService.start(
+      sensitivity: AppScope.of(context).microphoneSensitivity,
+    );
     if (!mounted) return;
     setState(() {
       _status = started ? _SongStatus.listening : _SongStatus.error;
-      _errorMessage = started ? null : '无法启动麦克风，请检查系统设置。';
+      _errorMessage = started
+          ? null
+          : context.strings.t('microphoneSettingsError');
       _startedAt ??= DateTime.now();
     });
     if (started) await AppHaptics.light(context);
@@ -243,7 +249,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       setState(() {
         _guidePlaying = false;
         _status = _SongStatus.error;
-        _errorMessage = error.message ?? '无法播放示范旋律。';
+        _errorMessage = error.message ?? context.strings.t('guideMelodyError');
       });
     }
   }
@@ -286,7 +292,11 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         : (_index / widget.song.notes.length).clamp(0.0, 1.0).toDouble();
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.song.title)),
+      appBar: AppBar(
+        title: Text(
+          context.strings.songTitle(widget.song.id, widget.song.title),
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
         children: [
@@ -295,8 +305,11 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
               Expanded(
                 child: Text(
                   _completed
-                      ? '练习完成'
-                      : '第 ${_index + 1} 个音，共 ${widget.song.notes.length} 个',
+                      ? context.strings.t('songPracticeComplete')
+                      : context.strings.t('songNoteProgress', {
+                          'current': _index + 1,
+                          'total': widget.song.notes.length,
+                        }),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
@@ -325,7 +338,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
             Center(
               child: Column(
                 children: [
-                  const SectionLabel('当前目标'),
+                  SectionLabel(context.strings.t('currentTarget')),
                   const SizedBox(height: 4),
                   Text(
                     target.labelForKey(controller.harmonicaKey),
@@ -379,13 +392,14 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                             _reading.detected
                                 ? _reading.noteWithOctave
                                 : _status == _SongStatus.listening
-                                ? '等待稳定音高'
-                                : '麦克风未启动',
+                                ? context.strings.t('waitingStablePitch')
+                                : context.strings.t('microphoneNotStarted'),
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
                           if (_reading.detected)
                             Text(
-                              '${cents >= 0 ? '+' : ''}${cents.round()} 音分',
+                              '${cents >= 0 ? '+' : ''}${cents.round()} '
+                              '${context.strings.t('cents')}',
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                         ],
@@ -443,7 +457,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                   child: OutlinedButton.icon(
                     onPressed: _restart,
                     icon: const Icon(Icons.replay_rounded),
-                    label: const Text('重新练习'),
+                    label: Text(context.strings.t('restartPractice')),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -451,7 +465,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                   child: FilledButton.icon(
                     onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.check_rounded),
-                    label: const Text('完成'),
+                    label: Text(context.strings.t('commonDone')),
                   ),
                 ),
               ],
@@ -461,7 +475,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
             TextButton.icon(
               onPressed: _pitchService.openAppSettings,
               icon: const Icon(Icons.settings_rounded),
-              label: const Text('打开系统设置'),
+              label: Text(context.strings.t('commonOpenSettings')),
             ),
           ],
           if (_errorMessage != null) ...[
@@ -480,13 +494,14 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   }
 
   String get _buttonLabel {
+    final strings = context.strings;
     return switch (_status) {
-      _SongStatus.requestingPermission => '正在请求权限',
-      _SongStatus.listening => '停止练习',
-      _SongStatus.denied => '重新授权麦克风',
-      _SongStatus.permanentlyDenied => '权限未开启',
-      _SongStatus.error => '重试',
-      _ => '开始曲谱练习',
+      _SongStatus.requestingPermission => strings.t('requestingPermission'),
+      _SongStatus.listening => strings.t('stopPractice'),
+      _SongStatus.denied => strings.t('grantMicrophoneAgain'),
+      _SongStatus.permanentlyDenied => strings.t('permissionOff'),
+      _SongStatus.error => strings.t('commonRetry'),
+      _ => strings.t('startSongPractice'),
     };
   }
 }
@@ -575,7 +590,11 @@ class _SongGuideControls extends StatelessWidget {
               icon: Icon(
                 playing ? Icons.stop_rounded : Icons.volume_up_rounded,
               ),
-              label: Text(playing ? '停止示范' : '播放旋律'),
+              label: Text(
+                playing
+                    ? context.strings.t('stopDemo')
+                    : context.strings.t('playMelody'),
+              ),
             ),
             SegmentedButton<double>(
               segments: const [
@@ -592,7 +611,7 @@ class _SongGuideControls extends StatelessWidget {
               selected: loop,
               onSelected: enabled ? onLoopChanged : null,
               avatar: const Icon(Icons.repeat_rounded, size: 18),
-              label: const Text('循环'),
+              label: Text(context.strings.t('loop')),
             ),
           ],
         ),
@@ -616,10 +635,13 @@ class _SongCompletion extends StatelessWidget {
           children: [
             Icon(Icons.celebration_rounded, color: palette.accent, size: 54),
             const SizedBox(height: 12),
-            Text('旋律完成', style: Theme.of(context).textTheme.headlineSmall),
+            Text(
+              context.strings.t('melodyComplete'),
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
             const SizedBox(height: 6),
             Text(
-              '本次得分 $score',
+              context.strings.t('score', {'score': score}),
               style: TextStyle(
                 color: palette.primary,
                 fontSize: 20,

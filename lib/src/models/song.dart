@@ -2,6 +2,14 @@ import 'package:flutter/material.dart';
 
 import 'practice_note.dart';
 
+class HarmonicaTabFormatException extends FormatException {
+  const HarmonicaTabFormatException(this.code, {this.token})
+    : super(code, token);
+
+  final String code;
+  final String? token;
+}
+
 class Song {
   const Song({
     required this.id,
@@ -64,7 +72,7 @@ List<PracticeNote> parseHarmonicaTabs(String input) {
   for (final token in tokens) {
     final match = RegExp(r'^(10|[1-9])([↑↓])$').firstMatch(token);
     if (match == null) {
-      throw FormatException('无法识别「$token」，请使用 4↑ 或 4↓ 这样的格式。');
+      throw HarmonicaTabFormatException('invalidNotation', token: token);
     }
     final hole = int.parse(match.group(1)!);
     final direction = match.group(2)!;
@@ -78,7 +86,7 @@ List<PracticeNote> parseHarmonicaTabs(String input) {
   }
 
   if (notes.isEmpty) {
-    throw const FormatException('请至少输入一个音，例如 4↑ 4↑ 6↑。');
+    throw const HarmonicaTabFormatException('emptyNotation');
   }
   return notes;
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../localization/app_strings.dart';
 import '../models/harmonica_layout.dart';
 import '../models/pitch_reading.dart';
 import '../services/haptics.dart';
@@ -35,7 +36,8 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
   PitchReading _reading = const PitchReading.silent();
   _TunerStatus _status = _TunerStatus.idle;
   double _sensitivity = 0.68;
-  int _lastSensitivityStep = 14;
+  int _lastSensitivityStep = 68;
+  bool _loadedSensitivity = false;
   bool _wasInTune = false;
   String? _errorMessage;
 
@@ -43,6 +45,15 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_loadedSensitivity) return;
+    _sensitivity = AppScope.of(context).microphoneSensitivity;
+    _lastSensitivityStep = (_sensitivity * 100).round();
+    _loadedSensitivity = true;
   }
 
   @override
@@ -93,7 +104,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
           if (!mounted) return;
           setState(() {
             _status = _TunerStatus.error;
-            _errorMessage = '麦克风读取失败，请重试。';
+            _errorMessage = context.strings.t('microphoneReadError');
           });
         },
       );
@@ -101,14 +112,17 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
       if (!mounted) return;
       setState(() {
         _status = started ? _TunerStatus.listening : _TunerStatus.error;
-        _errorMessage = started ? null : '无法启动麦克风，请检查系统设置。';
+        _errorMessage = started
+            ? null
+            : context.strings.t('microphoneSettingsError');
       });
       if (started) await AppHaptics.light(context);
     } on PlatformException catch (error) {
       if (!mounted) return;
       setState(() {
         _status = _TunerStatus.error;
-        _errorMessage = error.message ?? '无法启动麦克风。';
+        _errorMessage =
+            error.message ?? context.strings.t('microphoneStartError');
       });
     }
   }
@@ -146,19 +160,28 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('调音设置', style: Theme.of(context).textTheme.headlineSmall),
+                Text(
+                  context.strings.t('tunerSettings'),
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
                 const SizedBox(height: 16),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.piano_rounded),
-                  title: const Text('当前口琴'),
-                  trailing: Text('${controller.harmonicaKey} 调'),
+                  title: Text(context.strings.t('currentHarmonica')),
+                  trailing: Text(
+                    context.strings.t('keyName', {
+                      'key': controller.harmonicaKey,
+                    }),
+                  ),
                 ),
-                const ListTile(
+                ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: Icon(Icons.lock_outline_rounded),
-                  title: Text('本地音频处理'),
-                  subtitle: Text('原始麦克风音频不会离开设备，也不会保存。'),
+                  leading: const Icon(Icons.lock_outline_rounded),
+                  title: Text(context.strings.t('localAudioProcessing')),
+                  subtitle: Text(
+                    context.strings.t('localAudioProcessingDetail'),
+                  ),
                 ),
                 if (_status == _TunerStatus.permanentlyDenied)
                   SizedBox(
@@ -169,7 +192,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                         _pitchService.openAppSettings();
                       },
                       icon: const Icon(Icons.settings_rounded),
-                      label: const Text('打开系统设置'),
+                      label: Text(context.strings.t('commonOpenSettings')),
                     ),
                   ),
               ],
@@ -187,7 +210,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
     final listening = _status == _TunerStatus.listening;
     final detected = listening && _reading.detected;
     final cents = detected ? _reading.cents.round().clamp(-50, 50).toInt() : 0;
-    final hole = detected ? tabForReading(_reading, key) : null;
+    final tab = detected ? tabForReading(_reading, key) : null;
 
     return SingleChildScrollView(
       key: const PageStorageKey('tuner'),
@@ -198,12 +221,12 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
             children: [
               Expanded(
                 child: Text(
-                  '音准',
+                  context.strings.t('tuner'),
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
               ),
               IconButton.filledTonal(
-                tooltip: '调音设置',
+                tooltip: context.strings.t('tunerSettings'),
                 onPressed: _showSettings,
                 icon: const Icon(Icons.tune_rounded),
               ),
@@ -215,11 +238,13 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
           _NoteDisplay(
             note: detected ? _reading.note : '--',
             octave: detected ? _reading.octave.toString() : '',
-            subtitle:
-                hole ??
-                (detected
-                    ? '${_reading.frequency.toStringAsFixed(1)} Hz'
-                    : '等待声音'),
+            subtitle: tab != null
+                ? context.strings.t(tab.isBlow ? 'blowTab' : 'drawTab', {
+                    'tab': tab.hole,
+                  })
+                : detected
+                ? '${_reading.frequency.toStringAsFixed(1)} Hz'
+                : context.strings.t('waitingSound'),
             active: detected,
           ),
           const SizedBox(height: 28),
@@ -238,10 +263,10 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                 children: [
                   Row(
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Text(
-                          '检测灵敏度',
-                          style: TextStyle(fontWeight: FontWeight.w700),
+                          context.strings.t('detectionSensitivity'),
+                          style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ),
                       Text(
@@ -255,10 +280,11 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                   ),
                   Slider(
                     value: _sensitivity,
-                    min: 0.2,
+                    min: 0,
                     max: 1,
+                    divisions: 100,
                     onChanged: (value) {
-                      final step = (value * 20).round();
+                      final step = (value * 100).round();
                       if (step != _lastSensitivityStep) {
                         _lastSensitivityStep = step;
                         AppHaptics.selection(context);
@@ -266,11 +292,16 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                       setState(() => _sensitivity = value);
                       if (listening) _pitchService.setSensitivity(value);
                     },
+                    onChangeEnd: (value) {
+                      unawaited(
+                        AppScope.of(context).setMicrophoneSensitivity(value),
+                      );
+                    },
                   ),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      '环境较吵时可适当调低',
+                      context.strings.t('sensitivityHint'),
                       style: TextStyle(color: palette.muted, fontSize: 12),
                     ),
                   ),
@@ -288,7 +319,11 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                   ? _stopListening
                   : _startListening,
               icon: Icon(listening ? Icons.stop_rounded : Icons.mic_rounded),
-              label: Text(listening ? '停止调音' : _primaryButtonLabel),
+              label: Text(
+                listening
+                    ? context.strings.t('stopTuning')
+                    : _primaryButtonLabel,
+              ),
             ),
           ),
           if (_status == _TunerStatus.permanentlyDenied) ...[
@@ -296,7 +331,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
             TextButton.icon(
               onPressed: _pitchService.openAppSettings,
               icon: const Icon(Icons.settings_rounded),
-              label: const Text('打开系统设置'),
+              label: Text(context.strings.t('commonOpenSettings')),
             ),
           ],
           if (_errorMessage != null) ...[
@@ -315,24 +350,30 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
   }
 
   String get _hintText {
-    if (_status == _TunerStatus.denied) return '需要麦克风权限才能检测音准';
-    if (_status == _TunerStatus.permanentlyDenied) {
-      return '麦克风权限已关闭，请到系统设置中开启';
+    final strings = context.strings;
+    if (_status == _TunerStatus.denied) {
+      return strings.t('permissionNeededForTuner');
     }
-    if (_status == _TunerStatus.error) return '麦克风暂时不可用';
-    if (_status != _TunerStatus.listening) return '点击下方按钮开始调音';
-    if (!_reading.detected) return '请吹一个稳定的单音';
-    if (_reading.cents.abs() <= 5) return '音准稳定，保持住';
-    return _reading.cents < 0 ? '音高偏低，气息稍微加强' : '音高偏高，放松一点';
+    if (_status == _TunerStatus.permanentlyDenied) {
+      return strings.t('permissionClosed');
+    }
+    if (_status == _TunerStatus.error) {
+      return strings.t('microphoneUnavailable');
+    }
+    if (_status != _TunerStatus.listening) return strings.t('tapToTune');
+    if (!_reading.detected) return strings.t('blowStableNote');
+    if (_reading.cents.abs() <= 5) return strings.t('inTuneKeep');
+    return _reading.cents < 0 ? strings.t('pitchLow') : strings.t('pitchHigh');
   }
 
   String get _primaryButtonLabel {
+    final strings = context.strings;
     return switch (_status) {
-      _TunerStatus.requestingPermission => '正在请求权限',
-      _TunerStatus.denied => '重新授权麦克风',
-      _TunerStatus.permanentlyDenied => '权限未开启',
-      _TunerStatus.error => '重试',
-      _ => '开始调音',
+      _TunerStatus.requestingPermission => strings.t('requestingPermission'),
+      _TunerStatus.denied => strings.t('grantMicrophoneAgain'),
+      _TunerStatus.permanentlyDenied => strings.t('permissionOff'),
+      _TunerStatus.error => strings.t('commonRetry'),
+      _ => strings.t('startTuning'),
     };
   }
 }
@@ -362,9 +403,9 @@ class _StatusLine extends StatelessWidget {
         Text(
           listening
               ? detected
-                    ? '已检测到音高'
-                    : '正在聆听'
-              : '麦克风未启动',
+                    ? context.strings.t('pitchDetected')
+                    : context.strings.t('listening')
+              : context.strings.t('microphoneNotStarted'),
           style: TextStyle(
             color: listening ? palette.success : palette.muted,
             fontWeight: FontWeight.w700,
@@ -449,9 +490,18 @@ class _PitchScale extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('偏低', style: TextStyle(color: palette.muted, fontSize: 12)),
-            Text('准确', style: TextStyle(color: palette.success, fontSize: 12)),
-            Text('偏高', style: TextStyle(color: palette.muted, fontSize: 12)),
+            Text(
+              context.strings.t('low'),
+              style: TextStyle(color: palette.muted, fontSize: 12),
+            ),
+            Text(
+              context.strings.t('accurate'),
+              style: TextStyle(color: palette.success, fontSize: 12),
+            ),
+            Text(
+              context.strings.t('high'),
+              style: TextStyle(color: palette.muted, fontSize: 12),
+            ),
           ],
         ),
         const SizedBox(height: 8),
@@ -492,7 +542,7 @@ class _PitchScale extends StatelessWidget {
             ),
             children: [
               TextSpan(
-                text: '音分',
+                text: context.strings.t('cents'),
                 style: TextStyle(
                   color: palette.muted,
                   fontSize: 12,

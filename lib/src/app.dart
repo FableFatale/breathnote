@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'localization/app_strings.dart';
 import 'screens/home_shell.dart';
 import 'state/app_controller.dart';
 import 'theme/app_theme.dart';
@@ -41,7 +43,10 @@ class _BreathnoteAppState extends State<BreathnoteApp> {
               : const Duration(milliseconds: 240);
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            title: '息音',
+            onGenerateTitle: (context) => context.strings.t('appTitle'),
+            locale: Locale(_controller.languageCode),
+            supportedLocales: const [Locale('zh'), Locale('en'), Locale('ja')],
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
             theme: AppTheme.light(
               highContrast: _controller.highContrast,
               reduceMotion: _controller.reduceMotion,
@@ -50,7 +55,7 @@ class _BreathnoteAppState extends State<BreathnoteApp> {
               highContrast: _controller.highContrast,
               reduceMotion: _controller.reduceMotion,
             ),
-            themeMode: ThemeMode.system,
+            themeMode: _controller.themeMode,
             themeAnimationDuration: animationDuration,
             builder: (context, child) {
               final mediaQuery = MediaQuery.of(context);
