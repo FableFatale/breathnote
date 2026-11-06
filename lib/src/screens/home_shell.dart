@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../services/guide_tone_service.dart';
+import '../services/haptics.dart';
+import '../services/pitch_service.dart';
 import 'learn_screen.dart';
 import 'profile_screen.dart';
 import 'songs_screen.dart';
@@ -15,25 +20,30 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
-  static const _screens = [
-    LearnScreen(),
-    SongsScreen(),
-    TunerScreen(),
-    ProfileScreen(),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final screens = [
+      const LearnScreen(),
+      const SongsScreen(),
+      TunerScreen(active: _index == 2),
+      const ProfileScreen(),
+    ];
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: IndexedStack(index: _index, children: _screens),
+        child: IndexedStack(index: _index, children: screens),
       ),
       bottomNavigationBar: SafeArea(
         top: false,
         child: NavigationBar(
           selectedIndex: _index,
-          onDestinationSelected: (value) => setState(() => _index = value),
+          onDestinationSelected: (value) {
+            if (value == _index) return;
+            setState(() => _index = value);
+            unawaited(PitchService().stop());
+            unawaited(GuideToneService().stop());
+            unawaited(AppHaptics.selection(context));
+          },
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.home_outlined),
