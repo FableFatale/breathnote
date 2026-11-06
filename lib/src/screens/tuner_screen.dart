@@ -37,7 +37,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
   _TunerStatus _status = _TunerStatus.idle;
   double _sensitivity = 0.68;
   int _lastSensitivityStep = 68;
-  bool _loadedSensitivity = false;
+  bool _changingSensitivity = false;
   bool _wasInTune = false;
   String? _errorMessage;
 
@@ -50,10 +50,11 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_loadedSensitivity) return;
-    _sensitivity = AppScope.of(context).microphoneSensitivity;
+    if (_changingSensitivity) return;
+    final savedSensitivity = AppScope.of(context).microphoneSensitivity;
+    if ((_sensitivity - savedSensitivity).abs() < 0.001) return;
+    _sensitivity = savedSensitivity;
     _lastSensitivityStep = (_sensitivity * 100).round();
-    _loadedSensitivity = true;
   }
 
   @override
@@ -284,6 +285,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                     max: 1,
                     divisions: 100,
                     onChanged: (value) {
+                      _changingSensitivity = true;
                       final step = (value * 100).round();
                       if (step != _lastSensitivityStep) {
                         _lastSensitivityStep = step;
@@ -293,6 +295,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                       if (listening) _pitchService.setSensitivity(value);
                     },
                     onChangeEnd: (value) {
+                      _changingSensitivity = false;
                       unawaited(
                         AppScope.of(context).setMicrophoneSensitivity(value),
                       );

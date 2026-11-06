@@ -1,8 +1,26 @@
+import 'dart:async';
+
 import 'package:breathnote/src/app.dart';
 import 'package:breathnote/src/models/song.dart';
+import 'package:breathnote/src/services/preferences_service.dart';
 import 'package:breathnote/src/state/app_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+class _DelayedPreferencesService extends PreferencesService {
+  _DelayedPreferencesService(this.values);
+
+  final Completer<Map<String, Object?>> values;
+  final Map<String, Object> savedValues = {};
+
+  @override
+  Future<Map<String, Object?>> getAll() => values.future;
+
+  @override
+  Future<void> setValue(String key, Object value) async {
+    savedValues[key] = value;
+  }
+}
 
 Future<void> pumpBreathnote(
   WidgetTester tester, {
@@ -199,6 +217,34 @@ void main() {
     final slider = tester.widget<Slider>(find.byType(Slider));
     expect(slider.value, closeTo(0.82, 0.001));
     expect(find.text('82%'), findsOneWidget);
+  });
+
+  testWidgets('loads and persists tuner sensitivity after first frame', (
+    tester,
+  ) async {
+    final preferences = _DelayedPreferencesService(Completer());
+    final controller = AppController(preferences: preferences);
+    addTearDown(controller.dispose);
+    await pumpBreathnote(tester, controller: controller);
+
+    await tester.tap(find.text('调音'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<Slider>(find.byType(Slider)).value,
+      closeTo(0.68, 0.001),
+    );
+
+    preferences.values.complete({'microphoneSensitivity': 0.9});
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<Slider>(find.byType(Slider)).value,
+      closeTo(0.9, 0.001),
+    );
+    expect(find.text('90%'), findsOneWidget);
+
+    await tester.drag(find.byType(Slider), const Offset(-120, 0));
+    await tester.pumpAndSettle();
+    expect(preferences.savedValues['microphoneSensitivity'], isA<double>());
   });
 
   testWidgets('practice layout fits a small Android viewport', (tester) async {
