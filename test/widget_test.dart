@@ -64,7 +64,8 @@ void main() {
     expect(find.text('跟吹'), findsOneWidget);
     expect(find.byKey(const Key('practice-primary-control')), findsOneWidget);
     expect(find.text('循环'), findsOneWidget);
-    expect(find.text('吹出 F5 音'), findsOneWidget);
+    expect(find.text('吹出 F 音'), findsOneWidget);
+    expect(find.text('含住第 4 孔，轻轻吹气。不要用力，让气息自然流过。'), findsOneWidget);
   });
 
   testWidgets('opens built-in song practice', (tester) async {

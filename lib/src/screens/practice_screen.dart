@@ -330,7 +330,7 @@ class _PracticeScreenState extends State<PracticeScreen>
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 84,
+        toolbarHeight: 56,
         backgroundColor: palette.surfaceHigh,
         titleSpacing: 4,
         title: Column(
@@ -388,11 +388,11 @@ class _PracticeScreenState extends State<PracticeScreen>
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+              padding: const EdgeInsets.fromLTRB(12, 24, 12, 24),
               child: Column(
                 children: [
                   const _StageProgress(),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 20),
                   Row(
                     children: [
                       SectionLabel(strings.t('targetNote')),
@@ -422,7 +422,7 @@ class _PracticeScreenState extends State<PracticeScreen>
                                 style: TextStyle(
                                   color: palette.primary,
                                   fontFamily: 'serif',
-                                  fontSize: 82,
+                                  fontSize: 60,
                                   height: 1,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0,
@@ -433,7 +433,7 @@ class _PracticeScreenState extends State<PracticeScreen>
                                 strings.lessonInstruction(widget.lessonId),
                                 style: TextStyle(
                                   color: palette.muted,
-                                  fontSize: 14,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w500,
                                 ),
                                 textAlign: TextAlign.center,
@@ -448,7 +448,7 @@ class _PracticeScreenState extends State<PracticeScreen>
                   const SizedBox(height: 34),
                   _GuidanceTile(
                     icon: _guidanceIcon,
-                    title: _guidanceTitle(noteWithOctave, cents),
+                    title: _guidanceTitle(note, cents),
                     detail: _guidanceDetail,
                     color: _guidanceColor(palette, cents),
                     onTap: _completed ? null : _toggleGuide,
@@ -619,8 +619,8 @@ class _StageNode extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 32,
-          height: 32,
+          width: 24,
+          height: 24,
           alignment: Alignment.center,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
@@ -629,18 +629,18 @@ class _StageNode extends StatelessWidget {
             ),
           ),
           child: state == _StageState.done
-              ? Icon(Icons.check_rounded, color: color, size: 18)
+              ? Icon(Icons.check_rounded, color: color, size: 14)
               : Text(
                   state == _StageState.active ? '2' : '3',
-                  style: TextStyle(color: color, fontSize: 12),
+                  style: TextStyle(color: color, fontSize: 11),
                 ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
         Text(
           label,
           style: TextStyle(
             color: color,
-            fontSize: 12,
+            fontSize: 11,
             fontWeight: state == _StageState.active
                 ? FontWeight.w700
                 : FontWeight.w500,
@@ -659,9 +659,9 @@ class _StageLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 30,
+      width: 18,
       height: 1,
-      margin: const EdgeInsets.symmetric(horizontal: 10),
+      margin: const EdgeInsets.symmetric(horizontal: 6),
       color: color,
     );
   }
@@ -741,7 +741,7 @@ class _GuidanceTile extends StatelessWidget {
     return Material(
       color: palette.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: palette.outline),
       ),
       elevation: Theme.of(context).brightness == Brightness.light ? 1 : 0,
@@ -750,26 +750,27 @@ class _GuidanceTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 96),
+          constraints: const BoxConstraints(minHeight: 72),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(
               children: [
-                Icon(icon, color: color, size: 25),
-                const SizedBox(width: 14),
+                Icon(icon, color: color, size: 22),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         title,
-                        style: Theme.of(context).textTheme.titleMedium,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontSize: 14),
                       ),
-                      const SizedBox(height: 5),
+                      const SizedBox(height: 3),
                       Text(
                         detail,
                         style: Theme.of(context).textTheme.bodySmall
-                            ?.copyWith(fontSize: 12),
+                            ?.copyWith(fontSize: 11),
                       ),
                     ],
                   ),
@@ -812,24 +813,25 @@ class _ControlDock extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.colors;
     final strings = context.strings;
+    final speedLabel = speed == 1 ? '1×' : '0.5×';
     return Container(
-      height: 112,
+      height: 88,
       decoration: BoxDecoration(
         color: palette.surfaceHigh,
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: BorderRadius.circular(24),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
           Expanded(
             child: _DockButton(
               icon: completed ? Icons.replay_rounded : Icons.speed_rounded,
-              label: completed ? strings.t('practiceAgain') : '$speed×',
+              label: completed ? strings.t('practiceAgain') : speedLabel,
               color: palette.muted,
               onTap: onSpeed,
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 10),
           Semantics(
             button: true,
             label: completed
@@ -841,10 +843,10 @@ class _ControlDock extends StatelessWidget {
               key: const Key('practice-primary-control'),
               onPressed: waiting ? null : onPrimary,
               style: FilledButton.styleFrom(
-                fixedSize: const Size(84, 84),
+                fixedSize: const Size(64, 64),
                 padding: EdgeInsets.zero,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(20),
                 ),
               ),
               child: waiting
@@ -859,11 +861,11 @@ class _ControlDock extends StatelessWidget {
                           : active
                           ? Icons.stop_rounded
                           : Icons.play_arrow_rounded,
-                      size: 34,
+                      size: 30,
                     ),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 10),
           Expanded(
             child: _DockButton(
               icon: Icons.repeat_rounded,

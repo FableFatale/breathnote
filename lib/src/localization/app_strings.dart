@@ -27,6 +27,8 @@ class AppStrings {
 
   String lessonInstruction(String id) => t('${id}Instruction');
 
+  String lessonGuidance(String id) => t('${id}Guidance');
+
   String songTitle(String id, String fallback) {
     final key = 'song_${id}_title';
     final value = t(key);
@@ -75,14 +77,17 @@ class AppStrings {
       'lesson_2Detail': '4 孔吹气 · 清晰起音',
       'lesson_2Duration': '6 分钟',
       'lesson_2Instruction': '保持轻柔、均匀的气息',
+      'lesson_2Guidance': '含住第 4 孔，轻轻吹气。不要用力，让气息自然流过。',
       'lesson_3Title': '清晰的单音',
       'lesson_3Detail': '5 孔吹气 · 嘴型与气息',
       'lesson_3Duration': '6 分钟',
       'lesson_3Instruction': '缩小嘴型，只让一个孔发声',
+      'lesson_3Guidance': '只含住第 5 孔，缩小嘴型，保持柔和、稳定的气流。',
       'lesson_4Title': '吸气音练习',
       'lesson_4Detail': '4 孔吸气 · 平稳气息',
       'lesson_4Duration': '5 分钟',
       'lesson_4Instruction': '放松下巴，保持平稳的吸气',
+      'lesson_4Guidance': '含住第 4 孔，放松下巴，缓慢、平稳地吸气。',
       'lesson_5Title': '第一首旋律',
       'lesson_5Detail': '小星星 · 完整乐句',
       'lesson_5Duration': '8 分钟',
@@ -275,14 +280,19 @@ class AppStrings {
       'lesson_2Detail': 'Hole 4 blow · Clear attack',
       'lesson_2Duration': '6 min',
       'lesson_2Instruction': 'Keep your breath soft and even',
+      'lesson_2Guidance':
+          'Cover hole 4 and blow gently. Let the air flow without forcing it.',
       'lesson_3Title': 'A clear single note',
       'lesson_3Detail': 'Hole 5 blow · Shape and breath',
       'lesson_3Duration': '6 min',
       'lesson_3Instruction': 'Narrow your mouth to isolate one hole',
+      'lesson_3Guidance': 'Cover only hole 5. Keep your mouth small and the airflow soft and steady.',
       'lesson_4Title': 'Draw-note practice',
       'lesson_4Detail': 'Hole 4 draw · Steady breath',
       'lesson_4Duration': '5 min',
       'lesson_4Instruction': 'Relax your jaw and draw steadily',
+      'lesson_4Guidance':
+          'Cover hole 4, relax your jaw, and draw in slowly and steadily.',
       'lesson_5Title': 'Your first melody',
       'lesson_5Detail': 'Twinkle · Full phrase',
       'lesson_5Duration': '8 min',
@@ -484,14 +494,17 @@ class AppStrings {
       'lesson_2Detail': '4 番穴を吹く · クリアな音',
       'lesson_2Duration': '6 分',
       'lesson_2Instruction': 'やさしく均一な息を保ちましょう',
+      'lesson_2Guidance': '4 番穴をくわえて、やさしく吹きます。力まず、自然に息を流しましょう。',
       'lesson_3Title': 'クリアな単音',
       'lesson_3Detail': '5 番穴を吹く · 口の形と息',
       'lesson_3Duration': '6 分',
       'lesson_3Instruction': '口を小さくして一つの穴だけを鳴らします',
+      'lesson_3Guidance': '5 番穴だけをくわえ、口を小さくして、やさしく安定した息を流します。',
       'lesson_4Title': '吸音の練習',
       'lesson_4Detail': '4 番穴を吸う · 安定した息',
       'lesson_4Duration': '5 分',
       'lesson_4Instruction': 'あごをゆるめて安定して吸いましょう',
+      'lesson_4Guidance': '4 番穴をくわえ、あごをゆるめて、ゆっくり安定して吸います。',
       'lesson_5Title': 'はじめてのメロディー',
       'lesson_5Detail': 'きらきら星 · フレーズ',
       'lesson_5Duration': '8 分',
