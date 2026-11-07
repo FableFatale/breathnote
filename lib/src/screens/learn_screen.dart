@@ -395,8 +395,11 @@ class _PracticeCard extends StatelessWidget {
     final strings = context.strings;
     final title = strings.lessonTitle(lesson.id);
     return Semantics(
+      container: true,
       button: true,
       label: strings.t('openLesson', {'title': title}),
+      excludeSemantics: true,
+      onTap: onStart,
       child: Card(
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -505,7 +508,11 @@ class _TimelineLesson extends StatelessWidget {
     final palette = context.colors;
     final strings = context.strings;
     return Semantics(
+      container: true,
       button: true,
+      label: strings.lessonTitle(lesson.id),
+      excludeSemantics: true,
+      onTap: onTap,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),

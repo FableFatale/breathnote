@@ -329,8 +329,11 @@ class _SongTile extends StatelessWidget {
     final palette = context.colors;
     final title = context.strings.songTitle(song.id, song.title);
     return Semantics(
+      container: true,
       button: true,
       label: context.strings.t('openSong', {'title': title}),
+      excludeSemantics: true,
+      onTap: onTap,
       child: Card(
         child: InkWell(
           borderRadius: BorderRadius.circular(24),

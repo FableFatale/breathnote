@@ -339,12 +339,14 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
           const SizedBox(height: 14),
           Semantics(
             key: const Key('tuner-arc-summary'),
+            container: true,
             label: detected
                 ? context.strings.t('pitchArcSummary', {
                     'note': _reading.noteWithOctave,
                     'cents': '${cents >= 0 ? '+' : ''}$cents',
                   })
                 : _hintText,
+            excludeSemantics: true,
             child: Text(
               _hintText,
               style: Theme.of(context).textTheme.titleMedium,
@@ -440,6 +442,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                   const SizedBox(height: 10),
                   Semantics(
                     key: const Key('tuner-input-level'),
+                    container: true,
                     label: context.strings.t('inputLevel', {
                       'level': (_inputLevel * 100).round(),
                       'threshold': (_thresholdLevel * 100).round(),

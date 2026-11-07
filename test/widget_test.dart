@@ -507,6 +507,29 @@ void main() {
     expect(find.bySemanticsLabel('练习「小星星」'), findsOneWidget);
   });
 
+  testWidgets('does not repeat visible text inside semantic labels', (
+    tester,
+  ) async {
+    await pumpBreathnote(tester);
+    await tester.tap(find.text('调音'));
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('开始后吹一个音，这里会显示音准。'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('开始后吹一个音，这里会显示音准。\\n开始后吹一个音，这里会显示音准。')),
+      findsNothing,
+    );
+
+    await tester.tap(find.text('学习'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('吹响第一个音').first);
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('1×'), findsOneWidget);
+    expect(find.bySemanticsLabel('循环'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('1×\\n1×|循环\\n循环')), findsNothing);
+  });
+
   testWidgets('keeps custom-song errors beside fields and clears them', (
     tester,
   ) async {

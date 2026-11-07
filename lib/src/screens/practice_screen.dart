@@ -662,10 +662,12 @@ class _StageProgress extends StatelessWidget {
         ? strings.t('stageFollow')
         : strings.t('stageSingle');
     return Semantics(
+      container: true,
       label: strings.t('stageProgress', {
         'stage': activeLabel,
         'current': currentStage,
       }),
+      excludeSemantics: true,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -862,8 +864,11 @@ class _GuidanceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.colors;
     return Semantics(
+      container: true,
       button: onTap != null,
       label: title,
+      excludeSemantics: true,
+      onTap: onTap,
       child: Material(
         color: palette.surface,
         shape: RoundedRectangleBorder(
@@ -981,7 +986,9 @@ class _ControlDock extends StatelessWidget {
                 active: listening && !waiting && !completed,
                 color: palette.primary,
                 child: Semantics(
+                  container: true,
                   button: true,
+                  enabled: !waiting,
                   label: completed
                       ? strings.t('commonDone')
                       : guidePlaying
@@ -989,6 +996,8 @@ class _ControlDock extends StatelessWidget {
                       : listening
                       ? strings.t('stopListening')
                       : strings.t('startPractice'),
+                  excludeSemantics: true,
+                  onTap: waiting ? null : onPrimary,
                   child: FilledButton(
                     key: const Key('practice-primary-control'),
                     onPressed: waiting ? null : onPrimary,
@@ -1079,9 +1088,12 @@ class _DockButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
+      container: true,
       button: onTap != null,
       selected: selected,
       label: label,
+      excludeSemantics: true,
+      onTap: onTap,
       child: TweenAnimationBuilder<Color?>(
         tween: ColorTween(end: color),
         duration: AppMotion.duration(context, AppMotion.fast),
