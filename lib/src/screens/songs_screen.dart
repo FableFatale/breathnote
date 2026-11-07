@@ -6,6 +6,7 @@ import '../localization/app_strings.dart';
 import '../models/song.dart';
 import '../services/haptics.dart';
 import '../state/app_controller.dart';
+import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
 import 'song_practice_screen.dart';
@@ -38,6 +39,11 @@ class _SongsScreenState extends State<SongsScreen> {
     final song = await showModalBottomSheet<Song>(
       context: context,
       isScrollControlled: true,
+      sheetAnimationStyle: AppMotion.animationStyle(
+        context,
+        duration: AppMotion.slow,
+        reverseDuration: AppMotion.base,
+      ),
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
@@ -140,13 +146,17 @@ class _SongsScreenState extends State<SongsScreen> {
     if (song == null || !mounted) return;
     unawaited(AppHaptics.success(context));
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => SongPracticeScreen(song: song)),
+      AppPageRoute<void>(
+        reduceMotion: AppMotion.isReduced(context),
+        builder: (_) => SongPracticeScreen(song: song),
+      ),
     );
   }
 
   Future<void> _deleteSong(Song song) async {
     final confirmed = await showDialog<bool>(
       context: context,
+      animationStyle: AppMotion.animationStyle(context),
       builder: (context) => AlertDialog(
         title: Text(context.strings.t('deleteCustomSong')),
         content: Text(
@@ -293,7 +303,8 @@ class _SongsScreenState extends State<SongsScreen> {
                   song: song,
                   onTap: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute<void>(
+                      AppPageRoute<void>(
+                        reduceMotion: AppMotion.isReduced(context),
                         builder: (_) => SongPracticeScreen(song: song),
                       ),
                     );

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../localization/app_strings.dart';
 import '../services/haptics.dart';
 import '../state/app_controller.dart';
+import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
 import 'local_data_screen.dart';
@@ -37,6 +38,7 @@ class ProfileScreen extends StatelessWidget {
     );
     final value = await showDialog<String>(
       context: context,
+      animationStyle: AppMotion.animationStyle(context),
       builder: (context) => AlertDialog(
         title: Text(strings.t('editNickname')),
         content: TextField(
@@ -72,6 +74,11 @@ class ProfileScreen extends StatelessWidget {
     unawaited(AppHaptics.selection(context));
     final selected = await showModalBottomSheet<String>(
       context: context,
+      sheetAnimationStyle: AppMotion.animationStyle(
+        context,
+        duration: AppMotion.slow,
+        reverseDuration: AppMotion.base,
+      ),
       builder: (context) {
         return SafeArea(
           child: Padding(
@@ -119,6 +126,11 @@ class ProfileScreen extends StatelessWidget {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      sheetAnimationStyle: AppMotion.animationStyle(
+        context,
+        duration: AppMotion.slow,
+        reverseDuration: AppMotion.base,
+      ),
       builder: (context) {
         final controller = AppScope.of(context);
         return SafeArea(
@@ -190,6 +202,11 @@ class ProfileScreen extends StatelessWidget {
     unawaited(AppHaptics.selection(context));
     await showModalBottomSheet<void>(
       context: context,
+      sheetAnimationStyle: AppMotion.animationStyle(
+        context,
+        duration: AppMotion.slow,
+        reverseDuration: AppMotion.base,
+      ),
       builder: (context) {
         final controller = AppScope.of(context);
         final strings = context.strings;
@@ -442,7 +459,8 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute<void>(
+                    AppPageRoute<void>(
+                      reduceMotion: AppMotion.isReduced(context),
                       builder: (_) => const LocalDataScreen(),
                     ),
                   );

@@ -7,7 +7,9 @@ import '../models/practice_note.dart';
 import '../models/song.dart';
 import '../services/haptics.dart';
 import '../state/app_controller.dart';
+import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
+import '../widgets/motion_widgets.dart';
 import '../widgets/shared_widgets.dart';
 import 'lesson_detail_screen.dart';
 import 'practice_screen.dart';
@@ -130,11 +132,15 @@ class LearnScreen extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 30),
-                _PracticeCard(
-                  lesson: nextLesson,
-                  progress: progress,
-                  progressPercent: progressPercent,
-                  onStart: () => _openLesson(context, nextLesson),
+                AnimatedSwitcher(
+                  duration: AppMotion.duration(context, AppMotion.base),
+                  child: _PracticeCard(
+                    key: ValueKey(nextLesson.id),
+                    lesson: nextLesson,
+                    progress: progress,
+                    progressPercent: progressPercent,
+                    onStart: () => _openLesson(context, nextLesson),
+                  ),
                 ),
                 const SizedBox(height: 40),
                 SectionLabel(strings.t('learningPath')),
@@ -187,6 +193,11 @@ class LearnScreen extends StatelessWidget {
     unawaited(AppHaptics.selection(context));
     final selected = await showModalBottomSheet<String>(
       context: context,
+      sheetAnimationStyle: AppMotion.animationStyle(
+        context,
+        duration: AppMotion.slow,
+        reverseDuration: AppMotion.base,
+      ),
       builder: (context) {
         return SafeArea(
           child: Padding(
@@ -230,11 +241,14 @@ class LearnScreen extends StatelessWidget {
 
   static void _openLesson(BuildContext context, _Lesson lesson) {
     final strings = context.strings;
+    final reduceMotion = AppMotion.isReduced(context);
     final route = switch (lesson.kind) {
-      _LessonKind.introduction => MaterialPageRoute<void>(
+      _LessonKind.introduction => AppPageRoute<void>(
+        reduceMotion: reduceMotion,
         builder: (_) => const LessonDetailScreen(),
       ),
-      _LessonKind.firstNote => MaterialPageRoute<void>(
+      _LessonKind.firstNote => AppPageRoute<void>(
+        reduceMotion: reduceMotion,
         builder: (_) => PracticeScreen(
           target: const PracticeNote(note: 'C', octave: 5, tab: '4↑'),
           title: strings.lessonTitle('lesson_2'),
@@ -243,7 +257,8 @@ class LearnScreen extends StatelessWidget {
           step: 2,
         ),
       ),
-      _LessonKind.clearNote => MaterialPageRoute<void>(
+      _LessonKind.clearNote => AppPageRoute<void>(
+        reduceMotion: reduceMotion,
         builder: (_) => PracticeScreen(
           target: const PracticeNote(note: 'E', octave: 5, tab: '5↑'),
           title: strings.lessonTitle('lesson_3'),
@@ -252,7 +267,8 @@ class LearnScreen extends StatelessWidget {
           step: 3,
         ),
       ),
-      _LessonKind.drawNote => MaterialPageRoute<void>(
+      _LessonKind.drawNote => AppPageRoute<void>(
+        reduceMotion: reduceMotion,
         builder: (_) => PracticeScreen(
           target: const PracticeNote(note: 'D', octave: 5, tab: '4↓'),
           title: strings.lessonTitle('lesson_4'),
@@ -261,7 +277,8 @@ class LearnScreen extends StatelessWidget {
           step: 4,
         ),
       ),
-      _LessonKind.firstSong => MaterialPageRoute<void>(
+      _LessonKind.firstSong => AppPageRoute<void>(
+        reduceMotion: reduceMotion,
         builder: (_) =>
             SongPracticeScreen(song: songs.first, lessonId: 'lesson_5'),
       ),
@@ -364,6 +381,7 @@ class _PracticeCard extends StatelessWidget {
     required this.progress,
     required this.progressPercent,
     required this.onStart,
+    super.key,
   });
 
   final _Lesson lesson;
@@ -435,7 +453,7 @@ class _PracticeCard extends StatelessWidget {
               const SizedBox(height: 22),
               ClipRRect(
                 borderRadius: BorderRadius.circular(999),
-                child: LinearProgressIndicator(
+                child: MotionLinearProgress(
                   value: progress,
                   minHeight: 4,
                   backgroundColor: palette.surfaceHigh,
@@ -505,7 +523,9 @@ class _TimelineLesson extends StatelessWidget {
                         bottom: 0,
                         child: Container(width: 1, color: palette.outline),
                       ),
-                    Container(
+                    AnimatedContainer(
+                      duration: AppMotion.duration(context, AppMotion.base),
+                      curve: AppMotion.standardCurve,
                       width: 40,
                       height: 40,
                       alignment: Alignment.center,
@@ -524,20 +544,27 @@ class _TimelineLesson extends StatelessWidget {
                               : palette.outline,
                         ),
                       ),
-                      child: complete
-                          ? Icon(
-                              Icons.check_rounded,
-                              color: palette.success,
-                              size: 20,
-                            )
-                          : Text(
-                              lesson.number,
-                              style: TextStyle(
-                                color: active ? palette.primary : palette.muted,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12,
+                      child: AnimatedSwitcher(
+                        duration: AppMotion.duration(context, AppMotion.fast),
+                        child: complete
+                            ? Icon(
+                                Icons.check_rounded,
+                                key: const ValueKey('complete'),
+                                color: palette.success,
+                                size: 20,
+                              )
+                            : Text(
+                                lesson.number,
+                                key: ValueKey(active),
+                                style: TextStyle(
+                                  color: active
+                                      ? palette.primary
+                                      : palette.muted,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
                               ),
-                            ),
+                      ),
                     ),
                   ],
                 ),

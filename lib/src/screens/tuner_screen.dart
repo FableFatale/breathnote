@@ -9,7 +9,9 @@ import '../models/pitch_reading.dart';
 import '../services/haptics.dart';
 import '../services/pitch_service.dart';
 import '../state/app_controller.dart';
+import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
+import '../widgets/motion_widgets.dart';
 import '../widgets/shared_widgets.dart';
 
 class TunerScreen extends StatefulWidget {
@@ -153,6 +155,11 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
     unawaited(AppHaptics.selection(context));
     await showModalBottomSheet<void>(
       context: context,
+      sheetAnimationStyle: AppMotion.animationStyle(
+        context,
+        duration: AppMotion.slow,
+        reverseDuration: AppMotion.base,
+      ),
       builder: (context) {
         return SafeArea(
           child: Padding(
@@ -394,24 +401,34 @@ class _StatusLine extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 9,
-          height: 9,
-          decoration: BoxDecoration(
-            color: listening ? palette.success : palette.muted,
-            shape: BoxShape.circle,
+        BreathingPulse(
+          active: listening,
+          color: palette.success,
+          shape: BoxShape.circle,
+          child: AnimatedContainer(
+            duration: AppMotion.duration(context, AppMotion.fast),
+            width: 9,
+            height: 9,
+            decoration: BoxDecoration(
+              color: listening ? palette.success : palette.muted,
+              shape: BoxShape.circle,
+            ),
           ),
         ),
         const SizedBox(width: 8),
-        Text(
-          listening
-              ? detected
-                    ? context.strings.t('pitchDetected')
-                    : context.strings.t('listening')
-              : context.strings.t('microphoneNotStarted'),
-          style: TextStyle(
-            color: listening ? palette.success : palette.muted,
-            fontWeight: FontWeight.w700,
+        AnimatedSwitcher(
+          duration: AppMotion.duration(context, AppMotion.base),
+          child: Text(
+            listening
+                ? detected
+                      ? context.strings.t('pitchDetected')
+                      : context.strings.t('listening')
+                : context.strings.t('microphoneNotStarted'),
+            key: ValueKey((status, detected)),
+            style: TextStyle(
+              color: listening ? palette.success : palette.muted,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
       ],
@@ -438,41 +455,56 @@ class _NoteDisplay extends StatelessWidget {
     return Column(
       children: [
         SizedBox(
+          key: const Key('tuner-note-transition'),
           height: 106,
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.topRight,
-            children: [
-              Text(
-                note,
-                style: TextStyle(
-                  color: active ? palette.text : palette.muted,
-                  fontSize: 96,
-                  height: 1,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0,
-                ),
-              ),
-              if (octave.isNotEmpty)
-                Positioned(
-                  right: -18,
-                  top: 2,
-                  child: Text(
-                    octave,
-                    style: TextStyle(
-                      color: palette.muted,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
+          child: AnimatedSwitcher(
+            duration: AppMotion.duration(context, AppMotion.base),
+            layoutBuilder: (currentChild, previousChildren) {
+              return Stack(
+                alignment: Alignment.topCenter,
+                children: [...previousChildren, ?currentChild],
+              );
+            },
+            child: Stack(
+              key: ValueKey('$note$octave'),
+              clipBehavior: Clip.none,
+              alignment: Alignment.topRight,
+              children: [
+                Text(
+                  note,
+                  style: TextStyle(
+                    color: active ? palette.text : palette.muted,
+                    fontSize: 96,
+                    height: 1,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0,
                   ),
                 ),
-            ],
+                if (octave.isNotEmpty)
+                  Positioned(
+                    right: -18,
+                    top: 2,
+                    child: Text(
+                      octave,
+                      style: TextStyle(
+                        color: palette.muted,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 5),
-        Text(
-          subtitle,
-          style: TextStyle(color: palette.muted, fontWeight: FontWeight.w600),
+        AnimatedSwitcher(
+          duration: AppMotion.duration(context, AppMotion.fast),
+          child: Text(
+            subtitle,
+            key: ValueKey(subtitle),
+            style: TextStyle(color: palette.muted, fontWeight: FontWeight.w600),
+          ),
         ),
       ],
     );
@@ -524,7 +556,10 @@ class _PitchScale extends StatelessWidget {
                   );
                 }),
               ),
-              Align(
+              AnimatedAlign(
+                key: const Key('tuner-cent-indicator'),
+                duration: AppMotion.duration(context, AppMotion.fast),
+                curve: AppMotion.standardCurve,
                 alignment: Alignment(active ? cents / 50 : 0, -1),
                 child: Icon(
                   Icons.arrow_drop_down_rounded,
@@ -535,25 +570,35 @@ class _PitchScale extends StatelessWidget {
             ],
           ),
         ),
-        Text.rich(
-          TextSpan(
-            text: active ? '${cents >= 0 ? '+' : ''}$cents ' : '-- ',
-            style: TextStyle(
-              color: active ? palette.text : palette.muted,
-              fontSize: 25,
-              fontWeight: FontWeight.w800,
-            ),
-            children: [
+        TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: active ? cents.toDouble() : 0),
+          duration: AppMotion.duration(context, AppMotion.fast),
+          curve: AppMotion.standardCurve,
+          builder: (context, animatedCents, _) {
+            final displayCents = animatedCents.round();
+            return Text.rich(
               TextSpan(
-                text: context.strings.t('cents'),
+                text: active
+                    ? '${displayCents >= 0 ? '+' : ''}$displayCents '
+                    : '-- ',
                 style: TextStyle(
-                  color: palette.muted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  color: active ? palette.text : palette.muted,
+                  fontSize: 25,
+                  fontWeight: FontWeight.w800,
                 ),
+                children: [
+                  TextSpan(
+                    text: context.strings.t('cents'),
+                    style: TextStyle(
+                      color: palette.muted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         ),
       ],
     );

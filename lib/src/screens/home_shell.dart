@@ -6,6 +6,8 @@ import '../localization/app_strings.dart';
 import '../services/guide_tone_service.dart';
 import '../services/haptics.dart';
 import '../services/pitch_service.dart';
+import '../theme/app_motion.dart';
+import '../widgets/motion_widgets.dart';
 import 'learn_screen.dart';
 import 'profile_screen.dart';
 import 'songs_screen.dart';
@@ -32,7 +34,12 @@ class _HomeShellState extends State<HomeShell> {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: IndexedStack(index: _index, children: screens),
+        child: AnimatedTabStack(
+          key: const Key('main-tab-transition'),
+          index: _index,
+          duration: AppMotion.duration(context, AppMotion.base),
+          children: screens,
+        ),
       ),
       bottomNavigationBar: SafeArea(
         top: false,

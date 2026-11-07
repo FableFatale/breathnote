@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../localization/app_strings.dart';
+import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 
 class SectionLabel extends StatelessWidget {
@@ -186,7 +187,9 @@ class HarmonicaDiagram extends StatelessWidget {
                   final hole = index + 1;
                   final active = activeHole == hole;
                   return Expanded(
-                    child: Container(
+                    child: AnimatedContainer(
+                      duration: AppMotion.duration(context, AppMotion.fast),
+                      curve: AppMotion.standardCurve,
                       decoration: BoxDecoration(
                         color: active
                             ? palette.primary.withValues(alpha: 0.08)

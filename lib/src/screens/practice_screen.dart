@@ -11,7 +11,9 @@ import '../services/guide_tone_service.dart';
 import '../services/haptics.dart';
 import '../services/pitch_service.dart';
 import '../state/app_controller.dart';
+import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
+import '../widgets/motion_widgets.dart';
 import '../widgets/shared_widgets.dart';
 
 class PracticeScreen extends StatefulWidget {
@@ -327,6 +329,9 @@ class _PracticeScreenState extends State<PracticeScreen>
             controller.harmonicaKey,
           )
         : 0.0;
+    final currentStage = _status == _PracticeStatus.listening || _completed
+        ? 3
+        : 2;
 
     return Scaffold(
       appBar: AppBar(
@@ -351,6 +356,11 @@ class _PracticeScreenState extends State<PracticeScreen>
           PopupMenuButton<String>(
             tooltip: MaterialLocalizations.of(context).showMenuTooltip,
             icon: const Icon(Icons.more_horiz_rounded),
+            popUpAnimationStyle: AppMotion.animationStyle(
+              context,
+              duration: AppMotion.fast,
+              reverseDuration: AppMotion.fast,
+            ),
             onSelected: (value) {
               if (value == 'restart') unawaited(_restart());
               if (value == 'settings') {
@@ -391,7 +401,11 @@ class _PracticeScreenState extends State<PracticeScreen>
               padding: const EdgeInsets.fromLTRB(12, 24, 12, 24),
               child: Column(
                 children: [
-                  const _StageProgress(),
+                  _StageProgress(
+                    key: const Key('practice-stage-progress'),
+                    currentStage: currentStage,
+                    complete: _completed,
+                  ),
                   const SizedBox(height: 20),
                   Row(
                     children: [
@@ -409,9 +423,7 @@ class _PracticeScreenState extends State<PracticeScreen>
                   ),
                   const SizedBox(height: 24),
                   AnimatedSwitcher(
-                    duration: controller.reduceMotion
-                        ? Duration.zero
-                        : const Duration(milliseconds: 240),
+                    duration: AppMotion.duration(context, AppMotion.base),
                     child: _completed
                         ? _CompletionDisplay(score: _score)
                         : Column(
@@ -571,39 +583,70 @@ class _PracticeScreenState extends State<PracticeScreen>
 }
 
 class _StageProgress extends StatelessWidget {
-  const _StageProgress();
+  const _StageProgress({
+    required this.currentStage,
+    required this.complete,
+    super.key,
+  });
+
+  final int currentStage;
+  final bool complete;
 
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
     final palette = context.colors;
+    final activeLabel = currentStage == 3
+        ? strings.t('stageFollow')
+        : strings.t('stageSingle');
     return Semantics(
-      label: '${strings.t('stageSingle')}, 2 / 3',
+      label: '$activeLabel, $currentStage / 3',
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _StageNode(label: strings.t('stagePrepare'), state: _StageState.done),
-          _StageLine(color: palette.outline),
           _StageNode(
-            label: strings.t('stageSingle'),
-            state: _StageState.active,
+            number: 1,
+            label: strings.t('stagePrepare'),
+            state: _stateFor(1),
           ),
-          _StageLine(color: palette.outline),
+          _StageLine(
+            color: currentStage > 2 || complete
+                ? palette.success
+                : palette.outline,
+          ),
           _StageNode(
+            number: 2,
+            label: strings.t('stageSingle'),
+            state: _stateFor(2),
+          ),
+          _StageLine(color: complete ? palette.success : palette.outline),
+          _StageNode(
+            number: 3,
             label: strings.t('stageFollow'),
-            state: _StageState.pending,
+            state: _stateFor(3),
           ),
         ],
       ),
     );
+  }
+
+  _StageState _stateFor(int stage) {
+    if (complete || stage < currentStage) return _StageState.done;
+    if (stage == currentStage) return _StageState.active;
+    return _StageState.pending;
   }
 }
 
 enum _StageState { done, active, pending }
 
 class _StageNode extends StatelessWidget {
-  const _StageNode({required this.label, required this.state});
+  const _StageNode({
+    required this.number,
+    required this.label,
+    required this.state,
+  });
 
+  final int number;
   final String label;
   final _StageState state;
 
@@ -618,7 +661,9 @@ class _StageNode extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
+        AnimatedContainer(
+          duration: AppMotion.duration(context, AppMotion.base),
+          curve: AppMotion.standardCurve,
           width: 24,
           height: 24,
           alignment: Alignment.center,
@@ -628,16 +673,26 @@ class _StageNode extends StatelessWidget {
               color: state == _StageState.pending ? palette.outline : color,
             ),
           ),
-          child: state == _StageState.done
-              ? Icon(Icons.check_rounded, color: color, size: 14)
-              : Text(
-                  state == _StageState.active ? '2' : '3',
-                  style: TextStyle(color: color, fontSize: 11),
-                ),
+          child: AnimatedSwitcher(
+            duration: AppMotion.duration(context, AppMotion.fast),
+            child: state == _StageState.done
+                ? Icon(
+                    Icons.check_rounded,
+                    key: ValueKey('done-$number'),
+                    color: color,
+                    size: 14,
+                  )
+                : Text(
+                    '$number',
+                    key: ValueKey('$state-$number'),
+                    style: TextStyle(color: color, fontSize: 11),
+                  ),
+          ),
         ),
         const SizedBox(width: 6),
-        Text(
-          label,
+        AnimatedDefaultTextStyle(
+          duration: AppMotion.duration(context, AppMotion.base),
+          curve: AppMotion.standardCurve,
           style: TextStyle(
             color: color,
             fontSize: 11,
@@ -645,6 +700,7 @@ class _StageNode extends StatelessWidget {
                 ? FontWeight.w700
                 : FontWeight.w500,
           ),
+          child: Text(label),
         ),
       ],
     );
@@ -658,7 +714,9 @@ class _StageLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AnimatedContainer(
+      duration: AppMotion.duration(context, AppMotion.base),
+      curve: AppMotion.standardCurve,
       width: 18,
       height: 1,
       margin: const EdgeInsets.symmetric(horizontal: 6),
@@ -755,7 +813,21 @@ class _GuidanceTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(
               children: [
-                Icon(icon, color: color, size: 22),
+                TweenAnimationBuilder<Color?>(
+                  tween: ColorTween(end: color),
+                  duration: AppMotion.duration(context, AppMotion.fast),
+                  builder: (context, animatedColor, _) {
+                    return AnimatedSwitcher(
+                      duration: AppMotion.duration(context, AppMotion.fast),
+                      child: Icon(
+                        icon,
+                        key: ValueKey(icon),
+                        color: animatedColor,
+                        size: 22,
+                      ),
+                    );
+                  },
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -832,37 +904,46 @@ class _ControlDock extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Semantics(
-            button: true,
-            label: completed
-                ? strings.t('commonDone')
-                : active
-                ? strings.t('stopListening')
-                : strings.t('startPractice'),
-            child: FilledButton(
-              key: const Key('practice-primary-control'),
-              onPressed: waiting ? null : onPrimary,
-              style: FilledButton.styleFrom(
-                fixedSize: const Size(64, 64),
-                padding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+          BreathingPulse(
+            active: active && !waiting && !completed,
+            color: palette.primary,
+            child: Semantics(
+              button: true,
+              label: completed
+                  ? strings.t('commonDone')
+                  : active
+                  ? strings.t('stopListening')
+                  : strings.t('startPractice'),
+              child: FilledButton(
+                key: const Key('practice-primary-control'),
+                onPressed: waiting ? null : onPrimary,
+                style: FilledButton.styleFrom(
+                  fixedSize: const Size(64, 64),
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: AnimatedSwitcher(
+                  duration: AppMotion.duration(context, AppMotion.fast),
+                  child: waiting
+                      ? const SizedBox(
+                          key: ValueKey('waiting'),
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          completed
+                              ? Icons.check_rounded
+                              : active
+                              ? Icons.stop_rounded
+                              : Icons.play_arrow_rounded,
+                          key: ValueKey((completed, active)),
+                          size: 30,
+                        ),
                 ),
               ),
-              child: waiting
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Icon(
-                      completed
-                          ? Icons.check_rounded
-                          : active
-                          ? Icons.stop_rounded
-                          : Icons.play_arrow_rounded,
-                      size: 30,
-                    ),
             ),
           ),
           const SizedBox(width: 10),
@@ -898,29 +979,35 @@ class _DockButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkResponse(
-      onTap: onTap,
-      radius: 36,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 64, minHeight: 64),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 25),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              ),
+    return TweenAnimationBuilder<Color?>(
+      tween: ColorTween(end: color),
+      duration: AppMotion.duration(context, AppMotion.fast),
+      builder: (context, animatedColor, _) {
+        return InkResponse(
+          onTap: onTap,
+          radius: 36,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 64, minHeight: 64),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: animatedColor, size: 25),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: animatedColor,
+                    fontSize: 11,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

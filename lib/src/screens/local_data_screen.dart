@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../localization/app_strings.dart';
 import '../services/haptics.dart';
 import '../state/app_controller.dart';
+import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
 
@@ -12,6 +13,7 @@ class LocalDataScreen extends StatelessWidget {
   Future<void> _clearData(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
+      animationStyle: AppMotion.animationStyle(context),
       builder: (context) => AlertDialog(
         title: Text(context.strings.t('clearLocalData')),
         content: Text(context.strings.t('clearLocalDataBody')),

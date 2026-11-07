@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'localization/app_strings.dart';
 import 'screens/home_shell.dart';
 import 'state/app_controller.dart';
+import 'theme/app_motion.dart';
 import 'theme/app_theme.dart';
 
 class BreathnoteApp extends StatefulWidget {
@@ -40,7 +41,7 @@ class _BreathnoteAppState extends State<BreathnoteApp> {
         builder: (context, _) {
           final animationDuration = _controller.reduceMotion
               ? Duration.zero
-              : const Duration(milliseconds: 240);
+              : AppMotion.base;
           return MaterialApp(
             debugShowCheckedModeBanner: false,
             onGenerateTitle: (context) => context.strings.t('appTitle'),

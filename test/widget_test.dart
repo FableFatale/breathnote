@@ -4,7 +4,10 @@ import 'package:breathnote/src/app.dart';
 import 'package:breathnote/src/models/song.dart';
 import 'package:breathnote/src/services/preferences_service.dart';
 import 'package:breathnote/src/state/app_controller.dart';
+import 'package:breathnote/src/theme/app_motion.dart';
+import 'package:breathnote/src/widgets/motion_widgets.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _DelayedPreferencesService extends PreferencesService {
@@ -36,6 +39,13 @@ Future<void> pumpBreathnote(
 }
 
 void main() {
+  test('uses the verified Figma motion timings', () {
+    expect(AppMotion.fast, const Duration(milliseconds: 160));
+    expect(AppMotion.base, const Duration(milliseconds: 240));
+    expect(AppMotion.slow, const Duration(milliseconds: 420));
+    expect(AppMotion.breathing, const Duration(milliseconds: 2400));
+  });
+
   test('parses valid custom harmonica notation', () {
     final notes = parseHarmonicaTabs('4↑ 4↓ | 5↑，6↓');
 
@@ -46,6 +56,10 @@ void main() {
   testWidgets('opens all four main navigation destinations', (tester) async {
     await pumpBreathnote(tester);
 
+    expect(
+      tester.widget<AnimatedTabStack>(find.byType(AnimatedTabStack)).duration,
+      AppMotion.base,
+    );
     expect(find.text('学习路径'), findsOneWidget);
 
     await tester.tap(find.text('曲谱'));
@@ -267,5 +281,70 @@ void main() {
     expect(find.byKey(const Key('practice-primary-control')), findsOneWidget);
     expect(find.text('目标音'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('practice listening motion follows reduced-motion setting', (
+    tester,
+  ) async {
+    const audioChannel = MethodChannel('app.breathnote/audio_control');
+    const pitchChannel = MethodChannel('app.breathnote/pitch_events');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(audioChannel, (call) async {
+      return switch (call.method) {
+        'requestMicrophonePermission' => 'granted',
+        'startPitchDetection' => true,
+        _ => null,
+      };
+    });
+    messenger.setMockMethodCallHandler(pitchChannel, (_) async => null);
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(audioChannel, null);
+      messenger.setMockMethodCallHandler(pitchChannel, null);
+    });
+
+    final preferences = _DelayedPreferencesService(
+      Completer<Map<String, Object?>>()..complete(const {}),
+    );
+    final controller = AppController(preferences: preferences);
+    addTearDown(controller.dispose);
+    await pumpBreathnote(tester, controller: controller);
+    await tester.tap(find.text('吹响第一个音').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('practice-primary-control')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+
+    expect(find.byKey(const Key('breathing-pulse-ring')), findsOneWidget);
+    final stageProgress = find.byKey(const Key('practice-stage-progress'));
+    expect(
+      find.descendant(
+        of: stageProgress,
+        matching: find.byIcon(Icons.check_rounded),
+      ),
+      findsNWidgets(2),
+    );
+
+    await controller.setReduceMotion(true);
+    await tester.pump();
+
+    expect(find.byKey(const Key('breathing-pulse-ring')), findsNothing);
+    expect(
+      tester
+          .widget<AnimatedSwitcher>(
+            find
+                .descendant(
+                  of: find.byKey(const Key('practice-primary-control')),
+                  matching: find.byType(AnimatedSwitcher),
+                )
+                .first,
+          )
+          .duration,
+      Duration.zero,
+    );
+
+    await tester.tap(find.byKey(const Key('practice-primary-control')));
+    await tester.pump();
   });
 }
