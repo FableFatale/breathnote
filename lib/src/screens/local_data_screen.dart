@@ -112,10 +112,10 @@ class LocalDataScreen extends StatelessWidget {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () => _clearData(context),
-              icon: Icon(Icons.delete_outline_rounded, color: palette.danger),
+              icon: Icon(Icons.delete_outline_rounded, color: palette.muted),
               label: Text(
                 context.strings.t('clearAllLocalData'),
-                style: TextStyle(color: palette.danger),
+                style: TextStyle(color: palette.muted),
               ),
             ),
           ),

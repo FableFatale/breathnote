@@ -54,7 +54,9 @@ class _PracticeScreenState extends State<PracticeScreen>
   PitchReading _reading = const PitchReading.silent();
   _PracticeStatus _status = _PracticeStatus.idle;
   DateTime? _stableSince;
-  DateTime? _startedAt;
+  DateTime? _listeningStartedAt;
+  Duration _activePracticeDuration = Duration.zero;
+  DateTime? _lastSampleAt;
   String? _errorMessage;
   bool _completed = false;
   bool _guidePlaying = false;
@@ -122,13 +124,7 @@ class _PracticeScreenState extends State<PracticeScreen>
   Future<void> _beginListening() async {
     _subscription ??= _pitchService.readings.listen(
       _onReading,
-      onError: (Object _) {
-        if (!mounted) return;
-        setState(() {
-          _status = _PracticeStatus.error;
-          _errorMessage = context.strings.t('microphoneReadError');
-        });
-      },
+      onError: (Object _) => unawaited(_handleReadingError()),
     );
     final started = await _pitchService.start(
       sensitivity: AppScope.of(context).microphoneSensitivity,
@@ -139,23 +135,42 @@ class _PracticeScreenState extends State<PracticeScreen>
       _errorMessage = started
           ? null
           : context.strings.t('microphoneSettingsError');
-      _startedAt ??= DateTime.now();
+      if (started) _listeningStartedAt ??= DateTime.now();
     });
     if (started) await AppHaptics.light(context);
   }
 
   Future<void> _stopListening() async {
+    _pausePracticeTimer();
     await _pitchService.stop();
     if (!mounted) return;
     setState(() {
       _status = _PracticeStatus.idle;
       _reading = const PitchReading.silent();
       _stableSince = null;
+      _lastSampleAt = null;
+    });
+  }
+
+  Future<void> _handleReadingError() async {
+    _guideTimer?.cancel();
+    _pausePracticeTimer();
+    await Future.wait([_pitchService.stop(), _guideToneService.stop()]);
+    if (!mounted || _completed) return;
+    setState(() {
+      _status = _PracticeStatus.error;
+      _guidePlaying = false;
+      _resumeAfterGuide = false;
+      _reading = const PitchReading.silent();
+      _stableSince = null;
+      _lastSampleAt = null;
+      _errorMessage = context.strings.t('microphoneReadError');
     });
   }
 
   Future<void> _stopAll({required bool resetStatus}) async {
     _guideTimer?.cancel();
+    _pausePracticeTimer();
     await Future.wait([_pitchService.stop(), _guideToneService.stop()]);
     if (!mounted) return;
     setState(() {
@@ -163,6 +178,7 @@ class _PracticeScreenState extends State<PracticeScreen>
       _resumeAfterGuide = false;
       _reading = const PitchReading.silent();
       _stableSince = null;
+      _lastSampleAt = null;
       if (resetStatus && !_completed) _status = _PracticeStatus.idle;
     });
   }
@@ -175,6 +191,18 @@ class _PracticeScreenState extends State<PracticeScreen>
     );
     final matches = reading.detected && cents.abs() <= 25;
     final now = DateTime.now();
+    if (reading.detected &&
+        (_lastSampleAt == null ||
+            now.difference(_lastSampleAt!).inMilliseconds >= 500)) {
+      _lastSampleAt = now;
+      unawaited(
+        AppScope.of(context).recordPitchAttempt(
+          tab: widget.target.tab,
+          reading: reading,
+          cents: cents,
+        ),
+      );
+    }
     if (matches) {
       _stableSince ??= now;
       if (now.difference(_stableSince!).inMilliseconds >= 450) {
@@ -190,19 +218,15 @@ class _PracticeScreenState extends State<PracticeScreen>
   Future<void> _complete(double cents) async {
     if (_completed) return;
     _completed = true;
+    _pausePracticeTimer();
     _score = (100 - cents.abs() * 1.2).round().clamp(0, 100).toInt();
-    final seconds = _startedAt == null
-        ? 1
-        : DateTime.now()
-              .difference(_startedAt!)
-              .inSeconds
-              .clamp(1, 3600)
-              .toInt();
+    final seconds = _activePracticeDuration.inSeconds.clamp(0, 3600).toInt();
     await Future.wait([
       _pitchService.stop(),
       _guideToneService.stop(),
       AppScope.of(context).markLessonComplete(widget.lessonId),
-      AppScope.of(context).recordPractice(seconds: seconds, score: _score),
+      AppScope.of(context)
+          .recordPractice(seconds: seconds == 0 ? 1 : seconds, score: _score),
     ]);
     if (!mounted) return;
     await AppHaptics.success(context);
@@ -221,13 +245,17 @@ class _PracticeScreenState extends State<PracticeScreen>
     }
 
     _resumeAfterGuide = _status == _PracticeStatus.listening;
-    if (_resumeAfterGuide) await _pitchService.stop();
+    if (_resumeAfterGuide) {
+      _pausePracticeTimer();
+      await _pitchService.stop();
+    }
     if (!mounted) return;
     setState(() {
       _guidePlaying = true;
       _status = _PracticeStatus.idle;
       _reading = const PitchReading.silent();
       _stableSince = null;
+      _lastSampleAt = null;
       _errorMessage = null;
     });
 
@@ -294,7 +322,9 @@ class _PracticeScreenState extends State<PracticeScreen>
     setState(() {
       _completed = false;
       _score = 0;
-      _startedAt = null;
+      _listeningStartedAt = null;
+      _activePracticeDuration = Duration.zero;
+      _lastSampleAt = null;
       _errorMessage = null;
     });
   }
@@ -314,6 +344,13 @@ class _PracticeScreenState extends State<PracticeScreen>
       return;
     }
     await _requestAndStart();
+  }
+
+  void _pausePracticeTimer() {
+    final startedAt = _listeningStartedAt;
+    if (startedAt == null) return;
+    _activePracticeDuration += DateTime.now().difference(startedAt);
+    _listeningStartedAt = null;
   }
 
   @override
@@ -456,14 +493,19 @@ class _PracticeScreenState extends State<PracticeScreen>
                   const SizedBox(height: 38),
                   HarmonicaDiagram(activeTab: widget.target.tab),
                   const SizedBox(height: 26),
-                  _UpcomingNotes(activeTab: widget.target.tab),
+                  _UpcomingNotes(
+                    activeTab: widget.target.tab,
+                    tabs: widget.lessonId == 'lesson_2'
+                        ? songs.first.notes.map((note) => note.tab).toList()
+                        : List.filled(7, widget.target.tab),
+                  ),
                   const SizedBox(height: 34),
                   _GuidanceTile(
                     icon: _guidanceIcon,
                     title: _guidanceTitle(note, cents),
                     detail: _guidanceDetail,
                     color: _guidanceColor(palette, cents),
-                    onTap: _completed ? null : _toggleGuide,
+                    onTap: _completed ? null : _guidanceAction,
                   ),
                   if (_errorMessage != null) ...[
                     const SizedBox(height: 12),
@@ -492,7 +534,8 @@ class _PracticeScreenState extends State<PracticeScreen>
               speed: _guideSpeed,
               loop: _guideLoop,
               completed: _completed,
-              active: _guidePlaying || _status == _PracticeStatus.listening,
+              guidePlaying: _guidePlaying,
+              listening: _status == _PracticeStatus.listening,
               waiting: _status == _PracticeStatus.requestingPermission,
               onSpeed: _completed ? _restart : _toggleSpeed,
               onPrimary: _handlePrimaryAction,
@@ -524,7 +567,17 @@ class _PracticeScreenState extends State<PracticeScreen>
         _status == _PracticeStatus.error) {
       return Icons.mic_off_rounded;
     }
-    return Icons.multiline_chart_rounded;
+    return Icons.volume_up_rounded;
+  }
+
+  VoidCallback get _guidanceAction {
+    if (_status == _PracticeStatus.permanentlyDenied) {
+      return _pitchService.openAppSettings;
+    }
+    if (_status == _PracticeStatus.denied || _status == _PracticeStatus.error) {
+      return _requestAndStart;
+    }
+    return _toggleGuide;
   }
 
   String _guidanceTitle(String note, double cents) {
@@ -548,7 +601,7 @@ class _PracticeScreenState extends State<PracticeScreen>
       return strings.t('grantMicrophoneAgain');
     }
     if (_status == _PracticeStatus.error) return strings.t('commonRetry');
-    return strings.t('playTargetNote', {'note': note});
+    return strings.t('hearGuideNote', {'note': note});
   }
 
   String get _guidanceDetail {
@@ -560,6 +613,15 @@ class _PracticeScreenState extends State<PracticeScreen>
         return strings.t('keepThisPitch');
       }
       return strings.t('waitingStablePitch');
+    }
+    if (_status == _PracticeStatus.permanentlyDenied) {
+      return strings.t('openSettingsForMicrophone');
+    }
+    if (_status == _PracticeStatus.denied) {
+      return strings.t('allowMicrophoneToPractice');
+    }
+    if (_status == _PracticeStatus.error) {
+      return strings.t('microphoneUnavailable');
     }
     return widget.instruction.isEmpty
         ? strings.t('tapPlayToStart')
@@ -600,7 +662,10 @@ class _StageProgress extends StatelessWidget {
         ? strings.t('stageFollow')
         : strings.t('stageSingle');
     return Semantics(
-      label: '$activeLabel, $currentStage / 3',
+      label: strings.t('stageProgress', {
+        'stage': activeLabel,
+        'current': currentStage,
+      }),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -726,21 +791,21 @@ class _StageLine extends StatelessWidget {
 }
 
 class _UpcomingNotes extends StatelessWidget {
-  const _UpcomingNotes({required this.activeTab});
+  const _UpcomingNotes({required this.activeTab, required this.tabs});
 
   final String activeTab;
+  final List<String> tabs;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.colors;
-    final preview = songs.first.notes;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: List.generate(preview.length, (index) {
-        final note = preview[index];
-        final active = index == 1 && note.tab == activeTab;
-        final direction = note.tab.contains('↓') ? '↓' : '↑';
-        final hole = note.tab.replaceAll(RegExp(r'[^0-9]'), '');
+      children: List.generate(tabs.length, (index) {
+        final tab = tabs[index];
+        final active = index == 1 && tab == activeTab;
+        final direction = tab.contains('↓') ? '↓' : '↑';
+        final hole = tab.replaceAll(RegExp(r'[^0-9]'), '');
         return Opacity(
           opacity: index == 0 ? 0.35 : 1,
           child: Column(
@@ -796,62 +861,65 @@ class _GuidanceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.colors;
-    return Material(
-      color: palette.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: palette.outline),
-      ),
-      elevation: Theme.of(context).brightness == Brightness.light ? 1 : 0,
-      shadowColor: const Color(0x242A2118),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 72),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
-              children: [
-                TweenAnimationBuilder<Color?>(
-                  tween: ColorTween(end: color),
-                  duration: AppMotion.duration(context, AppMotion.fast),
-                  builder: (context, animatedColor, _) {
-                    return AnimatedSwitcher(
-                      duration: AppMotion.duration(context, AppMotion.fast),
-                      child: Icon(
-                        icon,
-                        key: ValueKey(icon),
-                        color: animatedColor,
-                        size: 22,
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontSize: 14),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        detail,
-                        style: Theme.of(context).textTheme.bodySmall
-                            ?.copyWith(fontSize: 11),
-                      ),
-                    ],
+    return Semantics(
+      button: onTap != null,
+      label: title,
+      child: Material(
+        color: palette.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: palette.outline),
+        ),
+        elevation: 0,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 72),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                children: [
+                  TweenAnimationBuilder<Color?>(
+                    tween: ColorTween(end: color),
+                    duration: AppMotion.duration(context, AppMotion.fast),
+                    builder: (context, animatedColor, _) {
+                      return AnimatedSwitcher(
+                        duration: AppMotion.duration(context, AppMotion.fast),
+                        child: Icon(
+                          icon,
+                          key: ValueKey(icon),
+                          color: animatedColor,
+                          size: 22,
+                        ),
+                      );
+                    },
                   ),
-                ),
-                if (onTap != null) ...[
-                  const SizedBox(width: 8),
-                  Icon(Icons.chevron_right_rounded, color: palette.accent),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontSize: 14),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          detail,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (onTap != null) ...[
+                    const SizedBox(width: 8),
+                    Icon(Icons.chevron_right_rounded, color: palette.accent),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -865,7 +933,8 @@ class _ControlDock extends StatelessWidget {
     required this.speed,
     required this.loop,
     required this.completed,
-    required this.active,
+    required this.guidePlaying,
+    required this.listening,
     required this.waiting,
     required this.onSpeed,
     required this.onPrimary,
@@ -875,7 +944,8 @@ class _ControlDock extends StatelessWidget {
   final double speed;
   final bool loop;
   final bool completed;
-  final bool active;
+  final bool guidePlaying;
+  final bool listening;
   final bool waiting;
   final VoidCallback onSpeed;
   final VoidCallback onPrimary;
@@ -887,7 +957,7 @@ class _ControlDock extends StatelessWidget {
     final strings = context.strings;
     final speedLabel = speed == 1 ? '1×' : '0.5×';
     return Container(
-      height: 88,
+      height: 98,
       decoration: BoxDecoration(
         color: palette.surfaceHigh,
         borderRadius: BorderRadius.circular(24),
@@ -904,47 +974,76 @@ class _ControlDock extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          BreathingPulse(
-            active: active && !waiting && !completed,
-            color: palette.primary,
-            child: Semantics(
-              button: true,
-              label: completed
-                  ? strings.t('commonDone')
-                  : active
-                  ? strings.t('stopListening')
-                  : strings.t('startPractice'),
-              child: FilledButton(
-                key: const Key('practice-primary-control'),
-                onPressed: waiting ? null : onPrimary,
-                style: FilledButton.styleFrom(
-                  fixedSize: const Size(64, 64),
-                  padding: EdgeInsets.zero,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              BreathingPulse(
+                active: listening && !waiting && !completed,
+                color: palette.primary,
+                child: Semantics(
+                  button: true,
+                  label: completed
+                      ? strings.t('commonDone')
+                      : guidePlaying
+                      ? strings.t('stopGuide')
+                      : listening
+                      ? strings.t('stopListening')
+                      : strings.t('startPractice'),
+                  child: FilledButton(
+                    key: const Key('practice-primary-control'),
+                    onPressed: waiting ? null : onPrimary,
+                    style: FilledButton.styleFrom(
+                      fixedSize: const Size(56, 56),
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    child: AnimatedSwitcher(
+                      duration: AppMotion.duration(context, AppMotion.fast),
+                      child: waiting
+                          ? const SizedBox(
+                              key: ValueKey('waiting'),
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Icon(
+                              completed
+                                  ? Icons.check_rounded
+                                  : guidePlaying || listening
+                                  ? Icons.stop_rounded
+                                  : Icons.mic_rounded,
+                              key: ValueKey((
+                                completed,
+                                guidePlaying,
+                                listening,
+                              )),
+                              size: 28,
+                            ),
+                    ),
                   ),
                 ),
-                child: AnimatedSwitcher(
-                  duration: AppMotion.duration(context, AppMotion.fast),
-                  child: waiting
-                      ? const SizedBox(
-                          key: ValueKey('waiting'),
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Icon(
-                          completed
-                              ? Icons.check_rounded
-                              : active
-                              ? Icons.stop_rounded
-                              : Icons.play_arrow_rounded,
-                          key: ValueKey((completed, active)),
-                          size: 30,
-                        ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                completed
+                    ? strings.t('commonDone')
+                    : guidePlaying
+                    ? strings.t('stopGuide')
+                    : listening
+                    ? strings.t('stopPractice')
+                    : strings.t('startPractice'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: palette.primary,
+                  fontSize: 10,
+                  height: 1.2,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-            ),
+            ],
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -979,35 +1078,47 @@ class _DockButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return TweenAnimationBuilder<Color?>(
-      tween: ColorTween(end: color),
-      duration: AppMotion.duration(context, AppMotion.fast),
-      builder: (context, animatedColor, _) {
-        return InkResponse(
-          onTap: onTap,
-          radius: 36,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 64, minHeight: 64),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: animatedColor, size: 25),
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: animatedColor,
-                    fontSize: 11,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+    return Semantics(
+      button: onTap != null,
+      selected: selected,
+      label: label,
+      child: TweenAnimationBuilder<Color?>(
+        tween: ColorTween(end: color),
+        duration: AppMotion.duration(context, AppMotion.fast),
+        builder: (context, animatedColor, _) {
+          return InkResponse(
+            onTap: onTap,
+            radius: 36,
+            child: AnimatedContainer(
+              duration: AppMotion.duration(context, AppMotion.fast),
+              constraints: const BoxConstraints(minWidth: 64, minHeight: 64),
+              decoration: BoxDecoration(
+                color: selected
+                    ? context.colors.primary.withValues(alpha: 0.10)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: animatedColor, size: 25),
+                  const SizedBox(height: 4),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: animatedColor,
+                      fontSize: 11,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

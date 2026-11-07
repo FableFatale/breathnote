@@ -33,9 +33,10 @@ class _SongsScreenState extends State<SongsScreen> {
     final appController = AppScope.of(context);
     unawaited(AppHaptics.selection(context));
 
-    final titleController = TextEditingController();
-    final notationController = TextEditingController();
-    String? validationMessage;
+    var titleValue = '';
+    var notationValue = '';
+    String? titleError;
+    String? notationError;
     final song = await showModalBottomSheet<Song>(
       context: context,
       isScrollControlled: true,
@@ -48,7 +49,7 @@ class _SongsScreenState extends State<SongsScreen> {
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return SafeArea(
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: EdgeInsets.fromLTRB(
                   20,
                   4,
@@ -71,63 +72,62 @@ class _SongsScreenState extends State<SongsScreen> {
                     const SizedBox(height: 16),
                     TextField(
                       key: const Key('custom-song-title'),
-                      controller: titleController,
                       textInputAction: TextInputAction.next,
+                      onChanged: (value) {
+                        titleValue = value;
+                        if (titleError != null) {
+                          setSheetState(() => titleError = null);
+                        }
+                      },
                       decoration: InputDecoration(
                         labelText: context.strings.t('songName'),
                         hintText: context.strings.t('songNameHint'),
+                        errorText: titleError,
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextField(
                       key: const Key('custom-song-notation'),
-                      controller: notationController,
                       minLines: 3,
                       maxLines: 5,
+                      onChanged: (value) {
+                        notationValue = value;
+                        if (notationError != null) {
+                          setSheetState(() => notationError = null);
+                        }
+                      },
                       decoration: InputDecoration(
                         labelText: context.strings.t('numberNotation'),
                         hintText: '4↑ 4↑ 6↑ 6↑ 6↓ 6↓ 6↑',
+                        errorText: notationError,
                       ),
                     ),
-                    if (validationMessage != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        validationMessage!,
-                        style: TextStyle(color: context.colors.danger),
-                      ),
-                    ],
                     const SizedBox(height: 18),
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
                         key: const Key('save-custom-song'),
                         onPressed: () async {
-                          final title = titleController.text.trim();
+                          final title = titleValue.trim();
                           if (title.isEmpty) {
                             setSheetState(() {
-                              validationMessage = context.strings.t(
-                                'enterSongName',
-                              );
+                              titleError = context.strings.t('enterSongName');
                             });
                             return;
                           }
                           try {
                             final created = await appController.addCustomSong(
                               title: title,
-                              notation: notationController.text,
+                              notation: notationValue,
                             );
                             if (!sheetContext.mounted) return;
                             Navigator.of(sheetContext).pop(created);
                           } on HarmonicaTabFormatException catch (error) {
                             unawaited(AppHaptics.warning(context));
                             setSheetState(() {
-                              validationMessage = context.strings.t(
-                                error.code,
-                                {
-                                  if (error.token != null)
-                                    'token': error.token!,
-                                },
-                              );
+                              notationError = context.strings.t(error.code, {
+                                if (error.token != null) 'token': error.token!,
+                              });
                             });
                           }
                         },
@@ -187,15 +187,13 @@ class _SongsScreenState extends State<SongsScreen> {
     final visible = controller.allSongs.where((song) {
       final filterMatches =
           _filter == 'all' ||
-          (_filter == 'easy' && song.level == '简单') ||
-          (_filter == 'advanced' && song.level == '进阶');
+          (_filter == 'easy' && song.level == 'easy') ||
+          (_filter == 'advanced' && song.level == 'advanced');
       final query = _query.toLowerCase();
       final localizedTitle = context.strings
           .songTitle(song.id, song.title)
           .toLowerCase();
-      final localizedSubtitle = context.strings
-          .songSubtitle(song.id, song.subtitle)
-          .toLowerCase();
+      final localizedSubtitle = context.strings.t(song.subtitle).toLowerCase();
       final queryMatches =
           song.title.toLowerCase().contains(query) ||
           song.subtitle.toLowerCase().contains(query) ||
@@ -329,86 +327,88 @@ class _SongTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.colors;
-    return Card(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(13),
-          child: Row(
-            children: [
-              Container(
-                width: 58,
-                height: 68,
-                decoration: BoxDecoration(
-                  color: song.color,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.music_note_rounded,
-                  color: Colors.white,
-                  size: 29,
-                ),
-              ),
-              const SizedBox(width: 13),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            context.strings.songTitle(song.id, song.title),
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ),
-                        if (song.isCustom)
-                          Pill(
-                            label: context.strings.t('custom'),
-                            color: palette.surfaceHigh,
-                            foreground: palette.accentInk,
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      song.isCustom
-                          ? context.strings.t('customSongSubtitle')
-                          : context.strings.songSubtitle(
-                              song.id,
-                              song.subtitle,
-                            ),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      song.tabPreview,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: palette.primary,
-                        fontSize: 12,
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (onDelete != null)
-                IconButton(
-                  tooltip: context.strings.t('deleteSongTooltip', {
-                    'title': song.title,
-                  }),
-                  onPressed: onDelete,
-                  icon: Icon(
-                    Icons.delete_outline_rounded,
-                    color: palette.danger,
+    final title = context.strings.songTitle(song.id, song.title);
+    return Semantics(
+      button: true,
+      label: context.strings.t('openSong', {'title': title}),
+      child: Card(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(13),
+            child: Row(
+              children: [
+                Container(
+                  width: 58,
+                  height: 68,
+                  decoration: BoxDecoration(
+                    color: song.color,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                )
-              else
-                Icon(Icons.chevron_right_rounded, color: palette.muted),
-            ],
+                  child: const Icon(
+                    Icons.music_note_rounded,
+                    color: Colors.white,
+                    size: 29,
+                  ),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ),
+                          if (song.isCustom)
+                            Pill(
+                              label: context.strings.t('custom'),
+                              color: palette.surfaceHigh,
+                              foreground: palette.accentInk,
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        song.isCustom
+                            ? context.strings.t('customSongSubtitle')
+                            : context.strings.t(song.subtitle),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        song.tabPreview,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: palette.primary,
+                          fontSize: 12,
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (onDelete != null)
+                  IconButton(
+                    tooltip: context.strings.t('deleteSongTooltip', {
+                      'title': song.title,
+                    }),
+                    onPressed: onDelete,
+                    icon: Icon(
+                      Icons.delete_outline_rounded,
+                      color: palette.muted,
+                    ),
+                  )
+                else
+                  Icon(Icons.chevron_right_rounded, color: palette.muted),
+              ],
+            ),
           ),
         ),
       ),

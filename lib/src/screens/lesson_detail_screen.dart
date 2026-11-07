@@ -60,19 +60,19 @@ class LessonDetailScreen extends StatelessWidget {
             detail: context.strings.t('holdNaturallyDetail'),
             color: palette.primary,
           ),
-          const SizedBox(height: 10),
+          Divider(height: 1, color: palette.outline),
           _Instruction(
             number: '2',
             title: context.strings.t('relaxLips'),
             detail: context.strings.t('relaxLipsDetail'),
-            color: palette.accentInk,
+            color: palette.primary,
           ),
-          const SizedBox(height: 10),
+          Divider(height: 1, color: palette.outline),
           _Instruction(
             number: '3',
             title: context.strings.t('bellyBreathing'),
             detail: context.strings.t('bellyBreathingDetail'),
-            color: palette.success,
+            color: palette.primary,
           ),
           const SizedBox(height: 24),
           SizedBox(
@@ -104,38 +104,36 @@ class _Instruction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                number,
-                style: TextStyle(color: color, fontWeight: FontWeight.w800),
-              ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 4),
-                  Text(detail, style: Theme.of(context).textTheme.bodySmall),
-                ],
-              ),
+            child: Text(
+              number,
+              style: TextStyle(color: color, fontWeight: FontWeight.w800),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 4),
+                Text(detail, style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

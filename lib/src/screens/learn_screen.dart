@@ -393,79 +393,89 @@ class _PracticeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.colors;
     final strings = context.strings;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: onStart,
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Pill(
-                    label: strings.t('lessonLabel', {'number': lesson.number}),
-                    color: palette.primary.withValues(alpha: 0.10),
-                    foreground: palette.primary,
-                  ),
-                  const Spacer(),
-                  Text(
-                    strings.t('aboutMinutes', {'count': lesson.minutes}),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          strings.lessonTitle(lesson.id),
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                        const SizedBox(height: 7),
-                        Text(
-                          strings.lessonDetail(lesson.id),
-                          style: TextStyle(color: palette.muted),
-                        ),
-                      ],
+    final title = strings.lessonTitle(lesson.id);
+    return Semantics(
+      button: true,
+      label: strings.t('openLesson', {'title': title}),
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: onStart,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 6,
+                  children: [
+                    Pill(
+                      label: strings.t('lessonLabel', {
+                        'number': lesson.number,
+                      }),
+                      color: palette.primary.withValues(alpha: 0.10),
+                      foreground: palette.primary,
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton(
-                    onPressed: onStart,
-                    style: FilledButton.styleFrom(
-                      fixedSize: const Size(56, 56),
-                      padding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
+                    Text(
+                      strings.t('aboutMinutes', {'count': lesson.minutes}),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: Theme.of(context).textTheme.headlineSmall,
+                          ),
+                          const SizedBox(height: 7),
+                          Text(
+                            strings.lessonDetail(lesson.id),
+                            style: TextStyle(color: palette.muted),
+                          ),
+                        ],
                       ),
                     ),
-                    child: const Icon(Icons.play_arrow_rounded, size: 30),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 22),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(999),
-                child: MotionLinearProgress(
-                  value: progress,
-                  minHeight: 4,
-                  backgroundColor: palette.surfaceHigh,
-                  color: palette.accent,
+                    const SizedBox(width: 12),
+                    FilledButton(
+                      onPressed: onStart,
+                      style: FilledButton.styleFrom(
+                        fixedSize: const Size(56, 56),
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      child: const Icon(Icons.play_arrow_rounded, size: 30),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                strings.t('completedPercent', {'percent': progressPercent}),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+                const SizedBox(height: 22),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: MotionLinearProgress(
+                    value: progress,
+                    minHeight: 4,
+                    backgroundColor: palette.surfaceHigh,
+                    color: palette.accent,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  strings.t('completedPercent', {'percent': progressPercent}),
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -499,119 +509,140 @@ class _TimelineLesson extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        child: SizedBox(
-          height: 104,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SizedBox(
-                width: 48,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    if (!first)
-                      Positioned(
-                        left: 23,
-                        top: 0,
-                        height: 33,
-                        child: Container(width: 1, color: palette.outline),
-                      ),
-                    if (!last)
-                      Positioned(
-                        left: 23,
-                        top: 71,
-                        bottom: 0,
-                        child: Container(width: 1, color: palette.outline),
-                      ),
-                    AnimatedContainer(
-                      duration: AppMotion.duration(context, AppMotion.base),
-                      curve: AppMotion.standardCurve,
-                      width: 40,
-                      height: 40,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: complete
-                            ? palette.success.withValues(alpha: 0.10)
-                            : active
-                            ? palette.primary.withValues(alpha: 0.06)
-                            : palette.background,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: complete
-                              ? palette.success
-                              : active
-                              ? palette.primary
-                              : palette.outline,
-                        ),
-                      ),
-                      child: AnimatedSwitcher(
-                        duration: AppMotion.duration(context, AppMotion.fast),
-                        child: complete
-                            ? Icon(
-                                Icons.check_rounded,
-                                key: const ValueKey('complete'),
-                                color: palette.success,
-                                size: 20,
-                              )
-                            : Text(
-                                lesson.number,
-                                key: ValueKey(active),
-                                style: TextStyle(
-                                  color: active
-                                      ? palette.primary
-                                      : palette.muted,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 104),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  width: 48,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Positioned.fill(
+                        child: Column(
+                          children: [
+                            Expanded(
+                              child: Center(
+                                child: SizedBox(
+                                  width: 1,
+                                  height: double.infinity,
+                                  child: ColoredBox(
+                                    color: first
+                                        ? Colors.transparent
+                                        : palette.outline,
+                                  ),
                                 ),
                               ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: last
-                        ? null
-                        : Border(bottom: BorderSide(color: palette.outline)),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              strings.lessonTitle(lesson.id),
-                              style: Theme.of(context).textTheme.titleMedium,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              strings.lessonDetail(lesson.id),
-                              style: Theme.of(context).textTheme.bodySmall,
+                            const SizedBox(height: 40),
+                            Expanded(
+                              child: Center(
+                                child: SizedBox(
+                                  width: 1,
+                                  height: double.infinity,
+                                  child: ColoredBox(
+                                    color: last
+                                        ? Colors.transparent
+                                        : palette.outline,
+                                  ),
+                                ),
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        strings.t('commonMinutes', {'count': lesson.minutes}),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(width: 2),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: palette.muted,
-                        size: 21,
+                      AnimatedContainer(
+                        duration: AppMotion.duration(context, AppMotion.base),
+                        curve: AppMotion.standardCurve,
+                        width: 40,
+                        height: 40,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: complete
+                              ? palette.success.withValues(alpha: 0.10)
+                              : active
+                              ? palette.primary.withValues(alpha: 0.06)
+                              : palette.background,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: complete
+                                ? palette.success
+                                : active
+                                ? palette.primary
+                                : palette.outline,
+                          ),
+                        ),
+                        child: AnimatedSwitcher(
+                          duration: AppMotion.duration(context, AppMotion.fast),
+                          child: complete
+                              ? Icon(
+                                  Icons.check_rounded,
+                                  key: const ValueKey('complete'),
+                                  color: palette.success,
+                                  size: 20,
+                                )
+                              : Text(
+                                  lesson.number,
+                                  key: ValueKey(active),
+                                  style: TextStyle(
+                                    color: active
+                                        ? palette.primary
+                                        : palette.muted,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: last
+                          ? null
+                          : Border(bottom: BorderSide(color: palette.outline)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                strings.lessonTitle(lesson.id),
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                strings.lessonDetail(lesson.id),
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          strings.t('commonMinutes', {'count': lesson.minutes}),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(width: 2),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: palette.muted,
+                          size: 21,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -1,14 +1,20 @@
 import 'dart:async';
 
 import 'package:breathnote/src/app.dart';
+import 'package:breathnote/src/localization/app_strings.dart';
 import 'package:breathnote/src/models/song.dart';
 import 'package:breathnote/src/services/preferences_service.dart';
+import 'package:breathnote/src/services/pitch_service.dart';
+import 'package:breathnote/src/screens/tuner_screen.dart';
 import 'package:breathnote/src/state/app_controller.dart';
 import 'package:breathnote/src/theme/app_motion.dart';
+import 'package:breathnote/src/theme/app_theme.dart';
 import 'package:breathnote/src/widgets/motion_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+const preferencesChannel = MethodChannel('app.breathnote/preferences');
 
 class _DelayedPreferencesService extends PreferencesService {
   _DelayedPreferencesService(this.values);
@@ -25,6 +31,63 @@ class _DelayedPreferencesService extends PreferencesService {
   }
 }
 
+class _DelayedSavePreferencesService extends _DelayedPreferencesService {
+  _DelayedSavePreferencesService()
+    : super(Completer<Map<String, Object?>>()..complete(const {}));
+
+  final Completer<void> saveGate = Completer<void>();
+
+  @override
+  Future<void> setValue(String key, Object value) async {
+    await saveGate.future;
+    await super.setValue(key, value);
+  }
+}
+
+class AudioErrorHarness {
+  const AudioErrorHarness(this.calls, this.emitError);
+
+  final List<String> calls;
+  final void Function() emitError;
+}
+
+AudioErrorHarness installAudioErrorHarness() {
+  const audioChannel = MethodChannel('app.breathnote/audio_control');
+  const pitchChannel = EventChannel('app.breathnote/pitch_events');
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  final calls = <String>[];
+  MockStreamHandlerEventSink? eventSink;
+
+  messenger.setMockMethodCallHandler(audioChannel, (call) async {
+    calls.add(call.method);
+    return switch (call.method) {
+      'requestMicrophonePermission' => 'granted',
+      'startPitchDetection' => true,
+      'playGuideSequence' => 1000,
+      _ => null,
+    };
+  });
+  messenger.setMockStreamHandler(
+    pitchChannel,
+    MockStreamHandler.inline(
+      onListen: (arguments, events) {
+        eventSink = events;
+      },
+    ),
+  );
+  addTearDown(() {
+    messenger.setMockMethodCallHandler(audioChannel, null);
+    messenger.setMockStreamHandler(pitchChannel, null);
+  });
+
+  return AudioErrorHarness(calls, () {
+    final sink = eventSink;
+    if (sink == null) throw StateError('Pitch stream was not started.');
+    sink.error(code: 'pitch_read_failed');
+  });
+}
+
 Future<void> pumpBreathnote(
   WidgetTester tester, {
   AppController? controller,
@@ -39,6 +102,23 @@ Future<void> pumpBreathnote(
 }
 
 void main() {
+  setUp(PitchService.resetForTesting);
+  setUp(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(preferencesChannel, (call) async {
+          return switch (call.method) {
+            'getAll' => <String, Object?>{},
+            'setValue' => null,
+            'clear' => null,
+            _ => null,
+          };
+        });
+  });
+  tearDown(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(preferencesChannel, null);
+  });
+
   test('uses the verified Figma motion timings', () {
     expect(AppMotion.fast, const Duration(milliseconds: 160));
     expect(AppMotion.base, const Duration(milliseconds: 240));
@@ -51,6 +131,120 @@ void main() {
 
     expect(notes.map((note) => note.tab), ['4↑', '4↓', '5↑', '6↓']);
     expect(() => parseHarmonicaTabs('4 5↑'), throwsFormatException);
+  });
+
+  test('groups pitch attempts into seven-day note accuracy', () {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    controller.pitchAttempts.addAll([
+      PitchAttempt(tab: '4↑', absoluteCents: 8, timestamp: DateTime.now()),
+      PitchAttempt(tab: '4↑', absoluteCents: 32, timestamp: DateTime.now()),
+      PitchAttempt(tab: '4↓', absoluteCents: 4, timestamp: DateTime.now()),
+    ]);
+
+    final accuracy = controller.weakNoteAccuracy();
+    expect(accuracy[3], 0.5);
+    expect(accuracy[13], 1);
+    expect(accuracy.whereType<double>(), hasLength(2));
+  });
+
+  test('repaints pitch dots when samples change at the same count', () {
+    expect(shouldRepaintPitchSamples([1, 2], [1, 3]), isTrue);
+    expect(shouldRepaintPitchSamples([1, 2], [1, 2]), isFalse);
+  });
+
+  test('uses the statistical median for an even sample count', () {
+    expect(pitchSampleMedian([-8, 4]), -2);
+    expect(pitchSampleMedian([-8, 0, 7]), 0);
+  });
+
+  test(
+    'stores locale-independent song metadata and natural guide labels',
+    () async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      final song = await controller.addCustomSong(
+        title: 'Morning',
+        notation: '4↑',
+      );
+
+      expect(song.level, 'custom');
+      expect(song.subtitle, 'customSongSubtitle');
+      expect(AppStrings('en').t(song.subtitle), 'Custom harmonica tabs');
+      expect(AppStrings('en').t('stopDemo'), 'Stop melody');
+      expect(AppStrings('ja').t('stopDemo'), 'メロディーを停止');
+    },
+  );
+
+  test(
+    'normalizes legacy local metadata to locale-independent values',
+    () async {
+      final preferences = _DelayedPreferencesService(
+        Completer<Map<String, Object?>>()..complete(const {
+          'displayName': AppController.legacyDefaultDisplayName,
+          'customSongs': '[{"id":"legacy","title":"Legacy","subtitle":"自定义曲谱","level":"自定义","notes":[{"note":"C","octave":5,"tab":"4↑"}]}]',
+        }),
+      );
+      final controller = AppController(preferences: preferences);
+      addTearDown(controller.dispose);
+      await controller.load();
+
+      expect(controller.displayName, AppController.defaultDisplayName);
+      expect(controller.customSongs.single.subtitle, 'customSongSubtitle');
+      expect(controller.customSongs.single.level, 'custom');
+    },
+  );
+
+  test('waits for custom-song storage before returning the song', () async {
+    final preferences = _DelayedSavePreferencesService();
+    final controller = AppController(preferences: preferences);
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    final pendingSong = controller.addCustomSong(
+      title: 'Morning',
+      notation: '4↑',
+    );
+    var returned = false;
+    unawaited(
+      pendingSong.then((_) {
+        returned = true;
+      }),
+    );
+
+    await Future<void>.delayed(Duration.zero);
+    expect(returned, isFalse);
+
+    preferences.saveGate.complete();
+    final song = await pendingSong;
+    expect(returned, isTrue);
+    expect(song.title, 'Morning');
+    expect(preferences.savedValues.containsKey('customSongs'), isTrue);
+  });
+
+  test('skips persisted custom songs with no notes', () async {
+    final preferences = _DelayedPreferencesService(
+      Completer<Map<String, Object?>>()..complete(const {
+        'customSongs':
+            '[{"id":"empty","title":"Empty","subtitle":"自定义曲谱","level":"自定义","notes":[]},'
+            '{"id":"valid","title":"Valid","subtitle":"自定义曲谱","level":"自定义","notes":[{"note":"C","octave":5,"tab":"4↑"}]}]',
+      }),
+    );
+    final controller = AppController(preferences: preferences);
+    addTearDown(controller.dispose);
+
+    await controller.load();
+
+    expect(controller.customSongs.map((song) => song.id), ['valid']);
+  });
+
+  test('counts only complete practice minutes', () {
+    final controller = AppController()..practiceSeconds = 59;
+    addTearDown(controller.dispose);
+
+    expect(controller.practiceMinutes, 0);
+    controller.practiceSeconds = 60;
+    expect(controller.practiceMinutes, 1);
   });
 
   testWidgets('opens all four main navigation destinations', (tester) async {
@@ -72,7 +266,7 @@ void main() {
     expect(find.text('检测灵敏度'), findsOneWidget);
     expect(find.text('开始调音'), findsOneWidget);
 
-    await tester.tap(find.text('我的'));
+    await tester.tap(find.text('设置'));
     await tester.pumpAndSettle();
     expect(find.text('口琴练习者'), findsOneWidget);
     expect(find.text('本机数据与隐私'), findsOneWidget);
@@ -96,7 +290,7 @@ void main() {
     expect(find.text('跟吹'), findsOneWidget);
     expect(find.byKey(const Key('practice-primary-control')), findsOneWidget);
     expect(find.text('循环'), findsOneWidget);
-    expect(find.text('吹出 F 音'), findsOneWidget);
+    expect(find.text('聆听 F 示例音'), findsOneWidget);
     expect(find.text('含住第 4 孔，轻轻吹气。不要用力，让气息自然流过。'), findsOneWidget);
   });
 
@@ -118,7 +312,7 @@ void main() {
     addTearDown(controller.dispose);
     await pumpBreathnote(tester, controller: controller);
 
-    await tester.tap(find.text('我的'));
+    await tester.tap(find.text('设置'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('edit-profile-name')));
     await tester.pumpAndSettle();
@@ -180,7 +374,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
-    await tester.tap(find.text('我的'));
+    await tester.tap(find.text('设置'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
@@ -195,7 +389,7 @@ void main() {
     addTearDown(controller.dispose);
     await pumpBreathnote(tester, controller: controller);
 
-    await tester.tap(find.text('我的'));
+    await tester.tap(find.text('设置'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('appearance-language-setting')));
     await tester.pumpAndSettle();
@@ -204,14 +398,18 @@ void main() {
 
     expect(controller.languageCode, 'en');
     expect(find.text('Theme'), findsWidgets);
-    expect(find.text('Profile'), findsOneWidget);
+    expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('Harmonica learner'), findsOneWidget);
+    expect(find.text('口琴练习者'), findsNothing);
 
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     await tester.tap(find.text('Learn'));
     await tester.pumpAndSettle();
-    expect(find.text('LEARNING PATH'), findsOneWidget);
+    expect(find.text('Learning path'), findsOneWidget);
     expect(find.text('Start with one breath'), findsOneWidget);
+    expect(find.text('LEARNING PATH'), findsNothing);
+    expect(find.text('TARGET NOTE'), findsNothing);
   });
 
   testWidgets('applies theme mode and shared microphone sensitivity', (
@@ -225,6 +423,10 @@ void main() {
 
     final context = tester.element(find.byType(Scaffold).first);
     expect(Theme.of(context).brightness, Brightness.dark);
+    expect(context.colors.background, const Color(0xFF18181A));
+    expect(context.colors.surface, const Color(0xFF222224));
+    expect(context.colors.primary, const Color(0xFF6FA8FF));
+    expect(context.colors.accent, const Color(0xFFF2B272));
 
     await tester.tap(find.text('调音'));
     await tester.pumpAndSettle();
@@ -259,6 +461,140 @@ void main() {
     await tester.drag(find.byType(Slider), const Offset(-120, 0));
     await tester.pumpAndSettle();
     expect(preferences.savedValues['microphoneSensitivity'], isA<double>());
+  });
+
+  testWidgets('uses native Japanese tuner wording', (tester) async {
+    final controller = AppController()..languageCode = 'ja';
+    addTearDown(controller.dispose);
+    await pumpBreathnote(tester, controller: controller);
+
+    await tester.tap(find.text('チューナー').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('チューナーを開始'), findsOneWidget);
+    expect(find.text('検出感度'), findsOneWidget);
+    expect(find.textContaining('調律'), findsNothing);
+  });
+
+  testWidgets('shows custom song metadata in the selected language', (
+    tester,
+  ) async {
+    final controller = AppController()..languageCode = 'en';
+    addTearDown(controller.dispose);
+    await controller.addCustomSong(title: 'Morning', notation: '4↑');
+    await pumpBreathnote(tester, controller: controller);
+
+    await tester.tap(find.text('Songs'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(SearchBar));
+    await tester.enterText(find.byType(TextField), 'Morning');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Morning'), findsWidgets);
+    expect(find.text('Custom harmonica tabs'), findsOneWidget);
+    expect(find.text('自定义曲谱'), findsNothing);
+  });
+
+  testWidgets('exposes clear lesson and song actions to accessibility', (
+    tester,
+  ) async {
+    await pumpBreathnote(tester);
+
+    expect(find.bySemanticsLabel('开始「认识你的口琴」'), findsOneWidget);
+    await tester.tap(find.text('曲谱'));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('练习「小星星」'), findsOneWidget);
+  });
+
+  testWidgets('keeps custom-song errors beside fields and clears them', (
+    tester,
+  ) async {
+    await pumpBreathnote(tester);
+    await tester.tap(find.text('曲谱'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('add-custom-song')));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const Key('save-custom-song')));
+    await tester.tap(find.byKey(const Key('save-custom-song')));
+    await tester.pump();
+    expect(find.text('请输入曲名。'), findsOneWidget);
+
+    await tester.enterText(find.byKey(const Key('custom-song-title')), '晨风');
+    await tester.pump();
+    expect(find.text('请输入曲名。'), findsNothing);
+
+    await tester.enterText(find.byKey(const Key('custom-song-notation')), '4');
+    await tester.ensureVisible(find.byKey(const Key('save-custom-song')));
+    await tester.tap(find.byKey(const Key('save-custom-song')));
+    await tester.pump();
+    expect(find.textContaining('无法识别'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('custom-song-notation')),
+      '4↑ 4↓',
+    );
+    await tester.pump();
+    expect(find.textContaining('无法识别'), findsNothing);
+  });
+
+  for (final locale in [('zh', '设置'), ('en', 'Settings'), ('ja', '設定')]) {
+    testWidgets('${locale.$1} fits a compact Android screen at 120% text', (
+      tester,
+    ) async {
+      final controller = AppController()
+        ..languageCode = locale.$1
+        ..textScale = 1.2;
+      addTearDown(controller.dispose);
+      await pumpBreathnote(
+        tester,
+        controller: controller,
+        size: const Size(360, 800),
+      );
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.text(locale.$2));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('tuner shows only analytics backed by real samples', (
+    tester,
+  ) async {
+    final controller = AppController();
+    controller.pitchAttempts.add(
+      PitchAttempt(tab: '4↑', absoluteCents: 30, timestamp: DateTime.now()),
+    );
+    addTearDown(controller.dispose);
+    await pumpBreathnote(tester, controller: controller);
+
+    await tester.tap(find.text('调音'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('tuner-segmented-arc')), findsOneWidget);
+    expect(find.byKey(const Key('tuner-session-distribution')), findsNothing);
+    expect(find.byKey(const Key('tuner-weak-note-map')), findsOneWidget);
+    expect(find.text('暂无数据'), findsNothing);
+  });
+
+  testWidgets('tuner reports when sampled notes have no weak areas', (
+    tester,
+  ) async {
+    final controller = AppController();
+    controller.pitchAttempts.add(
+      PitchAttempt(tab: '4↑', absoluteCents: 8, timestamp: DateTime.now()),
+    );
+    addTearDown(controller.dispose);
+    await pumpBreathnote(tester, controller: controller);
+
+    await tester.tap(find.text('调音'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('tuner-weak-note-map')), findsOneWidget);
+    expect(find.text('暂无薄弱音'), findsOneWidget);
+    expect(find.text('暂无数据'), findsNothing);
   });
 
   testWidgets('practice layout fits a small Android viewport', (tester) async {
@@ -346,5 +682,73 @@ void main() {
 
     await tester.tap(find.byKey(const Key('practice-primary-control')));
     await tester.pump();
+  });
+
+  testWidgets('stops native audio when the practice pitch stream fails', (
+    tester,
+  ) async {
+    final harness = installAudioErrorHarness();
+    await pumpBreathnote(tester);
+    await tester.tap(find.text('吹响第一个音').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('practice-primary-control')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(find.text('停止练习'), findsOneWidget);
+
+    harness.emitError();
+    await tester.pumpAndSettle();
+
+    expect(harness.calls, contains('startPitchDetection'));
+    expect(harness.calls, contains('stopPitchDetection'));
+    expect(harness.calls, contains('stopGuideSequence'));
+    expect(find.text('麦克风读取失败，请重试。'), findsOneWidget);
+    expect(find.text('开始练习'), findsOneWidget);
+    expect(find.byKey(const Key('breathing-pulse-ring')), findsNothing);
+  });
+
+  testWidgets('stops native audio when the song pitch stream fails', (
+    tester,
+  ) async {
+    final harness = installAudioErrorHarness();
+    await pumpBreathnote(tester);
+    await tester.tap(find.text('曲谱'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('小星星'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('开始曲谱练习'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+
+    harness.emitError();
+    await tester.pumpAndSettle();
+
+    expect(harness.calls, contains('startPitchDetection'));
+    expect(harness.calls, contains('stopPitchDetection'));
+    expect(find.text('麦克风读取失败，请重试。'), findsOneWidget);
+    expect(find.text('重试'), findsOneWidget);
+  });
+
+  testWidgets('stops native audio when the tuner pitch stream fails', (
+    tester,
+  ) async {
+    final harness = installAudioErrorHarness();
+    await pumpBreathnote(tester);
+    await tester.tap(find.text('调音'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('开始调音'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+
+    harness.emitError();
+    await tester.pumpAndSettle();
+
+    expect(harness.calls, contains('startPitchDetection'));
+    expect(harness.calls, contains('stopPitchDetection'));
+    expect(find.text('麦克风读取失败，请重试。'), findsOneWidget);
+    expect(find.text('重试'), findsOneWidget);
   });
 }

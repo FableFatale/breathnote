@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -42,6 +44,9 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
   bool _changingSensitivity = false;
   bool _wasInTune = false;
   String? _errorMessage;
+  final List<double> _sessionCents = [];
+  double _levelDb = -120;
+  DateTime? _lastPersistedAt;
 
   @override
   void initState() {
@@ -103,14 +108,14 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
 
       _subscription ??= _pitchService.readings.listen(
         _onReading,
-        onError: (Object _) {
-          if (!mounted) return;
-          setState(() {
-            _status = _TunerStatus.error;
-            _errorMessage = context.strings.t('microphoneReadError');
-          });
-        },
+        onError: (Object _) => unawaited(_handleReadingError()),
       );
+      setState(() {
+        _reading = const PitchReading.silent();
+        _sessionCents.clear();
+        _levelDb = -120;
+        _lastPersistedAt = null;
+      });
       final started = await _pitchService.start(sensitivity: _sensitivity);
       if (!mounted) return;
       setState(() {
@@ -137,6 +142,19 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
       _status = _TunerStatus.idle;
       _reading = const PitchReading.silent();
       _wasInTune = false;
+      _levelDb = -120;
+    });
+  }
+
+  Future<void> _handleReadingError() async {
+    await _pitchService.stop();
+    if (!mounted) return;
+    setState(() {
+      _status = _TunerStatus.error;
+      _reading = const PitchReading.silent();
+      _wasInTune = false;
+      _levelDb = -120;
+      _errorMessage = context.strings.t('microphoneReadError');
     });
   }
 
@@ -147,7 +165,63 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
       AppHaptics.success(context);
     }
     _wasInTune = inTune;
+    _levelDb = reading.levelDb;
+    if (reading.detected) {
+      _sessionCents.add(reading.cents.clamp(-50.0, 50.0).toDouble());
+      if (_sessionCents.length > 64) {
+        _sessionCents.removeAt(0);
+      }
+      final now = DateTime.now();
+      final tab = _tabForReading(reading, AppScope.of(context).harmonicaKey);
+      if (tab != null &&
+          (_lastPersistedAt == null ||
+              now.difference(_lastPersistedAt!).inMilliseconds >= 500)) {
+        _lastPersistedAt = now;
+        unawaited(
+          AppScope.of(context).recordPitchAttempt(
+            tab: tab,
+            reading: reading,
+            cents: reading.cents,
+          ),
+        );
+      }
+    }
     setState(() => _reading = reading);
+  }
+
+  String? _tabForReading(PitchReading reading, String key) {
+    final tab = tabForReading(reading, key);
+    if (tab == null) return null;
+    return '${tab.hole}${tab.isBlow ? '↑' : '↓'}';
+  }
+
+  double get _thresholdDb => -38 - _sensitivity * 34;
+
+  double get _inputLevel {
+    if (_levelDb <= -90) return 0;
+    return ((_levelDb + 90) / 90).clamp(0.0, 1.0).toDouble();
+  }
+
+  double get _thresholdLevel {
+    return ((_thresholdDb + 90) / 90).clamp(0.0, 1.0).toDouble();
+  }
+
+  String get _distributionSummary {
+    if (_sessionCents.length < 5) return context.strings.t('collectingSamples');
+    final sorted = [..._sessionCents]..sort();
+    final median = pitchSampleMedian(sorted).round();
+    final accurate = _sessionCents.where((value) => value.abs() <= 25).length;
+    final percent = (accurate / _sessionCents.length * 100).round();
+    final direction = median.abs() <= 3
+        ? context.strings.t('centered')
+        : median < 0
+        ? context.strings.t('medianLow')
+        : context.strings.t('medianHigh');
+    return context.strings.t('distributionSummary', {
+      'direction': direction,
+      'cents': median.abs(),
+      'percent': percent,
+    });
   }
 
   Future<void> _showSettings() async {
@@ -219,6 +293,11 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
     final detected = listening && _reading.detected;
     final cents = detected ? _reading.cents.round().clamp(-50, 50).toInt() : 0;
     final tab = detected ? tabForReading(_reading, key) : null;
+    final accuracy = AppScope.of(context).weakNoteAccuracy();
+    final weakCells = accuracy
+        .where((value) => value != null && value < 0.75)
+        .length;
+    final hasWeakData = accuracy.any((value) => value != null);
 
     return SingleChildScrollView(
       key: const PageStorageKey('tuner'),
@@ -256,14 +335,56 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
             active: detected,
           ),
           const SizedBox(height: 28),
-          _PitchScale(cents: cents, active: detected),
+          _PitchArc(cents: cents, active: detected),
           const SizedBox(height: 14),
-          Text(
-            _hintText,
-            style: Theme.of(context).textTheme.titleMedium,
-            textAlign: TextAlign.center,
+          Semantics(
+            key: const Key('tuner-arc-summary'),
+            label: detected
+                ? context.strings.t('pitchArcSummary', {
+                    'note': _reading.noteWithOctave,
+                    'cents': '${cents >= 0 ? '+' : ''}$cents',
+                  })
+                : _hintText,
+            child: Text(
+              _hintText,
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
           ),
           const SizedBox(height: 22),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _status == _TunerStatus.requestingPermission
+                  ? null
+                  : listening
+                  ? _stopListening
+                  : _startListening,
+              icon: Icon(listening ? Icons.stop_rounded : Icons.mic_rounded),
+              label: Text(
+                listening
+                    ? context.strings.t('stopTuning')
+                    : _primaryButtonLabel,
+              ),
+            ),
+          ),
+          if (_status == _TunerStatus.permanentlyDenied) ...[
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: _pitchService.openAppSettings,
+              icon: const Icon(Icons.settings_rounded),
+              label: Text(context.strings.t('commonOpenSettings')),
+            ),
+          ],
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              _errorMessage!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: palette.danger),
+            ),
+          ],
+          const SizedBox(height: 18),
           Card(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 13),
@@ -282,6 +403,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                         style: TextStyle(
                           color: palette.primary,
                           fontWeight: FontWeight.w800,
+                          fontFamily: 'monospace',
                         ),
                       ),
                     ],
@@ -315,41 +437,64 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                       style: TextStyle(color: palette.muted, fontSize: 12),
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  Semantics(
+                    key: const Key('tuner-input-level'),
+                    label: context.strings.t('inputLevel', {
+                      'level': (_inputLevel * 100).round(),
+                      'threshold': (_thresholdLevel * 100).round(),
+                    }),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: SizedBox(
+                        height: 8,
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: ColoredBox(color: palette.surfaceHigh),
+                            ),
+                            FractionallySizedBox(
+                              widthFactor: _inputLevel,
+                              child: ColoredBox(
+                                color: _reading.detected
+                                    ? palette.primary
+                                    : palette.muted,
+                              ),
+                            ),
+                            Align(
+                              alignment: Alignment(_thresholdLevel * 2 - 1, 0),
+                              child: Container(width: 2, color: palette.accent),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    context.strings.t('sensitivityLevelHint', {
+                      'threshold': _thresholdDb.round(),
+                    }),
+                    style: TextStyle(color: palette.muted, fontSize: 11),
+                  ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _status == _TunerStatus.requestingPermission
-                  ? null
-                  : listening
-                  ? _stopListening
-                  : _startListening,
-              icon: Icon(listening ? Icons.stop_rounded : Icons.mic_rounded),
-              label: Text(
-                listening
-                    ? context.strings.t('stopTuning')
-                    : _primaryButtonLabel,
-              ),
-            ),
-          ),
-          if (_status == _TunerStatus.permanentlyDenied) ...[
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: _pitchService.openAppSettings,
-              icon: const Icon(Icons.settings_rounded),
-              label: Text(context.strings.t('commonOpenSettings')),
+          if (listening || _sessionCents.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _SessionDistribution(
+              key: const Key('tuner-session-distribution'),
+              samples: List.unmodifiable(_sessionCents),
+              summary: _distributionSummary,
             ),
           ],
-          if (_errorMessage != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              _errorMessage!,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: palette.danger),
+          if (hasWeakData) ...[
+            const SizedBox(height: 16),
+            _WeakNoteMap(
+              key: const Key('tuner-weak-note-map'),
+              accuracy: accuracy,
+              weakCells: weakCells,
             ),
           ],
           const SizedBox(height: 14),
@@ -385,6 +530,436 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
       _TunerStatus.error => strings.t('commonRetry'),
       _ => strings.t('startTuning'),
     };
+  }
+}
+
+class _PitchArc extends StatelessWidget {
+  const _PitchArc({required this.cents, required this.active});
+
+  final int cents;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ChartFrame(
+      child: Column(
+        children: [
+          _PitchArcPainter(cents: cents, active: active),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                context.strings.t('low'),
+                style: TextStyle(color: context.colors.muted, fontSize: 11),
+              ),
+              Text(
+                context.strings.t('accurate'),
+                style: TextStyle(color: context.colors.primary, fontSize: 11),
+              ),
+              Text(
+                context.strings.t('high'),
+                style: TextStyle(color: context.colors.muted, fontSize: 11),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: active ? cents.toDouble() : 0),
+            duration: AppMotion.duration(context, AppMotion.fast),
+            curve: AppMotion.standardCurve,
+            builder: (context, animatedCents, _) {
+              final display = animatedCents.round();
+              return Text.rich(
+                TextSpan(
+                  text: active ? '${display >= 0 ? '+' : ''}$display ' : '-- ',
+                  style: TextStyle(
+                    color: context.colors.text,
+                    fontFamily: 'monospace',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: context.strings.t('cents'),
+                      style: TextStyle(
+                        color: context.colors.muted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PitchArcPainter extends StatelessWidget {
+  const _PitchArcPainter({required this.cents, required this.active});
+
+  final int cents;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: active ? cents.toDouble() : 0),
+      duration: AppMotion.duration(context, AppMotion.fast),
+      curve: AppMotion.standardCurve,
+      builder: (context, animatedCents, _) {
+        return SizedBox(
+          height: 128,
+          child: CustomPaint(
+            key: const Key('tuner-segmented-arc'),
+            painter: _SegmentedArcPainter(
+              cents: animatedCents.round(),
+              active: active,
+              primary: context.colors.primary,
+              accent: context.colors.accent,
+              outline: context.colors.outline,
+            ),
+            child: const SizedBox.expand(),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SegmentedArcPainter extends CustomPainter {
+  const _SegmentedArcPainter({
+    required this.cents,
+    required this.active,
+    required this.primary,
+    required this.accent,
+    required this.outline,
+  });
+
+  final int cents;
+  final bool active;
+  final Color primary;
+  final Color accent;
+  final Color outline;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height * 1.03);
+    final radius = math.min(size.width * 0.43, size.height * 0.93);
+    const count = 31;
+    final gap = 0.012;
+    final sweep = math.pi / count - gap;
+    final normalized = active ? (cents + 50) / 100 : 0.5;
+    final selected = (normalized * count).round().clamp(0, count - 1);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 7;
+    for (var index = 0; index < count; index++) {
+      final start = math.pi + index * math.pi / count + gap / 2;
+      final distance = (index - 15).abs();
+      final isCenter = distance <= 3;
+      final isSelected = active && index == selected;
+      paint.color = isSelected
+          ? (distance > 7 ? accent : primary)
+          : isCenter
+          ? primary.withValues(alpha: 0.82)
+          : outline;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        start,
+        sweep,
+        false,
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SegmentedArcPainter old) {
+    return old.cents != cents ||
+        old.active != active ||
+        old.primary != primary ||
+        old.accent != accent ||
+        old.outline != outline;
+  }
+}
+
+class _SessionDistribution extends StatelessWidget {
+  const _SessionDistribution({
+    required this.samples,
+    required this.summary,
+    super.key,
+  });
+
+  final List<double> samples;
+  final String summary;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ChartFrame(
+      title: context.strings.t('sessionPitch'),
+      trailing: context.strings.t('sampleCount', {'count': samples.length}),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 92,
+            child: CustomPaint(
+              key: const Key('tuner-dot-distribution'),
+              painter: _DotDistributionPainter(
+                samples: samples,
+                primary: context.colors.primary,
+                accent: context.colors.accent,
+                outline: context.colors.outline,
+              ),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('−50', style: _coordinateStyle(context)),
+              Text('0', style: _coordinateStyle(context)),
+              Text('+50', style: _coordinateStyle(context)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              summary,
+              style: TextStyle(color: context.colors.text, fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+TextStyle _coordinateStyle(BuildContext context) {
+  return TextStyle(
+    color: context.colors.muted,
+    fontFamily: 'monospace',
+    fontSize: 11,
+  );
+}
+
+class _DotDistributionPainter extends CustomPainter {
+  const _DotDistributionPainter({
+    required this.samples,
+    required this.primary,
+    required this.accent,
+    required this.outline,
+  });
+
+  final List<double> samples;
+  final Color primary;
+  final Color accent;
+  final Color outline;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centerX = size.width / 2;
+    final accurateHalf = size.width * 0.25;
+    final background = Paint()
+      ..color = primary.withValues(alpha: 0.08)
+      ..style = PaintingStyle.fill;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          centerX - accurateHalf,
+          8,
+          accurateHalf * 2,
+          size.height - 16,
+        ),
+        const Radius.circular(8),
+      ),
+      background,
+    );
+    final line = Paint()
+      ..color = outline
+      ..strokeWidth = 1;
+    canvas.drawLine(Offset(centerX, 0), Offset(centerX, size.height), line);
+    for (var index = 0; index < samples.length; index++) {
+      final cents = samples[index];
+      final x = centerX + (cents / 50) * (size.width / 2 - 8);
+      final row = index % 5;
+      final column = index % 3;
+      final y = 16 + row * 13 + column * 3.5;
+      final dot = Paint()
+        ..color = cents.abs() > 25 ? accent : primary
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(x, y), 3.2, dot);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DotDistributionPainter old) {
+    return shouldRepaintPitchSamples(old.samples, samples) ||
+        old.primary != primary ||
+        old.accent != accent ||
+        old.outline != outline;
+  }
+}
+
+@visibleForTesting
+bool shouldRepaintPitchSamples(List<double> previous, List<double> next) {
+  return !listEquals(previous, next);
+}
+
+@visibleForTesting
+double pitchSampleMedian(List<double> sortedSamples) {
+  if (sortedSamples.isEmpty) return 0;
+  final middle = sortedSamples.length ~/ 2;
+  if (sortedSamples.length.isOdd) return sortedSamples[middle];
+  return (sortedSamples[middle - 1] + sortedSamples[middle]) / 2;
+}
+
+class _WeakNoteMap extends StatelessWidget {
+  const _WeakNoteMap({
+    required this.accuracy,
+    required this.weakCells,
+    super.key,
+  });
+
+  final List<double?> accuracy;
+  final int weakCells;
+
+  @override
+  Widget build(BuildContext context) {
+    final trailing = weakCells == 0
+        ? context.strings.t('noWeakNotes')
+        : context.strings.t('weakNoteCount', {'count': weakCells});
+    return _ChartFrame(
+      title: context.strings.t('weakNoteMap'),
+      trailing: trailing,
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const SizedBox(width: 28),
+              ...List.generate(10, (index) {
+                return Expanded(
+                  child: Text(
+                    '${index + 1}',
+                    textAlign: TextAlign.center,
+                    style: _coordinateStyle(context),
+                  ),
+                );
+              }),
+            ],
+          ),
+          const SizedBox(height: 6),
+          for (final row in [0, 1]) ...[
+            _WeakNoteRow(
+              label: context.strings.t(row == 0 ? 'blowShort' : 'drawShort'),
+              values: accuracy.sublist(row * 10, row * 10 + 10),
+            ),
+            if (row == 0) const SizedBox(height: 6),
+          ],
+          const SizedBox(height: 8),
+          Text(
+            context.strings.t('weakNoteMapHint'),
+            style: TextStyle(color: context.colors.muted, fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WeakNoteRow extends StatelessWidget {
+  const _WeakNoteRow({required this.label, required this.values});
+
+  final String label;
+  final List<double?> values;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 28,
+          child: Text(label, style: _coordinateStyle(context)),
+        ),
+        ...values.map((value) {
+          final color = value == null
+              ? context.colors.surfaceHigh
+              : value < 0.5
+              ? context.colors.accent
+              : Color.lerp(
+                  context.colors.accent,
+                  context.colors.primary,
+                  value,
+                )!;
+          return Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 1.5),
+              child: AspectRatio(
+                aspectRatio: 1,
+                child: AnimatedContainer(
+                  duration: AppMotion.duration(context, AppMotion.base),
+                  curve: AppMotion.standardCurve,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: context.colors.outline),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+}
+
+class _ChartFrame extends StatelessWidget {
+  const _ChartFrame({required this.child, this.title, this.trailing});
+
+  final Widget child;
+  final String? title;
+  final String? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.colors;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: palette.outline),
+      ),
+      child: Column(
+        children: [
+          if (title != null) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title!,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                if (trailing != null)
+                  Text(trailing!, style: _coordinateStyle(context)),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
+          child,
+        ],
+      ),
+    );
   }
 }
 
@@ -505,100 +1080,6 @@ class _NoteDisplay extends StatelessWidget {
             key: ValueKey(subtitle),
             style: TextStyle(color: palette.muted, fontWeight: FontWeight.w600),
           ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PitchScale extends StatelessWidget {
-  const _PitchScale({required this.cents, required this.active});
-
-  final int cents;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.colors;
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              context.strings.t('low'),
-              style: TextStyle(color: palette.muted, fontSize: 12),
-            ),
-            Text(
-              context.strings.t('accurate'),
-              style: TextStyle(color: palette.success, fontSize: 12),
-            ),
-            Text(
-              context.strings.t('high'),
-              style: TextStyle(color: palette.muted, fontSize: 12),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 44,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(21, (index) {
-                  final major = index % 5 == 0;
-                  return Container(
-                    width: major ? 2 : 1,
-                    height: major ? 22 : 11,
-                    color: index == 10 ? palette.success : palette.outline,
-                  );
-                }),
-              ),
-              AnimatedAlign(
-                key: const Key('tuner-cent-indicator'),
-                duration: AppMotion.duration(context, AppMotion.fast),
-                curve: AppMotion.standardCurve,
-                alignment: Alignment(active ? cents / 50 : 0, -1),
-                child: Icon(
-                  Icons.arrow_drop_down_rounded,
-                  color: active ? palette.primary : palette.muted,
-                  size: 36,
-                ),
-              ),
-            ],
-          ),
-        ),
-        TweenAnimationBuilder<double>(
-          tween: Tween<double>(begin: 0, end: active ? cents.toDouble() : 0),
-          duration: AppMotion.duration(context, AppMotion.fast),
-          curve: AppMotion.standardCurve,
-          builder: (context, animatedCents, _) {
-            final displayCents = animatedCents.round();
-            return Text.rich(
-              TextSpan(
-                text: active
-                    ? '${displayCents >= 0 ? '+' : ''}$displayCents '
-                    : '-- ',
-                style: TextStyle(
-                  color: active ? palette.text : palette.muted,
-                  fontSize: 25,
-                  fontWeight: FontWeight.w800,
-                ),
-                children: [
-                  TextSpan(
-                    text: context.strings.t('cents'),
-                    style: TextStyle(
-                      color: palette.muted,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
         ),
       ],
     );

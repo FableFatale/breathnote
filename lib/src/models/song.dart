@@ -23,18 +23,22 @@ class Song {
 
   factory Song.fromJson(Map<String, Object?> json) {
     final rawNotes = json['notes'] as List<Object?>? ?? const [];
+    final notes = rawNotes
+        .map(
+          (note) =>
+              PracticeNote.fromJson(Map<String, Object?>.from(note! as Map)),
+        )
+        .toList();
+    if (notes.isEmpty) {
+      throw const HarmonicaTabFormatException('emptyNotation');
+    }
     return Song(
       id: json['id'] as String,
       title: json['title'] as String,
-      subtitle: json['subtitle'] as String? ?? '自定义曲谱',
-      level: json['level'] as String? ?? '自定义',
+      subtitle: 'customSongSubtitle',
+      level: 'custom',
       color: const Color(0xFF506A5D),
-      notes: rawNotes
-          .map(
-            (note) =>
-                PracticeNote.fromJson(Map<String, Object?>.from(note! as Map)),
-          )
-          .toList(),
+      notes: notes,
       isCustom: true,
     );
   }
@@ -95,8 +99,8 @@ const songs = [
   Song(
     id: 'twinkle',
     title: '小星星',
-    subtitle: '法国民谣 · 入门',
-    level: '简单',
+    subtitle: 'song_twinkle_subtitle',
+    level: 'easy',
     color: Color(0xFF344B66),
     notes: [
       PracticeNote(note: 'C', octave: 5, tab: '4↑'),
@@ -111,8 +115,8 @@ const songs = [
   Song(
     id: 'ode_to_joy',
     title: '欢乐颂',
-    subtitle: '贝多芬 · 入门',
-    level: '简单',
+    subtitle: 'song_ode_to_joy_subtitle',
+    level: 'easy',
     color: Color(0xFF57432F),
     notes: [
       PracticeNote(note: 'E', octave: 5, tab: '5↑'),
@@ -128,8 +132,8 @@ const songs = [
   Song(
     id: 'two_tigers',
     title: '两只老虎',
-    subtitle: '传统童谣 · 入门',
-    level: '简单',
+    subtitle: 'song_two_tigers_subtitle',
+    level: 'easy',
     color: Color(0xFF345045),
     notes: [
       PracticeNote(note: 'C', octave: 5, tab: '4↑'),
@@ -145,8 +149,8 @@ const songs = [
   Song(
     id: 'jasmine',
     title: '茉莉花',
-    subtitle: '江苏民歌 · 进阶',
-    level: '进阶',
+    subtitle: 'song_jasmine_subtitle',
+    level: 'advanced',
     color: Color(0xFF4A3D5E),
     notes: [
       PracticeNote(note: 'E', octave: 5, tab: '5↑'),

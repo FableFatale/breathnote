@@ -32,7 +32,7 @@ class ProfileScreen extends StatelessWidget {
     final controller = AppScope.of(context);
     final strings = context.strings;
     final fieldController = TextEditingController(
-      text: controller.displayName == '口琴练习者'
+      text: controller.displayName == AppController.defaultDisplayName
           ? strings.t('profileDefaultName')
           : controller.displayName,
     );
@@ -64,6 +64,10 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
     if (value == null || value.trim().isEmpty || !context.mounted) return;
+    if (controller.displayName == AppController.defaultDisplayName &&
+        value.trim() == strings.t('profileDefaultName')) {
+      return;
+    }
     await controller.setDisplayName(value);
     if (!context.mounted) return;
     await AppHaptics.success(context);
@@ -302,7 +306,8 @@ class ProfileScreen extends StatelessWidget {
     final controller = AppScope.of(context);
     final palette = context.colors;
     final strings = context.strings;
-    final displayName = controller.displayName == '口琴练习者'
+    final displayName =
+        controller.displayName == AppController.defaultDisplayName
         ? strings.t('profileDefaultName')
         : controller.displayName;
     return ListView(
@@ -371,6 +376,7 @@ class ProfileScreen extends StatelessWidget {
               child: _Metric(
                 value: '${controller.bestScore}',
                 label: strings.t('bestScore'),
+                suffix: '/ 100',
               ),
             ),
           ],
@@ -423,8 +429,10 @@ class ProfileScreen extends StatelessWidget {
                 leading: const Icon(Icons.palette_outlined),
                 title: Text(strings.t('theme')),
                 subtitle: Text(
-                  '${_themeName(strings, controller.themeMode)} · '
-                  '${_languageName(strings, controller.languageCode)}',
+                  strings.t('themeLanguageSummary', {
+                    'theme': _themeName(strings, controller.themeMode),
+                    'language': _languageName(strings, controller.languageCode),
+                  }),
                 ),
                 trailing: Icon(
                   Icons.chevron_right_rounded,
@@ -438,9 +446,11 @@ class ProfileScreen extends StatelessWidget {
                 leading: const Icon(Icons.accessibility_new_rounded),
                 title: Text(strings.t('accessibilityDisplay')),
                 subtitle: Text(
-                  '${(controller.textScale * 100).round()}%'
-                  '${controller.highContrast ? ' · ${strings.t('highContrast')}' : ''}'
-                  '${controller.reduceMotion ? ' · ${strings.t('reduceMotion')}' : ''}',
+                  [
+                    '${(controller.textScale * 100).round()}%',
+                    if (controller.highContrast) strings.t('highContrast'),
+                    if (controller.reduceMotion) strings.t('reduceMotion'),
+                  ].join(strings.t('summarySeparator')),
                 ),
                 trailing: Icon(
                   Icons.chevron_right_rounded,
@@ -493,10 +503,11 @@ class ProfileScreen extends StatelessWidget {
 }
 
 class _Metric extends StatelessWidget {
-  const _Metric({required this.value, required this.label});
+  const _Metric({required this.value, required this.label, this.suffix});
 
   final String value;
   final String label;
+  final String? suffix;
 
   @override
   Widget build(BuildContext context) {
@@ -505,20 +516,37 @@ class _Metric extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
         child: Column(
           children: [
-            Text(
-              value,
-              style: TextStyle(
-                color: context.colors.primary,
-                fontSize: 25,
-                fontWeight: FontWeight.w800,
+            Text.rich(
+              TextSpan(
+                text: value,
+                style: TextStyle(
+                  color: context.colors.primary,
+                  fontSize: 25,
+                  fontWeight: FontWeight.w800,
+                  fontFamily: 'monospace',
+                ),
+                children: [
+                  if (suffix != null)
+                    TextSpan(
+                      text: ' ${suffix!}',
+                      style: TextStyle(
+                        color: context.colors.muted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              label,
-              maxLines: 1,
-              style: Theme.of(context).textTheme.bodySmall,
-              textAlign: TextAlign.center,
+            SizedBox(
+              height: 34,
+              child: Text(
+                label,
+                maxLines: 2,
+                style: Theme.of(context).textTheme.bodySmall,
+                textAlign: TextAlign.center,
+              ),
             ),
           ],
         ),

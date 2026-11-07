@@ -43,7 +43,9 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   PitchReading _reading = const PitchReading.silent();
   _SongStatus _status = _SongStatus.idle;
   DateTime? _stableSince;
-  DateTime? _startedAt;
+  DateTime? _listeningStartedAt;
+  Duration _activePracticeDuration = Duration.zero;
+  DateTime? _lastSampleAt;
   String? _errorMessage;
   int _index = 0;
   int _score = 0;
@@ -80,6 +82,11 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
 
   Future<void> _requestAndStart() async {
     if (_status == _SongStatus.requestingPermission || _completed) return;
+    if (_guidePlaying) {
+      _resumeAfterGuide = false;
+      await _stopGuideAndResume();
+    }
+    if (!mounted) return;
     setState(() {
       _status = _SongStatus.requestingPermission;
       _errorMessage = null;
@@ -109,13 +116,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   Future<void> _beginListening() async {
     _subscription ??= _pitchService.readings.listen(
       _onReading,
-      onError: (Object _) {
-        if (!mounted) return;
-        setState(() {
-          _status = _SongStatus.error;
-          _errorMessage = context.strings.t('microphoneReadError');
-        });
-      },
+      onError: (Object _) => unawaited(_handleReadingError()),
     );
     final started = await _pitchService.start(
       sensitivity: AppScope.of(context).microphoneSensitivity,
@@ -126,7 +127,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _errorMessage = started
           ? null
           : context.strings.t('microphoneSettingsError');
-      _startedAt ??= DateTime.now();
+      if (started) _listeningStartedAt ??= DateTime.now();
     });
     if (started) await AppHaptics.light(context);
   }
@@ -145,6 +146,16 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     );
     final matches = reading.detected && cents.abs() <= 25;
     final now = DateTime.now();
+    if (reading.detected &&
+        (_lastSampleAt == null ||
+            now.difference(_lastSampleAt!).inMilliseconds >= 500)) {
+      _lastSampleAt = now;
+      unawaited(
+        AppScope.of(
+          context,
+        ).recordPitchAttempt(tab: target.tab, reading: reading, cents: cents),
+      );
+    }
     if (matches) {
       _stableSince ??= now;
       if (now.difference(_stableSince!).inMilliseconds >= 420) {
@@ -168,26 +179,24 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         _index++;
         _reading = const PitchReading.silent();
         _stableSince = null;
+        _lastSampleAt = null;
         _finishing = false;
       });
       return;
     }
 
     _completed = true;
+    _pausePracticeTimer();
     _score = (100 - _matchedError / widget.song.notes.length * 1.4)
         .round()
         .clamp(0, 100)
         .toInt();
-    final seconds =
-        (_startedAt == null
-                ? 1
-                : DateTime.now().difference(_startedAt!).inSeconds)
-            .clamp(1, 3600)
-            .toInt();
+    final seconds = _activePracticeDuration.inSeconds.clamp(0, 3600).toInt();
     final futures = <Future<void>>[
       _pitchService.stop(),
       _guideToneService.stop(),
-      AppScope.of(context).recordPractice(seconds: seconds, score: _score),
+      AppScope.of(context)
+          .recordPractice(seconds: seconds == 0 ? 1 : seconds, score: _score),
     ];
     if (widget.lessonId != null) {
       futures.add(AppScope.of(context).markLessonComplete(widget.lessonId!));
@@ -205,6 +214,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
 
   Future<void> _stopAll({required bool resetStatus}) async {
     _guideTimer?.cancel();
+    _pausePracticeTimer();
     await Future.wait([_pitchService.stop(), _guideToneService.stop()]);
     if (!mounted) return;
     setState(() {
@@ -212,7 +222,25 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _resumeAfterGuide = false;
       _reading = const PitchReading.silent();
       _stableSince = null;
+      _lastSampleAt = null;
       if (resetStatus && !_completed) _status = _SongStatus.idle;
+    });
+  }
+
+  Future<void> _handleReadingError() async {
+    _guideTimer?.cancel();
+    _pausePracticeTimer();
+    await Future.wait([_pitchService.stop(), _guideToneService.stop()]);
+    if (!mounted || _completed) return;
+    setState(() {
+      _status = _SongStatus.error;
+      _finishing = false;
+      _guidePlaying = false;
+      _resumeAfterGuide = false;
+      _reading = const PitchReading.silent();
+      _stableSince = null;
+      _lastSampleAt = null;
+      _errorMessage = context.strings.t('microphoneReadError');
     });
   }
 
@@ -222,13 +250,17 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       return;
     }
     _resumeAfterGuide = _status == _SongStatus.listening;
-    if (_resumeAfterGuide) await _pitchService.stop();
+    if (_resumeAfterGuide) {
+      _pausePracticeTimer();
+      await _pitchService.stop();
+    }
     if (!mounted) return;
     setState(() {
       _guidePlaying = true;
       _status = _SongStatus.idle;
       _reading = const PitchReading.silent();
       _stableSince = null;
+      _lastSampleAt = null;
       _errorMessage = null;
     });
 
@@ -277,8 +309,17 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _matchedError = 0;
       _completed = false;
       _finishing = false;
-      _startedAt = null;
+      _listeningStartedAt = null;
+      _activePracticeDuration = Duration.zero;
+      _lastSampleAt = null;
     });
+  }
+
+  void _pausePracticeTimer() {
+    final startedAt = _listeningStartedAt;
+    if (startedAt == null) return;
+    _activePracticeDuration += DateTime.now().difference(startedAt);
+    _listeningStartedAt = null;
   }
 
   @override
@@ -373,106 +414,88 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                         ),
                       ),
                       const SizedBox(height: 18),
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            children: [
-                              HarmonicaDiagram(activeTab: target.tab),
-                              const SizedBox(height: 16),
-                              _Sequence(
-                                song: widget.song,
-                                currentIndex: _index,
-                              ),
-                            ],
-                          ),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: palette.surface,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: palette.outline),
+                        ),
+                        child: Column(
+                          children: [
+                            HarmonicaDiagram(activeTab: target.tab),
+                            const SizedBox(height: 16),
+                            _Sequence(song: widget.song, currentIndex: _index),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 14),
-                      Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(18),
-                          child: Row(
-                            children: [
-                              AnimatedSwitcher(
-                                duration: AppMotion.duration(
-                                  context,
-                                  AppMotion.fast,
-                                ),
-                                child: Icon(
-                                  _status == _SongStatus.listening
-                                      ? Icons.graphic_eq_rounded
-                                      : Icons.mic_off_rounded,
-                                  key: ValueKey(_status),
-                                  color: _status == _SongStatus.listening
-                                      ? palette.success
-                                      : palette.muted,
-                                ),
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: palette.surfaceHigh,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          children: [
+                            AnimatedSwitcher(
+                              duration: AppMotion.duration(
+                                context,
+                                AppMotion.fast,
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
+                              child: Icon(
+                                _status == _SongStatus.listening
+                                    ? Icons.graphic_eq_rounded
+                                    : Icons.mic_off_rounded,
+                                key: ValueKey(_status),
+                                color: _status == _SongStatus.listening
+                                    ? palette.success
+                                    : palette.muted,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _reading.detected
+                                        ? _reading.noteWithOctave
+                                        : _status == _SongStatus.listening
+                                        ? context.strings.t(
+                                            'waitingStablePitch',
+                                          )
+                                        : context.strings.t(
+                                            'microphoneNotStarted',
+                                          ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium,
+                                  ),
+                                  if (_reading.detected)
                                     Text(
-                                      _reading.detected
-                                          ? _reading.noteWithOctave
-                                          : _status == _SongStatus.listening
-                                          ? context.strings.t(
-                                              'waitingStablePitch',
-                                            )
-                                          : context.strings.t(
-                                              'microphoneNotStarted',
-                                            ),
+                                      '${cents >= 0 ? '+' : ''}${cents.round()} '
+                                      '${context.strings.t('cents')}',
                                       style: Theme.of(context)
                                           .textTheme
-                                          .titleMedium,
+                                          .bodySmall,
                                     ),
-                                    if (_reading.detected)
-                                      Text(
-                                        '${cents >= 0 ? '+' : ''}${cents.round()} '
-                                        '${context.strings.t('cents')}',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall,
-                                      ),
-                                  ],
-                                ),
+                                ],
                               ),
-                              if (_stableSince != null)
-                                Icon(
-                                  Icons.check_circle_rounded,
-                                  color: palette.success,
-                                ),
-                            ],
-                          ),
+                            ),
+                            if (_stableSince != null)
+                              Icon(
+                                Icons.check_circle_rounded,
+                                color: palette.success,
+                              ),
+                          ],
                         ),
                       ),
                     ],
                   ),
           ),
           const SizedBox(height: 16),
-          _SongGuideControls(
-            playing: _guidePlaying,
-            speed: _guideSpeed,
-            loop: _guideLoop,
-            enabled: !_completed,
-            onPlay: _toggleGuide,
-            onSpeedChanged: (value) async {
-              if (_guidePlaying) await _stopGuideAndResume();
-              if (!context.mounted) return;
-              setState(() => _guideSpeed = value);
-              await AppHaptics.selection(context);
-            },
-            onLoopChanged: (value) async {
-              if (_guidePlaying) await _stopGuideAndResume();
-              if (!context.mounted) return;
-              setState(() => _guideLoop = value);
-              await AppHaptics.selection(context);
-            },
-          ),
-          const SizedBox(height: 16),
-          if (!_completed)
+          if (!_completed) ...[
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
@@ -488,8 +511,28 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                 ),
                 label: Text(_buttonLabel),
               ),
-            )
-          else
+            ),
+            const SizedBox(height: 16),
+            _SongGuideControls(
+              playing: _guidePlaying,
+              speed: _guideSpeed,
+              loop: _guideLoop,
+              enabled: true,
+              onPlay: _toggleGuide,
+              onSpeedChanged: (value) async {
+                if (_guidePlaying) await _stopGuideAndResume();
+                if (!context.mounted) return;
+                setState(() => _guideSpeed = value);
+                await AppHaptics.selection(context);
+              },
+              onLoopChanged: (value) async {
+                if (_guidePlaying) await _stopGuideAndResume();
+                if (!context.mounted) return;
+                setState(() => _guideLoop = value);
+                await AppHaptics.selection(context);
+              },
+            ),
+          ] else
             Row(
               children: [
                 Expanded(

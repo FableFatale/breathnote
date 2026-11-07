@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+const _lightPrimary = Color(0xFF3B4C75);
+const _lightAccent = Color(0xFFB28A43);
+const _darkPrimary = Color(0xFF6FA8FF);
+const _darkAccent = Color(0xFFF2B272);
+
 @immutable
 class AppPalette extends ThemeExtension<AppPalette> {
   const AppPalette({
@@ -22,32 +27,32 @@ class AppPalette extends ThemeExtension<AppPalette> {
     background: Color(0xFFF6F1E9),
     surface: Color(0xFFFFFCF7),
     surfaceHigh: Color(0xFFEFE7DA),
-    primary: Color(0xFF2F4A8A),
+    primary: _lightPrimary,
     onPrimary: Color(0xFFFFFFFF),
-    accent: Color(0xFFE39B5B),
-    accentInk: Color(0xFFA35A1F),
+    accent: _lightAccent,
+    accentInk: _lightPrimary,
     text: Color(0xFF2A2620),
     muted: Color(0xFF7A7064),
-    success: Color(0xFF3E8A5E),
-    warning: Color(0xFF8A5A00),
+    success: _lightPrimary,
+    warning: _lightAccent,
     danger: Color(0xFFB3261E),
     outline: Color(0xFFDDD3C5),
   );
 
   static const dark = AppPalette(
-    background: Color(0xFF14151A),
-    surface: Color(0xFF1E1F25),
-    surfaceHigh: Color(0xFF2A2B32),
-    primary: Color(0xFF93A9E8),
-    onPrimary: Color(0xFF10131F),
-    accent: Color(0xFFEDB07A),
-    accentInk: Color(0xFFEDB07A),
+    background: Color(0xFF18181A),
+    surface: Color(0xFF222224),
+    surfaceHigh: Color(0xFF2A2A2D),
+    primary: _darkPrimary,
+    onPrimary: Color(0xFF101319),
+    accent: _darkAccent,
+    accentInk: _darkPrimary,
     text: Color(0xFFF2F0EC),
-    muted: Color(0xFFA3A1A8),
-    success: Color(0xFF8CCFA4),
-    warning: Color(0xFFF0C46A),
-    danger: Color(0xFFF08A80),
-    outline: Color(0xFF3A3B43),
+    muted: Color(0xFFAAA7A3),
+    success: _darkPrimary,
+    warning: _darkAccent,
+    danger: Color(0xFFF08AB8),
+    outline: Color(0x12FFFFFF),
   );
 
   final Color background;
@@ -166,15 +171,25 @@ abstract final class AppTheme {
           brightness: brightness,
           primary: palette.primary,
           onPrimary: palette.onPrimary,
-          secondary: palette.accent,
+          secondary: palette.primary,
           surface: palette.surface,
           error: palette.danger,
         ).copyWith(
+          primary: palette.primary,
+          onPrimary: palette.onPrimary,
+          secondary: palette.primary,
+          onSecondary: palette.onPrimary,
+          primaryContainer: palette.primary.withValues(alpha: 0.14),
+          onPrimaryContainer: textColor,
+          surface: palette.surface,
           onSurface: textColor,
           onSurfaceVariant: palette.muted,
+          surfaceContainerLow: palette.surface,
           surfaceContainer: palette.surface,
           surfaceContainerHigh: palette.surfaceHigh,
+          surfaceContainerHighest: palette.surfaceHigh,
           outline: outline,
+          error: palette.danger,
         );
 
     return ThemeData(
@@ -193,6 +208,14 @@ abstract final class AppTheme {
         },
       ),
       textTheme: TextTheme(
+        displayLarge: TextStyle(
+          color: textColor,
+          fontFamily: 'serif',
+          fontSize: 60,
+          height: 1,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0,
+        ),
         displaySmall: TextStyle(
           color: textColor,
           fontFamily: 'serif',
@@ -219,8 +242,9 @@ abstract final class AppTheme {
         ),
         titleMedium: TextStyle(
           color: textColor,
-          fontSize: 16,
-          height: 1.35,
+          fontFamily: 'serif',
+          fontSize: 20,
+          height: 1.3,
           fontWeight: FontWeight.w700,
           letterSpacing: 0,
         ),
@@ -246,13 +270,20 @@ abstract final class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: palette.surface,
-        elevation: brightness == Brightness.light ? 1 : 0,
-        shadowColor: const Color(0x332A2118),
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(24),
           side: BorderSide(color: outline),
         ),
+      ),
+      dialogTheme: DialogThemeData(
+        elevation: 8,
+        shadowColor: const Color(0x33000000),
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: palette.background,
@@ -263,7 +294,7 @@ abstract final class AppTheme {
         titleTextStyle: TextStyle(
           color: textColor,
           fontFamily: 'serif',
-          fontSize: 18,
+          fontSize: 20,
           fontWeight: FontWeight.w700,
           letterSpacing: 0,
         ),
@@ -368,6 +399,8 @@ abstract final class AppTheme {
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: palette.surface,
         surfaceTintColor: Colors.transparent,
+        modalElevation: 8,
+        shadowColor: const Color(0x33000000),
         showDragHandle: true,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(32)),

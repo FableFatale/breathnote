@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../models/pitch_reading.dart';
 import '../models/song.dart';
 import '../services/preferences_service.dart';
 
@@ -12,7 +13,10 @@ class AppController extends ChangeNotifier {
 
   final PreferencesService _preferences;
 
-  String displayName = '口琴练习者';
+  static const defaultDisplayName = '__default__';
+  static const legacyDefaultDisplayName = '口琴练习者';
+
+  String displayName = defaultDisplayName;
   String harmonicaKey = 'F';
   bool hapticsEnabled = true;
   bool highContrast = false;
@@ -27,10 +31,13 @@ class AppController extends ChangeNotifier {
   final Set<String> practiceDates = {};
   final Set<String> completedLessons = {};
   final List<Song> customSongs = [];
+  final List<PitchAttempt> pitchAttempts = [];
+
+  static const _maxPitchAttempts = 400;
 
   List<Song> get allSongs => [...songs, ...customSongs];
 
-  int get practiceMinutes => (practiceSeconds / 60).ceil();
+  int get practiceMinutes => practiceSeconds ~/ 60;
 
   double get lessonProgress =>
       (completedLessons.length / 5).clamp(0.0, 1.0).toDouble();
@@ -50,37 +57,73 @@ class AppController extends ChangeNotifier {
     return count;
   }
 
+  List<double?> weakNoteAccuracy({int days = 7}) {
+    final cutoff = DateTime.now().subtract(Duration(days: days - 1));
+    final grouped = <int, List<double>>{};
+    for (final attempt in pitchAttempts) {
+      if (attempt.timestamp.isBefore(
+        DateTime(cutoff.year, cutoff.month, cutoff.day),
+      )) {
+        continue;
+      }
+      grouped.putIfAbsent(attempt.cell, () => []).add(attempt.absoluteCents);
+    }
+    return List.generate(20, (index) {
+      final values = grouped[index];
+      if (values == null || values.isEmpty) return null;
+      final accurate = values.where((cents) => cents <= 25).length;
+      return accurate / values.length;
+    });
+  }
+
   Future<void> load() async {
     try {
       final values = await _preferences.getAll();
-      displayName = values['displayName'] as String? ?? displayName;
+      final savedDisplayName = values['displayName'] as String?;
+      displayName =
+          savedDisplayName == null ||
+              savedDisplayName == legacyDefaultDisplayName
+          ? defaultDisplayName
+          : savedDisplayName;
       harmonicaKey = values['harmonicaKey'] as String? ?? harmonicaKey;
       hapticsEnabled = values['hapticsEnabled'] as bool? ?? hapticsEnabled;
       highContrast = values['highContrast'] as bool? ?? highContrast;
       reduceMotion = values['reduceMotion'] as bool? ?? reduceMotion;
-      themeMode = _decodeThemeMode(values['themeMode']);
+      final savedThemeMode = values['themeMode'];
+      if (savedThemeMode != null) {
+        themeMode = _decodeThemeMode(savedThemeMode);
+      }
       final savedLanguage = values['languageCode'] as String?;
       if (const {'zh', 'en', 'ja'}.contains(savedLanguage)) {
         languageCode = savedLanguage!;
       }
-      microphoneSensitivity =
-          ((values['microphoneSensitivity'] as num?)?.toDouble() ??
-                  microphoneSensitivity)
-              .clamp(0.0, 1.0);
-      textScale = (values['textScale'] as num?)?.toDouble() ?? textScale;
+      final savedSensitivity = values['microphoneSensitivity'] as num?;
+      if (savedSensitivity != null) {
+        microphoneSensitivity = savedSensitivity.toDouble().clamp(0.0, 1.0);
+      }
+      final savedTextScale = values['textScale'] as num?;
+      if (savedTextScale != null) textScale = savedTextScale.toDouble();
       practiceSeconds =
           (values['practiceSeconds'] as num?)?.toInt() ?? practiceSeconds;
       bestScore = (values['bestScore'] as num?)?.toInt() ?? bestScore;
       practiceDates.addAll(_decodeStringList(values['practiceDates']));
       completedLessons.addAll(_decodeStringList(values['completedLessons']));
+      pitchAttempts.addAll(_decodePitchAttempts(values['pitchAttempts']));
       final rawSongs = values['customSongs'];
       if (rawSongs is String && rawSongs.isNotEmpty) {
         final decoded = jsonDecode(rawSongs) as List<Object?>;
-        customSongs.addAll(
-          decoded.map(
-            (song) => Song.fromJson(Map<String, Object?>.from(song! as Map)),
-          ),
-        );
+        var shouldRewriteSongs = false;
+        for (final entry in decoded) {
+          try {
+            customSongs.add(
+              Song.fromJson(Map<String, Object?>.from(entry! as Map)),
+            );
+          } catch (_) {
+            // Skip one unreadable local song so the remaining songs still load.
+            shouldRewriteSongs = true;
+          }
+        }
+        if (shouldRewriteSongs) await _persistCustomSongs();
       }
     } catch (_) {
       // Widget tests and unsupported platforms keep the in-memory defaults.
@@ -181,26 +224,49 @@ class AppController extends ChangeNotifier {
     ]);
   }
 
+  Future<void> recordPitchAttempt({
+    required String tab,
+    required PitchReading reading,
+    required double cents,
+  }) async {
+    if (!reading.detected || !cents.isFinite) return;
+    final clampedCents = cents.clamp(-50.0, 50.0).toDouble();
+    pitchAttempts.add(
+      PitchAttempt(
+        tab: tab,
+        absoluteCents: clampedCents.abs(),
+        timestamp: DateTime.now(),
+      ),
+    );
+    if (pitchAttempts.length > _maxPitchAttempts) {
+      pitchAttempts.removeRange(0, pitchAttempts.length - _maxPitchAttempts);
+    }
+    await _persist(
+      'pitchAttempts',
+      jsonEncode(pitchAttempts.map((item) => item.toJson()).toList()),
+    );
+  }
+
   Future<Song> addCustomSong({
     required String title,
     required String notation,
   }) async {
     final normalizedTitle = title.trim();
     if (normalizedTitle.isEmpty) {
-      throw const FormatException('请输入曲名。');
+      throw const HarmonicaTabFormatException('enterSongName');
     }
     final song = Song(
       id: 'custom_${DateTime.now().microsecondsSinceEpoch}',
       title: normalizedTitle,
-      subtitle: '自定义曲谱',
-      level: '自定义',
+      subtitle: 'customSongSubtitle',
+      level: 'custom',
       color: const Color(0xFF506A5D),
       notes: parseHarmonicaTabs(notation),
       isCustom: true,
     );
     customSongs.add(song);
     notifyListeners();
-    unawaited(_persistCustomSongs());
+    await _persistCustomSongs();
     return song;
   }
 
@@ -216,7 +282,7 @@ class AppController extends ChangeNotifier {
     } catch (_) {
       // The visible state still resets when no platform channel is available.
     }
-    displayName = '口琴练习者';
+    displayName = defaultDisplayName;
     harmonicaKey = 'F';
     hapticsEnabled = true;
     highContrast = false;
@@ -230,6 +296,7 @@ class AppController extends ChangeNotifier {
     practiceDates.clear();
     completedLessons.clear();
     customSongs.clear();
+    pitchAttempts.clear();
     notifyListeners();
   }
 
@@ -257,6 +324,21 @@ class AppController extends ChangeNotifier {
     }
   }
 
+  static List<PitchAttempt> _decodePitchAttempts(Object? value) {
+    if (value is! String || value.isEmpty) return [];
+    try {
+      return (jsonDecode(value) as List<Object?>)
+          .map(
+            (item) =>
+                PitchAttempt.fromJson(Map<String, Object?>.from(item! as Map)),
+          )
+          .where((item) => item.absoluteCents.isFinite)
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   static String _dateKey(DateTime date) {
     final month = date.month.toString().padLeft(2, '0');
     final day = date.day.toString().padLeft(2, '0');
@@ -268,6 +350,42 @@ class AppController extends ChangeNotifier {
       'light' => ThemeMode.light,
       'dark' => ThemeMode.dark,
       _ => ThemeMode.system,
+    };
+  }
+}
+
+class PitchAttempt {
+  const PitchAttempt({
+    required this.tab,
+    required this.absoluteCents,
+    required this.timestamp,
+  });
+
+  factory PitchAttempt.fromJson(Map<String, Object?> json) {
+    return PitchAttempt(
+      tab: json['tab'] as String? ?? '4↑',
+      absoluteCents: (json['cents'] as num?)?.toDouble().abs() ?? 50,
+      timestamp:
+          DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
+    );
+  }
+
+  final String tab;
+  final double absoluteCents;
+  final DateTime timestamp;
+
+  int get cell {
+    final hole = int.tryParse(tab.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
+    final clampedHole = hole.clamp(1, 10).toInt();
+    final row = tab.contains('↓') ? 1 : 0;
+    return row * 10 + clampedHole - 1;
+  }
+
+  Map<String, Object> toJson() {
+    return {
+      'tab': tab,
+      'cents': absoluteCents,
+      'date': timestamp.toIso8601String(),
     };
   }
 }

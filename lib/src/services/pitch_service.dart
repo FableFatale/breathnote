@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../models/pitch_reading.dart';
@@ -16,6 +17,11 @@ class PitchService {
   static const _events = EventChannel('app.breathnote/pitch_events');
 
   Stream<PitchReading>? _readings;
+
+  @visibleForTesting
+  static void resetForTesting() {
+    _instance._readings = null;
+  }
 
   Stream<PitchReading> get readings {
     return _readings ??= _events
