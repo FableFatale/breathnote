@@ -15,11 +15,11 @@ import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/motion_widgets.dart';
 import '../widgets/shared_widgets.dart';
+import 'lesson_routes.dart';
 
 class PracticeScreen extends StatefulWidget {
   const PracticeScreen({
     required this.target,
-    required this.title,
     required this.lessonId,
     required this.instruction,
     this.step = 1,
@@ -27,7 +27,6 @@ class PracticeScreen extends StatefulWidget {
   });
 
   final PracticeNote target;
-  final String title;
   final String lessonId;
   final String instruction;
   final int step;
@@ -54,11 +53,13 @@ class _PracticeScreenState extends State<PracticeScreen>
   PitchReading _reading = const PitchReading.silent();
   _PracticeStatus _status = _PracticeStatus.idle;
   DateTime? _stableSince;
+  int? _stableSinceMicros;
   DateTime? _listeningStartedAt;
   Duration _activePracticeDuration = Duration.zero;
   DateTime? _lastSampleAt;
   String? _errorMessage;
   bool _completed = false;
+  bool _completionVisible = false;
   bool _guidePlaying = false;
   bool _guideLoop = false;
   bool _resumeAfterGuide = false;
@@ -148,6 +149,7 @@ class _PracticeScreenState extends State<PracticeScreen>
       _status = _PracticeStatus.idle;
       _reading = const PitchReading.silent();
       _stableSince = null;
+      _stableSinceMicros = null;
       _lastSampleAt = null;
     });
   }
@@ -163,6 +165,7 @@ class _PracticeScreenState extends State<PracticeScreen>
       _resumeAfterGuide = false;
       _reading = const PitchReading.silent();
       _stableSince = null;
+      _stableSinceMicros = null;
       _lastSampleAt = null;
       _errorMessage = context.strings.t('microphoneReadError');
     });
@@ -178,6 +181,7 @@ class _PracticeScreenState extends State<PracticeScreen>
       _resumeAfterGuide = false;
       _reading = const PitchReading.silent();
       _stableSince = null;
+      _stableSinceMicros = null;
       _lastSampleAt = null;
       if (resetStatus && !_completed) _status = _PracticeStatus.idle;
     });
@@ -204,15 +208,30 @@ class _PracticeScreenState extends State<PracticeScreen>
       );
     }
     if (matches) {
-      _stableSince ??= now;
-      if (now.difference(_stableSince!).inMilliseconds >= 450) {
+      final stableLongEnough = reading.timestampMicros > 0
+          ? _isStableForMicros(reading.timestampMicros)
+          : _isStableForWallClock(now);
+      if (stableLongEnough) {
         unawaited(_complete(cents));
         return;
       }
     } else {
       _stableSince = null;
+      _stableSinceMicros = null;
     }
     setState(() => _reading = reading);
+  }
+
+  bool _isStableForMicros(int timestampMicros) {
+    _stableSince = null;
+    _stableSinceMicros ??= timestampMicros;
+    return timestampMicros - _stableSinceMicros! >= 450000;
+  }
+
+  bool _isStableForWallClock(DateTime now) {
+    _stableSinceMicros = null;
+    _stableSince ??= now;
+    return now.difference(_stableSince!).inMilliseconds >= 450;
   }
 
   Future<void> _complete(double cents) async {
@@ -234,6 +253,11 @@ class _PracticeScreenState extends State<PracticeScreen>
     setState(() {
       _status = _PracticeStatus.idle;
       _guidePlaying = false;
+      _completionVisible = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_completed) return;
+      setState(() => _completionVisible = true);
     });
   }
 
@@ -255,6 +279,7 @@ class _PracticeScreenState extends State<PracticeScreen>
       _status = _PracticeStatus.idle;
       _reading = const PitchReading.silent();
       _stableSince = null;
+      _stableSinceMicros = null;
       _lastSampleAt = null;
       _errorMessage = null;
     });
@@ -321,6 +346,7 @@ class _PracticeScreenState extends State<PracticeScreen>
     if (!mounted) return;
     setState(() {
       _completed = false;
+      _completionVisible = false;
       _score = 0;
       _listeningStartedAt = null;
       _activePracticeDuration = Duration.zero;
@@ -331,7 +357,7 @@ class _PracticeScreenState extends State<PracticeScreen>
 
   Future<void> _handlePrimaryAction() async {
     if (_completed) {
-      Navigator.of(context).pop();
+      await _openNextOrFinish();
       return;
     }
     if (_guidePlaying) {
@@ -346,6 +372,16 @@ class _PracticeScreenState extends State<PracticeScreen>
     await _requestAndStart();
   }
 
+  Future<void> _openNextOrFinish() async {
+    final nextId = nextLessonId(widget.lessonId);
+    if (nextId == null || !mounted) {
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
+    await Navigator.of(context)
+        .pushReplacement(lessonRoute(context, lessonById(nextId)));
+  }
+
   void _pausePracticeTimer() {
     final startedAt = _listeningStartedAt;
     if (startedAt == null) return;
@@ -358,6 +394,7 @@ class _PracticeScreenState extends State<PracticeScreen>
     final controller = AppScope.of(context);
     final palette = context.colors;
     final strings = context.strings;
+    final hasNextLesson = nextLessonId(widget.lessonId) != null;
     final noteWithOctave = widget.target.labelForKey(controller.harmonicaKey);
     final note = noteWithOctave.replaceAll(RegExp(r'\d+$'), '');
     final cents = _reading.detected
@@ -444,6 +481,19 @@ class _PracticeScreenState extends State<PracticeScreen>
                     complete: _completed,
                   ),
                   const SizedBox(height: 20),
+                  if (widget.lessonId == 'lesson_2' &&
+                      _status != _PracticeStatus.permanentlyDenied) ...[
+                    Semantics(
+                      container: true,
+                      child: Text(
+                        strings.t('microphonePurpose'),
+                        key: const Key('practice-microphone-purpose'),
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   Row(
                     children: [
                       SectionLabel(strings.t('targetNote')),
@@ -462,7 +512,11 @@ class _PracticeScreenState extends State<PracticeScreen>
                   AnimatedSwitcher(
                     duration: AppMotion.duration(context, AppMotion.base),
                     child: _completed
-                        ? _CompletionDisplay(score: _score)
+                        ? _CompletionDisplay(
+                            key: const ValueKey('practice-completion'),
+                            score: _score,
+                            visible: _completionVisible,
+                          )
                         : Column(
                             key: const ValueKey('target-note'),
                             children: [
@@ -534,6 +588,7 @@ class _PracticeScreenState extends State<PracticeScreen>
               speed: _guideSpeed,
               loop: _guideLoop,
               completed: _completed,
+              hasNextLesson: hasNextLesson,
               guidePlaying: _guidePlaying,
               listening: _status == _PracticeStatus.listening,
               waiting: _status == _PracticeStatus.requestingPermission,
@@ -606,10 +661,11 @@ class _PracticeScreenState extends State<PracticeScreen>
 
   String get _guidanceDetail {
     final strings = context.strings;
-    if (_completed) return strings.t('score', {'score': _score});
+    if (_completed) return strings.t('pitchScore', {'score': _score});
     if (_guidePlaying) return strings.t('guidePlayingDetail');
     if (_status == _PracticeStatus.listening) {
-      if (_reading.detected && _stableSince != null) {
+      if (_reading.detected &&
+          (_stableSince != null || _stableSinceMicros != null)) {
         return strings.t('keepThisPitch');
       }
       return strings.t('waitingStablePitch');
@@ -938,6 +994,7 @@ class _ControlDock extends StatelessWidget {
     required this.speed,
     required this.loop,
     required this.completed,
+    required this.hasNextLesson,
     required this.guidePlaying,
     required this.listening,
     required this.waiting,
@@ -949,6 +1006,7 @@ class _ControlDock extends StatelessWidget {
   final double speed;
   final bool loop;
   final bool completed;
+  final bool hasNextLesson;
   final bool guidePlaying;
   final bool listening;
   final bool waiting;
@@ -961,6 +1019,9 @@ class _ControlDock extends StatelessWidget {
     final palette = context.colors;
     final strings = context.strings;
     final speedLabel = speed == 1 ? '1×' : '0.5×';
+    final completedLabel = hasNextLesson
+        ? strings.t('nextLesson')
+        : strings.t('commonDone');
     return Container(
       height: 98,
       decoration: BoxDecoration(
@@ -990,7 +1051,7 @@ class _ControlDock extends StatelessWidget {
                   button: true,
                   enabled: !waiting,
                   label: completed
-                      ? strings.t('commonDone')
+                      ? completedLabel
                       : guidePlaying
                       ? strings.t('stopGuide')
                       : listening
@@ -1037,7 +1098,7 @@ class _ControlDock extends StatelessWidget {
               const SizedBox(height: 3),
               Text(
                 completed
-                    ? strings.t('commonDone')
+                    ? completedLabel
                     : guidePlaying
                     ? strings.t('stopGuide')
                     : listening
@@ -1136,9 +1197,14 @@ class _DockButton extends StatelessWidget {
 }
 
 class _CompletionDisplay extends StatelessWidget {
-  const _CompletionDisplay({required this.score});
+  const _CompletionDisplay({
+    required this.score,
+    required this.visible,
+    super.key,
+  });
 
   final int score;
+  final bool visible;
 
   @override
   Widget build(BuildContext context) {
@@ -1146,14 +1212,27 @@ class _CompletionDisplay extends StatelessWidget {
     return Column(
       key: const ValueKey('completion'),
       children: [
-        Container(
-          width: 82,
-          height: 82,
-          decoration: BoxDecoration(
-            color: palette.success.withValues(alpha: 0.14),
-            shape: BoxShape.circle,
+        AnimatedScale(
+          duration: AppMotion.duration(context, AppMotion.base),
+          curve: AppMotion.standardCurve,
+          scale: visible ? 1 : 0.94,
+          child: AnimatedOpacity(
+            duration: AppMotion.duration(context, AppMotion.base),
+            opacity: visible ? 1 : 0,
+            child: Container(
+              width: 82,
+              height: 82,
+              decoration: BoxDecoration(
+                color: palette.success.withValues(alpha: 0.14),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.check_rounded,
+                color: palette.success,
+                size: 46,
+              ),
+            ),
           ),
-          child: Icon(Icons.check_rounded, color: palette.success, size: 46),
         ),
         const SizedBox(height: 12),
         Text(
@@ -1162,7 +1241,7 @@ class _CompletionDisplay extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          context.strings.t('score', {'score': score}),
+          context.strings.t('pitchScore', {'score': score}),
           style: TextStyle(color: palette.primary, fontWeight: FontWeight.w800),
         ),
       ],

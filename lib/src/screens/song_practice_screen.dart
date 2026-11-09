@@ -43,6 +43,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   PitchReading _reading = const PitchReading.silent();
   _SongStatus _status = _SongStatus.idle;
   DateTime? _stableSince;
+  int? _stableSinceMicros;
   DateTime? _listeningStartedAt;
   Duration _activePracticeDuration = Duration.zero;
   DateTime? _lastSampleAt;
@@ -157,15 +158,30 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       );
     }
     if (matches) {
-      _stableSince ??= now;
-      if (now.difference(_stableSince!).inMilliseconds >= 420) {
+      final stableLongEnough = reading.timestampMicros > 0
+          ? _isStableForMicros(reading.timestampMicros)
+          : _isStableForWallClock(now);
+      if (stableLongEnough) {
         _advance(cents.abs());
         return;
       }
     } else {
       _stableSince = null;
+      _stableSinceMicros = null;
     }
     setState(() => _reading = reading);
+  }
+
+  bool _isStableForMicros(int timestampMicros) {
+    _stableSince = null;
+    _stableSinceMicros ??= timestampMicros;
+    return timestampMicros - _stableSinceMicros! >= 420000;
+  }
+
+  bool _isStableForWallClock(DateTime now) {
+    _stableSinceMicros = null;
+    _stableSince ??= now;
+    return now.difference(_stableSince!).inMilliseconds >= 420;
   }
 
   Future<void> _advance(double error) async {
@@ -179,6 +195,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         _index++;
         _reading = const PitchReading.silent();
         _stableSince = null;
+        _stableSinceMicros = null;
         _lastSampleAt = null;
         _finishing = false;
       });
@@ -222,6 +239,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _resumeAfterGuide = false;
       _reading = const PitchReading.silent();
       _stableSince = null;
+      _stableSinceMicros = null;
       _lastSampleAt = null;
       if (resetStatus && !_completed) _status = _SongStatus.idle;
     });
@@ -239,6 +257,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _resumeAfterGuide = false;
       _reading = const PitchReading.silent();
       _stableSince = null;
+      _stableSinceMicros = null;
       _lastSampleAt = null;
       _errorMessage = context.strings.t('microphoneReadError');
     });
@@ -260,6 +279,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _status = _SongStatus.idle;
       _reading = const PitchReading.silent();
       _stableSince = null;
+      _stableSinceMicros = null;
       _lastSampleAt = null;
       _errorMessage = null;
     });
@@ -357,7 +377,9 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                 ),
               ),
               Text(
-                '${(progress * 100).round()}%',
+                context.strings.t('songProgress', {
+                  'percent': (progress * 100).round(),
+                }),
                 style: TextStyle(
                   color: palette.primary,
                   fontWeight: FontWeight.w800,
@@ -483,7 +505,8 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                 ],
                               ),
                             ),
-                            if (_stableSince != null)
+                            if (_stableSince != null ||
+                                _stableSinceMicros != null)
                               Icon(
                                 Icons.check_circle_rounded,
                                 color: palette.success,
@@ -721,7 +744,7 @@ class _SongCompletion extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              context.strings.t('score', {'score': score}),
+              context.strings.t('pitchScore', {'score': score}),
               style: TextStyle(
                 color: palette.primary,
                 fontSize: 20,

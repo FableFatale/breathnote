@@ -369,6 +369,7 @@ class ProfileScreen extends StatelessWidget {
               child: _Metric(
                 value: '${controller.practiceMinutes}',
                 label: strings.t('practiceMinutes'),
+                suffix: strings.t('minuteUnit'),
               ),
             ),
             const SizedBox(width: 8),

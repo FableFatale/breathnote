@@ -3,23 +3,41 @@ import 'package:flutter/material.dart';
 import '../localization/app_strings.dart';
 import '../services/haptics.dart';
 import '../state/app_controller.dart';
+import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
+import 'lesson_routes.dart';
 
-class LessonDetailScreen extends StatelessWidget {
+class LessonDetailScreen extends StatefulWidget {
   const LessonDetailScreen({super.key});
 
+  @override
+  State<LessonDetailScreen> createState() => _LessonDetailScreenState();
+}
+
+class _LessonDetailScreenState extends State<LessonDetailScreen> {
+  bool _completing = false;
+
   Future<void> _complete(BuildContext context) async {
+    if (_completing) return;
+    setState(() => _completing = true);
     await AppScope.of(context).markLessonComplete('lesson_1');
     if (!context.mounted) return;
     await AppHaptics.success(context);
     if (!context.mounted) return;
-    Navigator.of(context).pop();
+    setState(() => _completing = false);
+  }
+
+  void _openNextLesson(BuildContext context) {
+    Navigator.of(context)
+        .pushReplacement(lessonRoute(context, lessonById('lesson_2')));
   }
 
   @override
   Widget build(BuildContext context) {
     final palette = context.colors;
+    final controller = AppScope.of(context);
+    final completed = controller.completedLessons.contains('lesson_1');
     return Scaffold(
       appBar: AppBar(title: Text(context.strings.lessonTitle('lesson_1'))),
       body: ListView(
@@ -75,16 +93,58 @@ class LessonDetailScreen extends StatelessWidget {
             color: palette.primary,
           ),
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: () => _complete(context),
-              icon: const Icon(Icons.check_rounded),
-              label: Text(context.strings.t('completeLesson')),
-            ),
+          AnimatedSwitcher(
+            duration: AppMotion.duration(context, AppMotion.base),
+            child: completed
+                ? _CompletedAction(
+                    key: const ValueKey('lesson-1-complete'),
+                    onNext: () => _openNextLesson(context),
+                  )
+                : SizedBox(
+                    key: const ValueKey('lesson-1-action'),
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _completing ? null : () => _complete(context),
+                      icon: const Icon(Icons.check_rounded),
+                      label: Text(context.strings.t('completeLesson')),
+                    ),
+                  ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CompletedAction extends StatelessWidget {
+  const _CompletedAction({required this.onNext, super.key});
+
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.check_circle_rounded, color: context.colors.success),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                context.strings.t('lessonComplete'),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        FilledButton(
+          key: const Key('lesson-1-next'),
+          onPressed: onNext,
+          child: Text(context.strings.t('nextLesson')),
+        ),
+      ],
     );
   }
 }

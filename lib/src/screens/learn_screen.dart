@@ -3,17 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../localization/app_strings.dart';
-import '../models/practice_note.dart';
-import '../models/song.dart';
 import '../services/haptics.dart';
 import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/motion_widgets.dart';
 import '../widgets/shared_widgets.dart';
-import 'lesson_detail_screen.dart';
-import 'practice_screen.dart';
-import 'song_practice_screen.dart';
+import 'lesson_routes.dart';
 
 class LearnScreen extends StatelessWidget {
   const LearnScreen({super.key});
@@ -33,48 +29,15 @@ class LearnScreen extends StatelessWidget {
     'B',
   ];
 
-  static const _lessons = [
-    _Lesson(
-      id: 'lesson_1',
-      number: '01',
-      minutes: 4,
-      kind: _LessonKind.introduction,
-    ),
-    _Lesson(
-      id: 'lesson_2',
-      number: '02',
-      minutes: 6,
-      kind: _LessonKind.firstNote,
-    ),
-    _Lesson(
-      id: 'lesson_3',
-      number: '03',
-      minutes: 6,
-      kind: _LessonKind.clearNote,
-    ),
-    _Lesson(
-      id: 'lesson_4',
-      number: '04',
-      minutes: 5,
-      kind: _LessonKind.drawNote,
-    ),
-    _Lesson(
-      id: 'lesson_5',
-      number: '05',
-      minutes: 8,
-      kind: _LessonKind.firstSong,
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
     final strings = context.strings;
     final progress = controller.lessonProgress;
     final progressPercent = (progress * 100).round();
-    final nextLesson = _lessons.firstWhere(
+    final nextLesson = lessons.firstWhere(
       (lesson) => !controller.completedLessons.contains(lesson.id),
-      orElse: () => _lessons.last,
+      orElse: () => lessons.last,
     );
 
     return CustomScrollView(
@@ -156,7 +119,7 @@ class LearnScreen extends StatelessWidget {
                     Text(
                       strings.t('pathProgress', {
                         'done': controller.completedLessons.length,
-                        'total': _lessons.length,
+                        'total': lessons.length,
                       }),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
@@ -170,15 +133,15 @@ class LearnScreen extends StatelessWidget {
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           sliver: SliverList.builder(
-            itemCount: _lessons.length,
+            itemCount: lessons.length,
             itemBuilder: (context, index) {
-              final lesson = _lessons[index];
+              final lesson = lessons[index];
               return _TimelineLesson(
                 lesson: lesson,
                 complete: controller.completedLessons.contains(lesson.id),
                 active: lesson.id == nextLesson.id,
                 first: index == 0,
-                last: index == _lessons.length - 1,
+                last: index == lessons.length - 1,
                 onTap: () => _openLesson(context, lesson),
               );
             },
@@ -239,51 +202,8 @@ class LearnScreen extends StatelessWidget {
     await AppHaptics.selection(context);
   }
 
-  static void _openLesson(BuildContext context, _Lesson lesson) {
-    final strings = context.strings;
-    final reduceMotion = AppMotion.isReduced(context);
-    final route = switch (lesson.kind) {
-      _LessonKind.introduction => AppPageRoute<void>(
-        reduceMotion: reduceMotion,
-        builder: (_) => const LessonDetailScreen(),
-      ),
-      _LessonKind.firstNote => AppPageRoute<void>(
-        reduceMotion: reduceMotion,
-        builder: (_) => PracticeScreen(
-          target: const PracticeNote(note: 'C', octave: 5, tab: '4↑'),
-          title: strings.lessonTitle('lesson_2'),
-          lessonId: 'lesson_2',
-          instruction: strings.lessonGuidance('lesson_2'),
-          step: 2,
-        ),
-      ),
-      _LessonKind.clearNote => AppPageRoute<void>(
-        reduceMotion: reduceMotion,
-        builder: (_) => PracticeScreen(
-          target: const PracticeNote(note: 'E', octave: 5, tab: '5↑'),
-          title: strings.lessonTitle('lesson_3'),
-          lessonId: 'lesson_3',
-          instruction: strings.lessonGuidance('lesson_3'),
-          step: 3,
-        ),
-      ),
-      _LessonKind.drawNote => AppPageRoute<void>(
-        reduceMotion: reduceMotion,
-        builder: (_) => PracticeScreen(
-          target: const PracticeNote(note: 'D', octave: 5, tab: '4↓'),
-          title: strings.lessonTitle('lesson_4'),
-          lessonId: 'lesson_4',
-          instruction: strings.lessonGuidance('lesson_4'),
-          step: 4,
-        ),
-      ),
-      _LessonKind.firstSong => AppPageRoute<void>(
-        reduceMotion: reduceMotion,
-        builder: (_) =>
-            SongPracticeScreen(song: songs.first, lessonId: 'lesson_5'),
-      ),
-    };
-    Navigator.of(context).push(route);
+  static void _openLesson(BuildContext context, LessonDefinition lesson) {
+    Navigator.of(context).push(lessonRoute(context, lesson));
   }
 }
 
@@ -384,7 +304,7 @@ class _PracticeCard extends StatelessWidget {
     super.key,
   });
 
-  final _Lesson lesson;
+  final LessonDefinition lesson;
   final double progress;
   final int progressPercent;
   final VoidCallback onStart;
@@ -496,7 +416,7 @@ class _TimelineLesson extends StatelessWidget {
     required this.onTap,
   });
 
-  final _Lesson lesson;
+  final LessonDefinition lesson;
   final bool complete;
   final bool active;
   final bool first;
@@ -655,20 +575,4 @@ class _TimelineLesson extends StatelessWidget {
       ),
     );
   }
-}
-
-enum _LessonKind { introduction, firstNote, clearNote, drawNote, firstSong }
-
-class _Lesson {
-  const _Lesson({
-    required this.id,
-    required this.number,
-    required this.minutes,
-    required this.kind,
-  });
-
-  final String id;
-  final String number;
-  final int minutes;
-  final _LessonKind kind;
 }

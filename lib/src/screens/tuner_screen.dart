@@ -445,7 +445,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                     container: true,
                     label: context.strings.t('inputLevel', {
                       'level': (_inputLevel * 100).round(),
-                      'threshold': (_thresholdLevel * 100).round(),
+                      'threshold': _thresholdDb.round(),
                     }),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(999),
@@ -769,6 +769,7 @@ class _DotDistributionPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final centerX = size.width / 2;
+    final centerY = size.height / 2;
     final accurateHalf = size.width * 0.25;
     final background = Paint()
       ..color = primary.withValues(alpha: 0.08)
@@ -789,12 +790,19 @@ class _DotDistributionPainter extends CustomPainter {
       ..color = outline
       ..strokeWidth = 1;
     canvas.drawLine(Offset(centerX, 0), Offset(centerX, size.height), line);
-    for (var index = 0; index < samples.length; index++) {
-      final cents = samples[index];
-      final x = centerX + (cents / 50) * (size.width / 2 - 8);
-      final row = index % 5;
-      final column = index % 3;
-      final y = 16 + row * 13 + column * 3.5;
+    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), line);
+
+    final binCounts = List<int>.filled(21, 0);
+    for (final sample in samples) {
+      final cents = sample.clamp(-50.0, 50.0).toDouble();
+      final bin = ((cents + 50) / 5).round().clamp(0, 20).toInt();
+      final stackIndex = binCounts[bin]++;
+      final x = 8 + bin / 20 * (size.width - 16);
+      final level = stackIndex ~/ 2 + 1;
+      final direction = stackIndex.isEven ? -1 : 1;
+      final y = (centerY + direction * level * 7.0)
+          .clamp(6.0, size.height - 6.0)
+          .toDouble();
       final dot = Paint()
         ..color = cents.abs() > 25 ? accent : primary
         ..style = PaintingStyle.fill;
