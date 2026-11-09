@@ -342,7 +342,7 @@ void main() {
     await tester.tap(find.byKey(const Key('lesson-1-next')));
     await tester.pumpAndSettle();
     expect(find.text('目标音'), findsOneWidget);
-    expect(find.text('麦克风只用于识别音高。'), findsOneWidget);
+    expect(find.text('含住第 4 孔，轻轻吹气。'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.arrow_back).first);
     await tester.pumpAndSettle();
@@ -354,27 +354,25 @@ void main() {
     expect(find.text('跟吹'), findsOneWidget);
     expect(find.byKey(const Key('practice-primary-control')), findsOneWidget);
     expect(find.text('循环'), findsOneWidget);
-    expect(find.text('听 F 的示范音'), findsOneWidget);
-    expect(find.text('含住第 4 孔，轻轻吹气。不要用力，让气息自然流过。'), findsOneWidget);
+    expect(find.text('播放 F 的示范音'), findsOneWidget);
+    expect(find.text('含住第 4 孔，轻轻吹气。'), findsOneWidget);
   });
 
-  testWidgets('explains the microphone on the first practice only', (
+  testWidgets('keeps practice guidance tied to the guide action', (
     tester,
   ) async {
     await pumpBreathnote(tester);
 
     await tester.tap(find.text('吹响第一个音').first);
     await tester.pumpAndSettle();
-    expect(
-      find.byKey(const Key('practice-microphone-purpose')),
-      findsOneWidget,
-    );
+    expect(find.text('播放 F 的示范音'), findsOneWidget);
+    expect(find.text('含住第 4 孔，轻轻吹气。'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.arrow_back).first);
     await tester.pumpAndSettle();
     await tester.tap(find.text('清晰的单音').first);
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('practice-microphone-purpose')), findsNothing);
+    expect(find.text('只含住第 5 孔，缩小嘴型，保持柔和、稳定的气流。'), findsOneWidget);
   });
 
   testWidgets('explains localized score and progress values', (tester) async {
@@ -427,7 +425,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('清晰的单音'), findsWidgets);
-    expect(find.byKey(const Key('practice-microphone-purpose')), findsNothing);
+    expect(find.text('只含住第 5 孔，缩小嘴型，保持柔和、稳定的气流。'), findsOneWidget);
   });
 
   testWidgets('opens built-in song practice', (tester) async {
@@ -568,6 +566,38 @@ void main() {
     });
   }
 
+  testWidgets('shows holes 1 through 10 without horizontal scrolling', (
+    tester,
+  ) async {
+    final controller = AppController()..textScale = 1.2;
+    addTearDown(controller.dispose);
+    await pumpBreathnote(
+      tester,
+      controller: controller,
+      size: const Size(360, 800),
+    );
+
+    await tester.tap(find.text('曲谱'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('add-custom-song')));
+    await tester.pumpAndSettle();
+
+    for (var hole = 1; hole <= 10; hole++) {
+      final finder = find.byKey(Key('custom-song-hole-$hole'));
+      expect(finder, findsOneWidget);
+      final rect = tester.getRect(finder);
+      expect(rect.left, greaterThanOrEqualTo(20));
+      expect(rect.right, lessThanOrEqualTo(340));
+    }
+    expect(
+      tester.getTopLeft(find.byKey(const Key('custom-song-hole-10'))).dy,
+      greaterThan(
+        tester.getTopLeft(find.byKey(const Key('custom-song-hole-1'))).dy,
+      ),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('has no overflow on a small Android viewport', (tester) async {
     final controller = AppController()..textScale = 1.2;
     addTearDown(controller.dispose);
@@ -591,7 +621,7 @@ void main() {
       const Offset(0, -600),
     );
     await tester.pumpAndSettle();
-    expect(find.text('声音只在设备上分析。'), findsOneWidget);
+    expect(find.text('声音只在设备上分析，不会上传或保存。'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.text('我的'));

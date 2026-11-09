@@ -480,20 +480,7 @@ class _PracticeScreenState extends State<PracticeScreen>
                     currentStage: currentStage,
                     complete: _completed,
                   ),
-                  const SizedBox(height: 20),
-                  if (widget.lessonId == 'lesson_2' &&
-                      _status != _PracticeStatus.permanentlyDenied) ...[
-                    Semantics(
-                      container: true,
-                      child: Text(
-                        strings.t('microphonePurpose'),
-                        key: const Key('practice-microphone-purpose'),
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
+                  const SizedBox(height: 28),
                   Row(
                     children: [
                       SectionLabel(strings.t('targetNote')),
@@ -679,9 +666,7 @@ class _PracticeScreenState extends State<PracticeScreen>
     if (_status == _PracticeStatus.error) {
       return strings.t('microphoneUnavailable');
     }
-    return widget.instruction.isEmpty
-        ? strings.t('tapPlayToStart')
-        : widget.instruction;
+    return widget.instruction;
   }
 
   Color _guidanceColor(AppPalette palette, double cents) {

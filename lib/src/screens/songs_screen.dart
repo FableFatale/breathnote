@@ -334,31 +334,31 @@ class _CustomSongSheetState extends State<_CustomSongSheet> {
               style: Theme.of(context).textTheme.labelLarge,
             ),
             const SizedBox(height: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (var hole = 1; hole <= 10; hole++) ...[
-                    Semantics(
-                      label: context.strings.t('holeNumber', {'hole': hole}),
-                      button: true,
-                      selected: _selectedHole == hole,
-                      child: ExcludeSemantics(
-                        child: ChoiceChip(
-                          key: Key('custom-song-hole-$hole'),
-                          label: Text('$hole'),
-                          selected: _selectedHole == hole,
-                          onSelected: (_) {
-                            setState(() => _selectedHole = hole);
-                            unawaited(AppHaptics.selection(context));
-                          },
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (var hole = 1; hole <= 10; hole++)
+                  Semantics(
+                    label: context.strings.t('holeNumber', {'hole': hole}),
+                    button: true,
+                    selected: _selectedHole == hole,
+                    child: ExcludeSemantics(
+                      child: ChoiceChip(
+                        key: Key('custom-song-hole-$hole'),
+                        label: SizedBox(
+                          width: 24,
+                          child: Text('$hole', textAlign: TextAlign.center),
                         ),
+                        selected: _selectedHole == hole,
+                        onSelected: (_) {
+                          setState(() => _selectedHole = hole);
+                          unawaited(AppHaptics.selection(context));
+                        },
                       ),
                     ),
-                    if (hole != 10) const SizedBox(width: 6),
-                  ],
-                ],
-              ),
+                  ),
+              ],
             ),
             const SizedBox(height: 12),
             Row(
@@ -455,12 +455,12 @@ class _SongTile extends StatelessWidget {
                         width: 58,
                         height: 68,
                         decoration: BoxDecoration(
-                          color: song.color,
+                          color: palette.primary,
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.music_note_rounded,
-                          color: Colors.white,
+                          color: palette.onPrimary,
                           size: 29,
                         ),
                       ),
@@ -482,8 +482,10 @@ class _SongTile extends StatelessWidget {
                                 if (song.isCustom)
                                   Pill(
                                     label: context.strings.t('custom'),
-                                    color: palette.surfaceHigh,
-                                    foreground: palette.accentInk,
+                                    color: palette.primary.withValues(
+                                      alpha: 0.10,
+                                    ),
+                                    foreground: palette.primary,
                                   ),
                               ],
                             ),
