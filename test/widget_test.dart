@@ -387,6 +387,13 @@ void main() {
     expect(AppStrings('zh').t('songProgress', {'percent': 40}), '已完成 40%');
     expect(AppStrings('en').t('songProgress', {'percent': 40}), '40% complete');
     expect(AppStrings('ja').t('songProgress', {'percent': 40}), '40% 完了');
+    expect(
+      AppStrings('en').t('openLesson', {'title': 'Play your first note'}),
+      'Play your first note',
+    );
+    expect(AppStrings('ja').t('startToday'), '今日から');
+    expect(AppStrings('ja').t('lessonLabel', {'number': '02'}), '第 02 レッスン');
+    expect(AppStrings('ja').songTitle('two_tigers', '两只老虎'), 'グーチョキパーでなにつくろう');
   });
 
   testWidgets('completed practice opens the next lesson', (tester) async {
@@ -501,6 +508,13 @@ void main() {
 
     await tester.tap(find.text('调音'));
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.drag(
+      find.byType(SingleChildScrollView),
+      const Offset(0, -600),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('声音只在设备上分析。'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.text('我的'));

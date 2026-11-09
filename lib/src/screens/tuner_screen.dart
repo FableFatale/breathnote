@@ -301,7 +301,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
 
     return SingleChildScrollView(
       key: const PageStorageKey('tuner'),
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 108),
       child: Column(
         children: [
           Row(
