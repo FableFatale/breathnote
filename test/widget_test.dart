@@ -476,10 +476,19 @@ void main() {
     await tester.tap(find.byKey(const Key('add-custom-song')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('custom-song-title')), '晨风');
-    await tester.enterText(
+    await tester.tap(find.byKey(const Key('custom-song-blow')));
+    await tester.pump();
+    final notationField = tester.widget<TextField>(
       find.byKey(const Key('custom-song-notation')),
-      '4↑ 4↓ 5↑',
     );
+    expect(notationField.controller?.text, '4↑');
+    await tester.tap(find.byKey(const Key('custom-song-remove-note')));
+    await tester.pump();
+    expect(notationField.controller?.text, isEmpty);
+    await tester.tap(find.byKey(const Key('custom-song-blow')));
+    await tester.tap(find.byKey(const Key('custom-song-draw')));
+    await tester.tap(find.byKey(const Key('custom-song-hole-5')));
+    await tester.tap(find.byKey(const Key('custom-song-blow')));
     tester.testTextInput.hide();
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('save-custom-song')));
@@ -487,9 +496,77 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(controller.customSongs.single.title, '晨风');
+    expect(controller.customSongs.single.tabPreview, '4↑ 4↓ 5↑');
     expect(find.text('晨风'), findsWidgets);
     expect(find.text('当前目标'), findsOneWidget);
   });
+
+  testWidgets('keeps custom-song open and delete actions accessible', (
+    tester,
+  ) async {
+    final controller = AppController();
+    await controller.addCustomSong(title: '晨风', notation: '4↑ 4↓');
+    addTearDown(controller.dispose);
+    await pumpBreathnote(tester, controller: controller);
+
+    await tester.tap(find.text('曲谱'));
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('练习「晨风」'), findsOneWidget);
+    expect(find.bySemanticsLabel('删除 晨风'), findsOneWidget);
+  });
+
+  testWidgets('wraps a long English song title at 120% text', (tester) async {
+    final controller = AppController()
+      ..languageCode = 'en'
+      ..textScale = 1.2;
+    addTearDown(controller.dispose);
+    await pumpBreathnote(
+      tester,
+      controller: controller,
+      size: const Size(360, 800),
+    );
+
+    await tester.tap(find.text('Songs'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('Twinkle, Twinkle, Little Star'));
+    await tester.pumpAndSettle();
+
+    final titleFinder = find.descendant(
+      of: find.byType(AppBar),
+      matching: find.text('Twinkle, Twinkle, Little Star'),
+    );
+    final title = tester.widget<Text>(titleFinder);
+    expect(title.maxLines, 2);
+    expect(title.overflow, TextOverflow.visible);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final locale in [('en', 'Songs'), ('ja', '楽譜')]) {
+    testWidgets('${locale.$1} custom-song sheet fits at 120% text', (
+      tester,
+    ) async {
+      final controller = AppController()
+        ..languageCode = locale.$1
+        ..textScale = 1.2;
+      addTearDown(controller.dispose);
+      await pumpBreathnote(
+        tester,
+        controller: controller,
+        size: const Size(360, 800),
+      );
+
+      await tester.tap(find.text(locale.$2));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('add-custom-song')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('custom-song-blow')), findsOneWidget);
+      expect(find.byKey(const Key('custom-song-draw')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('has no overflow on a small Android viewport', (tester) async {
     final controller = AppController()..textScale = 1.2;

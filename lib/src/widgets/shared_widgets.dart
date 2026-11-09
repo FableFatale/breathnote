@@ -160,21 +160,31 @@ class HarmonicaDiagram extends StatelessWidget {
 
     return Row(
       children: [
-        SizedBox(
-          width: 34,
-          height: 88,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              Text(
-                context.strings.t('blow'),
-                style: Theme.of(context).textTheme.bodySmall,
+        ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 34),
+          child: SizedBox(
+            height: 88,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    context.strings.t('blow'),
+                    maxLines: 1,
+                    softWrap: false,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  Text(
+                    context.strings.t('draw'),
+                    maxLines: 1,
+                    softWrap: false,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ),
-              Text(
-                context.strings.t('draw'),
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+            ),
           ),
         ),
         Expanded(

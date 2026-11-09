@@ -33,11 +33,7 @@ class _SongsScreenState extends State<SongsScreen> {
     final appController = AppScope.of(context);
     unawaited(AppHaptics.selection(context));
 
-    var titleValue = '';
-    var notationValue = '';
-    String? titleError;
-    String? notationError;
-    final song = await showModalBottomSheet<Song>(
+    final createdSong = await showModalBottomSheet<Song>(
       context: context,
       isScrollControlled: true,
       sheetAnimationStyle: AppMotion.animationStyle(
@@ -45,110 +41,14 @@ class _SongsScreenState extends State<SongsScreen> {
         duration: AppMotion.slow,
         reverseDuration: AppMotion.base,
       ),
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return SafeArea(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  4,
-                  20,
-                  24 + MediaQuery.viewInsetsOf(context).bottom,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.strings.t('addCustomSong'),
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      context.strings.t('customSongHelp'),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      key: const Key('custom-song-title'),
-                      textInputAction: TextInputAction.next,
-                      onChanged: (value) {
-                        titleValue = value;
-                        if (titleError != null) {
-                          setSheetState(() => titleError = null);
-                        }
-                      },
-                      decoration: InputDecoration(
-                        labelText: context.strings.t('songName'),
-                        hintText: context.strings.t('songNameHint'),
-                        errorText: titleError,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      key: const Key('custom-song-notation'),
-                      minLines: 3,
-                      maxLines: 5,
-                      onChanged: (value) {
-                        notationValue = value;
-                        if (notationError != null) {
-                          setSheetState(() => notationError = null);
-                        }
-                      },
-                      decoration: InputDecoration(
-                        labelText: context.strings.t('numberNotation'),
-                        hintText: '4↑ 4↑ 6↑ 6↑ 6↓ 6↓ 6↑',
-                        errorText: notationError,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.icon(
-                        key: const Key('save-custom-song'),
-                        onPressed: () async {
-                          final title = titleValue.trim();
-                          if (title.isEmpty) {
-                            setSheetState(() {
-                              titleError = context.strings.t('enterSongName');
-                            });
-                            return;
-                          }
-                          try {
-                            final created = await appController.addCustomSong(
-                              title: title,
-                              notation: notationValue,
-                            );
-                            if (!sheetContext.mounted) return;
-                            Navigator.of(sheetContext).pop(created);
-                          } on HarmonicaTabFormatException catch (error) {
-                            unawaited(AppHaptics.warning(context));
-                            setSheetState(() {
-                              notationError = context.strings.t(error.code, {
-                                if (error.token != null) 'token': error.token!,
-                              });
-                            });
-                          }
-                        },
-                        icon: const Icon(Icons.add_rounded),
-                        label: Text(context.strings.t('saveAndPractice')),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+      builder: (_) => _CustomSongSheet(appController: appController),
     );
-    if (song == null || !mounted) return;
+    if (createdSong == null || !mounted) return;
     unawaited(AppHaptics.success(context));
     Navigator.of(context).push(
       AppPageRoute<void>(
         reduceMotion: AppMotion.isReduced(context),
-        builder: (_) => SongPracticeScreen(song: song),
+        builder: (_) => SongPracticeScreen(song: createdSong),
       ),
     );
   }
@@ -317,6 +217,212 @@ class _SongsScreenState extends State<SongsScreen> {
   }
 }
 
+class _CustomSongSheet extends StatefulWidget {
+  const _CustomSongSheet({required this.appController});
+
+  final AppController appController;
+
+  @override
+  State<_CustomSongSheet> createState() => _CustomSongSheetState();
+}
+
+class _CustomSongSheetState extends State<_CustomSongSheet> {
+  final _notationController = TextEditingController();
+  var _titleValue = '';
+  var _selectedHole = 4;
+  String? _titleError;
+  String? _notationError;
+
+  @override
+  void dispose() {
+    _notationController.dispose();
+    super.dispose();
+  }
+
+  void _updateNotation(String value) {
+    _notationController.value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+    );
+    setState(() => _notationError = null);
+  }
+
+  void _addNote(String direction) {
+    final existing = _notationController.text.trim();
+    final note = '$_selectedHole$direction';
+    _updateNotation(existing.isEmpty ? note : '$existing $note');
+    unawaited(AppHaptics.selection(context));
+  }
+
+  void _removeLastNote() {
+    final notes = _notationController.text
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((note) => note.isNotEmpty)
+        .toList();
+    if (notes.isEmpty) return;
+    notes.removeLast();
+    _updateNotation(notes.join(' '));
+    unawaited(AppHaptics.selection(context));
+  }
+
+  Future<void> _save() async {
+    final title = _titleValue.trim();
+    if (title.isEmpty) {
+      setState(() => _titleError = context.strings.t('enterSongName'));
+      return;
+    }
+    try {
+      final created = await widget.appController.addCustomSong(
+        title: title,
+        notation: _notationController.text,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(created);
+    } on HarmonicaTabFormatException catch (error) {
+      unawaited(AppHaptics.warning(context));
+      setState(() {
+        _notationError = context.strings.t(error.code, {
+          if (error.token != null) 'token': error.token!,
+        });
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          4,
+          20,
+          24 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              context.strings.t('addCustomSong'),
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              context.strings.t('customSongHelp'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              key: const Key('custom-song-title'),
+              textInputAction: TextInputAction.next,
+              onChanged: (value) {
+                _titleValue = value;
+                if (_titleError != null) {
+                  setState(() => _titleError = null);
+                }
+              },
+              decoration: InputDecoration(
+                labelText: context.strings.t('songName'),
+                hintText: context.strings.t('songNameHint'),
+                errorText: _titleError,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              context.strings.t('chooseHole'),
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (var hole = 1; hole <= 10; hole++) ...[
+                    Semantics(
+                      label: context.strings.t('holeNumber', {'hole': hole}),
+                      button: true,
+                      selected: _selectedHole == hole,
+                      child: ExcludeSemantics(
+                        child: ChoiceChip(
+                          key: Key('custom-song-hole-$hole'),
+                          label: Text('$hole'),
+                          selected: _selectedHole == hole,
+                          onSelected: (_) {
+                            setState(() => _selectedHole = hole);
+                            unawaited(AppHaptics.selection(context));
+                          },
+                        ),
+                      ),
+                    ),
+                    if (hole != 10) const SizedBox(width: 6),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const Key('custom-song-blow'),
+                    onPressed: () => _addNote('↑'),
+                    icon: const Icon(Icons.north_rounded),
+                    label: Text(context.strings.t('blow')),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    key: const Key('custom-song-draw'),
+                    onPressed: () => _addNote('↓'),
+                    icon: const Icon(Icons.south_rounded),
+                    label: Text(context.strings.t('draw')),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.outlined(
+                  key: const Key('custom-song-remove-note'),
+                  tooltip: context.strings.t('removeLastNote'),
+                  onPressed: _notationController.text.trim().isEmpty
+                      ? null
+                      : _removeLastNote,
+                  icon: const Icon(Icons.backspace_outlined),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _notationController,
+              key: const Key('custom-song-notation'),
+              minLines: 2,
+              maxLines: 4,
+              onChanged: (_) {
+                setState(() => _notationError = null);
+              },
+              decoration: InputDecoration(
+                labelText: context.strings.t('numberNotation'),
+                hintText: '4↑ 4↑ 6↑ 6↑ 6↓ 6↓ 6↑',
+                errorText: _notationError,
+              ),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                key: const Key('save-custom-song'),
+                onPressed: _save,
+                icon: const Icon(Icons.add_rounded),
+                label: Text(context.strings.t('saveAndPractice')),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SongTile extends StatelessWidget {
   const _SongTile({required this.song, required this.onTap, this.onDelete});
 
@@ -328,92 +434,111 @@ class _SongTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.colors;
     final title = context.strings.songTitle(song.id, song.title);
-    return Semantics(
-      container: true,
-      button: true,
-      label: context.strings.t('openSong', {'title': title}),
-      excludeSemantics: true,
-      onTap: onTap,
-      child: Card(
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(13),
-            child: Row(
-              children: [
-                Container(
-                  width: 58,
-                  height: 68,
-                  decoration: BoxDecoration(
-                    color: song.color,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.music_note_rounded,
-                    color: Colors.white,
-                    size: 29,
-                  ),
-                ),
-                const SizedBox(width: 13),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+    return Card(
+      semanticContainer: false,
+      clipBehavior: Clip.antiAlias,
+      child: Row(
+        children: [
+          Expanded(
+            child: Semantics(
+              button: true,
+              label: context.strings.t('openSong', {'title': title}),
+              excludeSemantics: true,
+              onTap: onTap,
+              child: InkWell(
+                onTap: onTap,
+                child: Padding(
+                  padding: const EdgeInsets.all(13),
+                  child: Row(
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                          ),
-                          if (song.isCustom)
-                            Pill(
-                              label: context.strings.t('custom'),
-                              color: palette.surfaceHigh,
-                              foreground: palette.accentInk,
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        song.isCustom
-                            ? context.strings.t('customSongSubtitle')
-                            : context.strings.t(song.subtitle),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        song.tabPreview,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: palette.primary,
-                          fontSize: 12,
-                          fontFamily: 'monospace',
-                          fontWeight: FontWeight.w700,
+                      Container(
+                        width: 58,
+                        height: 68,
+                        decoration: BoxDecoration(
+                          color: song.color,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.music_note_rounded,
+                          color: Colors.white,
+                          size: 29,
                         ),
                       ),
+                      const SizedBox(width: 13),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    title,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium,
+                                  ),
+                                ),
+                                if (song.isCustom)
+                                  Pill(
+                                    label: context.strings.t('custom'),
+                                    color: palette.surfaceHigh,
+                                    foreground: palette.accentInk,
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              song.isCustom
+                                  ? context.strings.t('customSongSubtitle')
+                                  : context.strings.t(song.subtitle),
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              song.tabPreview,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: palette.primary,
+                                fontSize: 12,
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (onDelete == null)
+                        Icon(Icons.chevron_right_rounded, color: palette.muted),
                     ],
                   ),
                 ),
-                if (onDelete != null)
-                  IconButton(
-                    tooltip: context.strings.t('deleteSongTooltip', {
-                      'title': song.title,
-                    }),
-                    onPressed: onDelete,
-                    icon: Icon(
-                      Icons.delete_outline_rounded,
-                      color: palette.muted,
-                    ),
-                  )
-                else
-                  Icon(Icons.chevron_right_rounded, color: palette.muted),
-              ],
+              ),
             ),
           ),
-        ),
+          if (onDelete != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: Semantics(
+                button: true,
+                label: context.strings.t('deleteSongTooltip', {
+                  'title': song.title,
+                }),
+                excludeSemantics: true,
+                onTap: onDelete,
+                child: IconButton(
+                  tooltip: context.strings.t('deleteSongTooltip', {
+                    'title': song.title,
+                  }),
+                  onPressed: onDelete,
+                  icon: Icon(
+                    Icons.delete_outline_rounded,
+                    color: palette.muted,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
