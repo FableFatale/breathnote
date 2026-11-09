@@ -36,11 +36,7 @@ class _SongsScreenState extends State<SongsScreen> {
     final createdSong = await showModalBottomSheet<Song>(
       context: context,
       isScrollControlled: true,
-      sheetAnimationStyle: AppMotion.animationStyle(
-        context,
-        duration: AppMotion.slow,
-        reverseDuration: AppMotion.base,
-      ),
+      sheetAnimationStyle: AppMotion.sheetAnimationStyle(context),
       builder: (_) => _CustomSongSheet(appController: appController),
     );
     if (createdSong == null || !mounted) return;

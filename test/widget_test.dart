@@ -10,7 +10,6 @@ import 'package:breathnote/src/screens/tuner_screen.dart';
 import 'package:breathnote/src/state/app_controller.dart';
 import 'package:breathnote/src/theme/app_motion.dart';
 import 'package:breathnote/src/theme/app_theme.dart';
-import 'package:breathnote/src/widgets/motion_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -177,6 +176,7 @@ void main() {
     expect(AppMotion.base, const Duration(milliseconds: 240));
     expect(AppMotion.slow, const Duration(milliseconds: 420));
     expect(AppMotion.breathing, const Duration(milliseconds: 2400));
+    expect(AppMotion.sheetCurve, const Cubic(0.32, 0.72, 0, 1));
   });
 
   test('parses valid custom harmonica notation', () {
@@ -303,10 +303,7 @@ void main() {
   testWidgets('opens all four main navigation destinations', (tester) async {
     await pumpBreathnote(tester);
 
-    expect(
-      tester.widget<AnimatedTabStack>(find.byType(AnimatedTabStack)).duration,
-      AppMotion.base,
-    );
+    expect(find.byKey(const Key('main-tab-page-view')), findsOneWidget);
     expect(find.text('学习路径'), findsOneWidget);
 
     await tester.tap(find.text('曲谱'));
@@ -323,6 +320,109 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('口琴练习者'), findsOneWidget);
     expect(find.text('本机数据与隐私'), findsOneWidget);
+  });
+
+  testWidgets('main tabs track horizontal swipes and settle on a page', (
+    tester,
+  ) async {
+    await pumpBreathnote(tester);
+
+    final pages = find.byKey(const Key('main-tab-page-view'));
+    await tester.drag(pages, const Offset(-330, 0));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SearchBar), findsOneWidget);
+    expect(find.text('小星星'), findsOneWidget);
+
+    await tester.fling(pages, const Offset(180, 0), 1400);
+    await tester.pumpAndSettle();
+
+    expect(find.text('学习路径'), findsOneWidget);
+  });
+
+  testWidgets('short slow tab swipes snap back', (tester) async {
+    await pumpBreathnote(tester);
+
+    final pages = find.byKey(const Key('main-tab-page-view'));
+    await tester.timedDrag(
+      pages,
+      const Offset(-80, 0),
+      const Duration(milliseconds: 600),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('学习路径'), findsOneWidget);
+    expect(find.byType(SearchBar), findsNothing);
+  });
+
+  testWidgets('short fast tab flicks move to the next page', (tester) async {
+    await pumpBreathnote(tester);
+
+    final pages = find.byKey(const Key('main-tab-page-view'));
+    await tester.fling(pages, const Offset(-90, 0), 2400);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SearchBar), findsOneWidget);
+    expect(find.text('小星星'), findsOneWidget);
+  });
+
+  testWidgets('far navigation taps emit one selection haptic', (tester) async {
+    await pumpBreathnote(tester);
+
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final haptics = <Object?>[];
+    messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'HapticFeedback.vibrate') {
+        haptics.add(call.arguments);
+      }
+      return null;
+    });
+    addTearDown(
+      () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+    );
+
+    await tester.tap(find.text('我的'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('本机数据与隐私'), findsOneWidget);
+    expect(
+      haptics.where((value) => value == 'HapticFeedbackType.selectionClick'),
+      hasLength(1),
+    );
+  });
+
+  testWidgets('reduced motion keeps direct drag but removes fling momentum', (
+    tester,
+  ) async {
+    final controller = AppController()..reduceMotion = true;
+    addTearDown(controller.dispose);
+    await pumpBreathnote(tester, controller: controller);
+
+    final pages = find.byKey(const Key('main-tab-page-view'));
+    final pageController = tester.widget<PageView>(pages).controller!;
+    final gesture = await tester.startGesture(tester.getCenter(pages));
+    await gesture.moveBy(const Offset(-20, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-60, 0));
+    await tester.pump();
+
+    expect(pageController.offset, greaterThan(0));
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(find.text('学习路径'), findsOneWidget);
+
+    await tester.fling(pages, const Offset(-80, 0), 2400);
+    expect(pageController.page, lessThan(0.5));
+    await tester.pumpAndSettle();
+    expect(find.text('学习路径'), findsOneWidget);
+
+    await tester.tap(find.text('曲谱'));
+    await tester.pump();
+
+    expect(find.byType(SearchBar), findsOneWidget);
+    expect(find.text('小星星'), findsOneWidget);
   });
 
   testWidgets('opens lesson detail and single-note practice', (tester) async {
@@ -711,6 +811,9 @@ void main() {
     await tester.drag(find.byType(Slider), const Offset(-120, 0));
     await tester.pumpAndSettle();
     expect(preferences.savedValues['microphoneSensitivity'], isA<double>());
+    expect(find.text('检测灵敏度'), findsOneWidget);
+    expect(find.text('我的'), findsOneWidget);
+    expect(find.text('本机数据与隐私'), findsNothing);
   });
 
   testWidgets('uses native Japanese tuner wording', (tester) async {

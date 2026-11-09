@@ -7,7 +7,6 @@ import '../services/guide_tone_service.dart';
 import '../services/haptics.dart';
 import '../services/pitch_service.dart';
 import '../theme/app_motion.dart';
-import '../widgets/motion_widgets.dart';
 import 'learn_screen.dart';
 import 'profile_screen.dart';
 import 'songs_screen.dart';
@@ -22,6 +21,60 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   int _index = 0;
+  int? _programmaticTarget;
+  late final PageController _pageController = PageController();
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _handlePageChanged(int value) {
+    if (value == _index) return;
+    final isProgrammatic = _programmaticTarget == value;
+    if (isProgrammatic) _programmaticTarget = null;
+    setState(() => _index = value);
+    _stopAudio();
+    if (!isProgrammatic) {
+      unawaited(AppHaptics.selection(context));
+    }
+  }
+
+  void _selectDestination(int value) {
+    if (value == _index) return;
+    _programmaticTarget = value;
+    _stopAudio();
+    unawaited(AppHaptics.selection(context));
+
+    final shouldJump =
+        AppMotion.isReduced(context) || (value - _index).abs() > 1;
+    if (shouldJump) {
+      _pageController.jumpToPage(value);
+      return;
+    }
+
+    unawaited(
+      _pageController.animateToPage(
+        value,
+        duration: AppMotion.base,
+        curve: AppMotion.standardCurve,
+      ),
+    );
+  }
+
+  void _stopAudio() {
+    unawaited(PitchService().stop());
+    unawaited(GuideToneService().stop());
+  }
+
+  bool _handleScrollStart(ScrollStartNotification notification) {
+    if (notification.dragDetails != null &&
+        notification.metrics.axis == Axis.horizontal) {
+      _programmaticTarget = null;
+    }
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,24 +87,27 @@ class _HomeShellState extends State<HomeShell> {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: AnimatedTabStack(
-          key: const Key('main-tab-transition'),
-          index: _index,
-          duration: AppMotion.duration(context, AppMotion.base),
-          children: screens,
+        child: NotificationListener<ScrollStartNotification>(
+          onNotification: _handleScrollStart,
+          child: PageView(
+            key: const Key('main-tab-page-view'),
+            controller: _pageController,
+            onPageChanged: _handlePageChanged,
+            pageSnapping: false,
+            physics: AppMotion.isReduced(context)
+                ? const ReducedMotionPageScrollPhysics(
+                    parent: ClampingScrollPhysics(),
+                  )
+                : const PageScrollPhysics(parent: ClampingScrollPhysics()),
+            children: screens,
+          ),
         ),
       ),
       bottomNavigationBar: SafeArea(
         top: false,
         child: NavigationBar(
           selectedIndex: _index,
-          onDestinationSelected: (value) {
-            if (value == _index) return;
-            setState(() => _index = value);
-            unawaited(PitchService().stop());
-            unawaited(GuideToneService().stop());
-            unawaited(AppHaptics.selection(context));
-          },
+          onDestinationSelected: _selectDestination,
           destinations: [
             NavigationDestination(
               icon: const Icon(Icons.home_outlined),

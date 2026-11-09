@@ -78,11 +78,7 @@ class ProfileScreen extends StatelessWidget {
     unawaited(AppHaptics.selection(context));
     final selected = await showModalBottomSheet<String>(
       context: context,
-      sheetAnimationStyle: AppMotion.animationStyle(
-        context,
-        duration: AppMotion.slow,
-        reverseDuration: AppMotion.base,
-      ),
+      sheetAnimationStyle: AppMotion.sheetAnimationStyle(context),
       builder: (context) {
         return SafeArea(
           child: Padding(
@@ -130,11 +126,7 @@ class ProfileScreen extends StatelessWidget {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      sheetAnimationStyle: AppMotion.animationStyle(
-        context,
-        duration: AppMotion.slow,
-        reverseDuration: AppMotion.base,
-      ),
+      sheetAnimationStyle: AppMotion.sheetAnimationStyle(context),
       builder: (context) {
         final controller = AppScope.of(context);
         return SafeArea(
@@ -206,11 +198,7 @@ class ProfileScreen extends StatelessWidget {
     unawaited(AppHaptics.selection(context));
     await showModalBottomSheet<void>(
       context: context,
-      sheetAnimationStyle: AppMotion.animationStyle(
-        context,
-        duration: AppMotion.slow,
-        reverseDuration: AppMotion.base,
-      ),
+      sheetAnimationStyle: AppMotion.sheetAnimationStyle(context),
       builder: (context) {
         final controller = AppScope.of(context);
         final strings = context.strings;

@@ -156,11 +156,7 @@ class LearnScreen extends StatelessWidget {
     unawaited(AppHaptics.selection(context));
     final selected = await showModalBottomSheet<String>(
       context: context,
-      sheetAnimationStyle: AppMotion.animationStyle(
-        context,
-        duration: AppMotion.slow,
-        reverseDuration: AppMotion.base,
-      ),
+      sheetAnimationStyle: AppMotion.sheetAnimationStyle(context),
       builder: (context) {
         return SafeArea(
           child: Padding(

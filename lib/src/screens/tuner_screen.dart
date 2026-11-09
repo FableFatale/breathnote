@@ -229,11 +229,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
     unawaited(AppHaptics.selection(context));
     await showModalBottomSheet<void>(
       context: context,
-      sheetAnimationStyle: AppMotion.animationStyle(
-        context,
-        duration: AppMotion.slow,
-        reverseDuration: AppMotion.base,
-      ),
+      sheetAnimationStyle: AppMotion.sheetAnimationStyle(context),
       builder: (context) {
         return SafeArea(
           child: Padding(
