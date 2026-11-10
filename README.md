@@ -34,7 +34,9 @@ C:\Users\Administrator\flutter\bin\flutter.bat build apk --debug
 ```
 
 The GitHub Actions Android workflow runs the same checks and uploads
-`breathnote-debug-apk`.
+`breathnote-debug-apk`. The matching APK for the current source is also saved
+as `artifacts/breathnote-current-debug.apk`; its SHA-256 is
+`AC99E61028FF484FD36703355B58EFE81EDD5BF01215719F374F14570C383DD8`.
 
 The debug APK uses Android debug signing for internal testing. A private release
 keystore is required before Play Store delivery.
