@@ -26,6 +26,8 @@ version.
 
 ## Build and verify
 
+The project and CI currently use Flutter `3.47.9` with Dart `3.13.7`.
+
 ```powershell
 C:\Users\Administrator\flutter\bin\flutter.bat pub get
 C:\Users\Administrator\flutter\bin\flutter.bat analyze
