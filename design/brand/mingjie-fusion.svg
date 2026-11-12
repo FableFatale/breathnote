@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108">
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FAF5EA"/>
+      <stop offset="1" stop-color="#EFE3D1"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#263D80"/>
+      <stop offset="1" stop-color="#405DA4"/>
+    </linearGradient>
+    <linearGradient id="fourth" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8AB1F7"/>
+      <stop offset="1" stop-color="#BCD4FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="108" height="108" fill="url(#background)"/>
+  <path
+    d="M36 70 H72 Q80 70 80 62 V45 Q80 38 73 38 H64 Q60 38 59 43 Q58 46 53 46 H46 Q42 46 41 51 Q40 54 35 54 H32 Q28 54 28 60 V62 Q28 70 36 70 Z"
+    fill="url(#body)"/>
+  <g fill="#FFFCF7">
+    <rect x="30" y="57" width="3.4" height="9" rx="1.7"/>
+    <rect x="35" y="57" width="3.4" height="9" rx="1.7"/>
+    <rect x="40" y="57" width="3.4" height="9" rx="1.7"/>
+    <rect x="50" y="57" width="3.4" height="9" rx="1.7"/>
+    <rect x="55" y="57" width="3.4" height="9" rx="1.7"/>
+    <rect x="60" y="57" width="3.4" height="9" rx="1.7"/>
+    <rect x="65" y="57" width="3.4" height="9" rx="1.7"/>
+    <rect x="70" y="57" width="3.4" height="9" rx="1.7"/>
+    <rect x="75" y="57" width="3.4" height="9" rx="1.7"/>
+  </g>
+  <rect x="45" y="57" width="3.4" height="9" rx="1.7" fill="url(#fourth)"/>
+</svg>

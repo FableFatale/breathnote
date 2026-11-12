@@ -1,0 +1,21 @@
+flowchart TB
+    brand["鸣阶<br/>总品牌"]
+    product["初鸣<br/>首款产品"]
+    descriptor["见音口琴陪练<br/>产品说明"]
+    promise["从第一个清晰的音开始<br/>看见每一步进步"]
+
+    brand --> product
+    product --> descriptor
+    descriptor --> promise
+
+    descriptor --> learn["循序课程"]
+    descriptor --> feedback["实时音准反馈"]
+    descriptor --> songs["曲谱陪练"]
+    descriptor --> tuner["调音与练习分析"]
+
+    classDef brand fill:#2F4A8A,color:#FFFFFF,stroke:#2F4A8A,stroke-width:2px
+    classDef product fill:#E9E3D8,color:#2A2620,stroke:#B9AD9C,stroke-width:1px
+    classDef feature fill:#FFFCF7,color:#2A2620,stroke:#D8CDBE,stroke-width:1px
+    class brand brand
+    class product,descriptor,promise product
+    class learn,feedback,songs,tuner feature

@@ -1,0 +1,121 @@
+{
+  "runId": "mingjie-brand-icon-2026-11-10",
+  "scope": "single-component-family",
+  "step": "awaiting-user-f3-review",
+  "figma": {
+    "fileKey": "6appdCCKuFWvYxW1fWgCIJ",
+    "fileUrl": "https://www.figma.com/design/6appdCCKuFWvYxW1fWgCIJ",
+    "pageId": "0:1",
+    "reviewFrameId": "3:45",
+    "visualIdBoardId": "15:85",
+    "visualIdReferenceSectionId": "18:81",
+    "silhouetteStudyFrameId": "23:120",
+    "silhouetteComponents": {
+      "S1": "23:81",
+      "S2": "23:94",
+      "S3": "23:107",
+      "S4": "29:117",
+      "S5": "40:153"
+    },
+    "fusionRefinementFrameId": "30:117",
+    "antiCombRefinement": {
+      "componentId": "40:153",
+      "boardId": "40:166",
+      "screenshot": "figma-anti-comb-refinement.png",
+      "small24Preview": "s5-24px-preview.png",
+      "small32Preview": "s5-32px-preview.png",
+      "circleMaskPreview": "s5-circle-mask-preview.png",
+      "screenshotWidth": 1440,
+      "screenshotHeight": 1180,
+      "visualCheck": "no-visible-clipping-overlap-or-mask-misalignment"
+    },
+    "lightSeparation": {
+      "boardId": "44:216",
+      "screenshot": "figma-light-separation.png",
+      "screenshotWidth": 1440,
+      "screenshotHeight": 1180,
+      "components": {
+        "F0": "44:177",
+        "F1": "44:190",
+        "F2": "44:203"
+      },
+      "assembledPreviewId": "48:225",
+      "verifiedFacts": [
+        "S5 has no Drop Shadow, Inner Shadow, Glow, or Blur effects",
+        "S5 background and body use two simultaneous linear gradients",
+        "F0 uses solid background and solid body",
+        "F1 uses solid background and gradient body",
+        "F2 uses gradient background and solid body",
+        "all four separation nodes exist exactly once",
+        "final board screenshot has no visible clipping, overlap, or mask misalignment"
+      ]
+    },
+    "oneBody": {
+      "componentId": "56:226",
+      "reviewBoardId": "56:239",
+      "componentName": "鸣阶 Finish / F3 一体琴身",
+      "boardName": "鸣阶 F3 Review",
+      "screenshot": "figma-f3-review.png",
+      "componentScreenshot": "figma-f3-component.png",
+      "screenshotWidth": 1440,
+      "screenshotHeight": 1180,
+      "visualCheck": "no-visible-clipping-overlap-or-mask-misalignment",
+      "boundsCheck": "all-board-descendants-within-1440-by-1180",
+      "mutatedNodeIds": [
+        "56:369",
+        "56:370",
+        "56:383"
+      ],
+      "verifiedFacts": [
+        "F3 component exists exactly once",
+        "F3 review board exists exactly once",
+        "F3 component and board have no effects",
+        "F3 background is one solid paint",
+        "F3 body is one continuous two-stop linear gradient",
+        "F3 has 10 short rounded holes",
+        "hole 4 is the only brighter hole",
+        "18 px holder was moved fully inside the review board",
+        "post-fix board screenshot has no visible clipping, overlap, or mask misalignment"
+      ]
+    },
+    "componentSetId": "3:44",
+    "variants": {
+      "Support=None": "3:27",
+      "Support=Cradle": "3:43"
+    },
+    "variableCollectionId": "VariableCollectionId:3:2"
+  },
+  "completedSteps": [
+    "file-created",
+    "library-discovery",
+    "local-foundations-created",
+    "component-family-created",
+    "mask-and-small-size-review-created",
+    "text-clipping-fixed",
+    "visual-validation-complete",
+    "visual-id-board-created",
+    "visual-id-board-visual-validation-complete",
+    "silhouette-study-created",
+    "silhouette-study-small-size-preview-corrected",
+    "silhouette-study-visual-validation-complete",
+    "fusion-refinement-component-created",
+    "fusion-refinement-board-created",
+    "fusion-refinement-visual-validation-complete",
+    "anti-comb-refinement-component-created",
+    "anti-comb-refinement-board-created",
+    "anti-comb-refinement-visual-validation-complete",
+    "light-separation-components-created",
+    "light-separation-board-created",
+    "light-separation-assembled-preview-corrected",
+    "light-separation-visual-validation-complete",
+    "one-body-f3-component-created",
+    "one-body-f3-review-board-created",
+    "one-body-f3-board-bounds-corrected",
+    "one-body-f3-visual-validation-complete"
+  ],
+  "pendingValidations": [
+    "user-visual-comparison-s4-vs-s5",
+    "user-finish-selection-f0-vs-f1-vs-f2",
+    "user-visual-comparison-f0-vs-f1-vs-f2-vs-f3"
+  ]
+}
