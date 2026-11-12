@@ -4,7 +4,9 @@ import '../localization/app_strings.dart';
 import '../services/haptics.dart';
 import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
+import '../theme/app_adaptive.dart';
 import '../theme/app_theme.dart';
+import '../widgets/harmonica_guide.dart' show showHarmonicaGuide;
 import '../widgets/shared_widgets.dart';
 import 'lesson_routes.dart';
 
@@ -28,6 +30,19 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     setState(() => _completing = false);
   }
 
+  void _openGuide(BuildContext context) {
+    showHarmonicaGuide(
+      context,
+      skipIsClose: true,
+      onSkip: () {},
+      onComplete: () {
+        if (!context.mounted) return;
+        Navigator.of(context)
+            .pushReplacement(lessonRoute(context, lessonById('lesson_2')));
+      },
+    );
+  }
+
   void _openNextLesson(BuildContext context) {
     Navigator.of(context)
         .pushReplacement(lessonRoute(context, lessonById('lesson_2')));
@@ -41,7 +56,12 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(context.strings.lessonTitle('lesson_1'))),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        padding: EdgeInsets.fromLTRB(
+          AppAdaptive.pagePadding(context),
+          8,
+          AppAdaptive.pagePadding(context),
+          32,
+        ),
         children: [
           SectionLabel(context.strings.t('lessonOneLabel')),
           const SizedBox(height: 8),
@@ -70,6 +90,13 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                 ],
               ),
             ),
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            key: const Key('lesson-1-guide'),
+            onPressed: () => _openGuide(context),
+            icon: const Icon(Icons.front_hand_outlined),
+            label: Text(context.strings.t('guideReopen')),
           ),
           const SizedBox(height: 14),
           _Instruction(

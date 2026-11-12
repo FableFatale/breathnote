@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../localization/app_strings.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_adaptive.dart';
 
 class SectionLabel extends StatelessWidget {
   const SectionLabel(this.text, {super.key});
@@ -153,35 +154,45 @@ class HarmonicaDiagram extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.colors;
+    final compact = AppAdaptive.isCompact(context);
+    final labelWidth = compact ? 18.0 : 34.0;
     final activeHole = activeTab == null
         ? null
         : int.tryParse(activeTab!.replaceAll(RegExp(r'[^0-9]'), ''));
     final isBlow = activeTab?.contains('↑') ?? true;
 
+    Widget directionLabel(String text) {
+      if (!compact) {
+        return Text(
+          text,
+          maxLines: 1,
+          softWrap: false,
+          style: Theme.of(context).textTheme.bodySmall,
+        );
+      }
+      return Text(
+        text.split(' ').first,
+        maxLines: 1,
+        softWrap: false,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodySmall,
+      );
+    }
+
     return Row(
       children: [
         ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 34),
+          constraints: BoxConstraints(minWidth: labelWidth),
           child: SizedBox(
-            height: 88,
+            height: compact ? 76 : 88,
             child: Padding(
               padding: const EdgeInsets.only(right: 8),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(
-                    context.strings.t('blow'),
-                    maxLines: 1,
-                    softWrap: false,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  Text(
-                    context.strings.t('draw'),
-                    maxLines: 1,
-                    softWrap: false,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
+                  directionLabel(context.strings.t('blow')),
+                  directionLabel(context.strings.t('draw')),
                 ],
               ),
             ),
@@ -191,7 +202,7 @@ class HarmonicaDiagram extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: SizedBox(
-              height: 88,
+              height: compact ? 76 : 88,
               child: Row(
                 children: List.generate(10, (index) {
                   final hole = index + 1;
@@ -237,7 +248,7 @@ class HarmonicaDiagram extends StatelessWidget {
                                   color: active && isBlow
                                       ? palette.primary
                                       : palette.muted,
-                                  fontSize: 11,
+                                  fontSize: compact ? 10 : 11,
                                   fontWeight: active
                                       ? FontWeight.w800
                                       : FontWeight.w500,

@@ -13,6 +13,7 @@ import '../services/pitch_service.dart';
 import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_adaptive.dart';
 import '../widgets/motion_widgets.dart';
 import '../widgets/shared_widgets.dart';
 
@@ -233,7 +234,12 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
       builder: (context) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+            padding: EdgeInsets.fromLTRB(
+              AppAdaptive.pagePadding(context),
+              4,
+              AppAdaptive.pagePadding(context),
+              24,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,10 +300,13 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
         .where((value) => value != null && value < 0.75)
         .length;
     final hasWeakData = accuracy.any((value) => value != null);
+    final pagePadding = AppAdaptive.pagePadding(context);
+    final cardPadding = AppAdaptive.cardPadding(context);
+    final compact = AppAdaptive.isCompact(context);
 
     return SingleChildScrollView(
       key: const PageStorageKey('tuner'),
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 108),
+      padding: EdgeInsets.fromLTRB(pagePadding, 20, pagePadding, 108),
       child: Column(
         children: [
           Row(
@@ -315,9 +324,9 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: compact ? 12 : AppAdaptive.groupGap(context) / 1.6),
           _StatusLine(status: _status, detected: detected),
-          const SizedBox(height: 22),
+          SizedBox(height: compact ? 12 : AppAdaptive.groupGap(context) / 1.6),
           _NoteDisplay(
             note: detected ? _reading.note : '--',
             octave: detected ? _reading.octave.toString() : '',
@@ -330,7 +339,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                 : context.strings.t('waitingSound'),
             active: detected,
           ),
-          const SizedBox(height: 28),
+          SizedBox(height: compact ? 14 : 28),
           _PitchArc(cents: cents, active: detected),
           const SizedBox(height: 14),
           Semantics(
@@ -343,13 +352,16 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                   })
                 : _hintText,
             excludeSemantics: true,
-            child: Text(
-              _hintText,
-              style: Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Text(
+                _hintText,
+                style: Theme.of(context).textTheme.titleMedium,
+                textAlign: TextAlign.center,
+              ),
             ),
           ),
-          const SizedBox(height: 22),
+          SizedBox(height: compact ? 14 : 22),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
@@ -382,10 +394,15 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
               style: TextStyle(color: palette.danger),
             ),
           ],
-          const SizedBox(height: 18),
+          SizedBox(height: compact ? 14 : 18),
           Card(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 13),
+              padding: EdgeInsets.fromLTRB(
+                cardPadding,
+                cardPadding,
+                cardPadding,
+                cardPadding - 3,
+              ),
               child: Column(
                 children: [
                   Row(
@@ -393,15 +410,21 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                       Expanded(
                         child: Text(
                           context.strings.t('detectionSensitivity'),
-                          style: const TextStyle(fontWeight: FontWeight.w700),
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
                         ),
                       ),
-                      Text(
-                        '${(_sensitivity * 100).round()}%',
-                        style: TextStyle(
-                          color: palette.primary,
-                          fontWeight: FontWeight.w800,
-                          fontFamily: 'monospace',
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            '${(_sensitivity * 100).round()}%',
+                            style: TextStyle(
+                              color: palette.primary,
+                              fontWeight: FontWeight.w800,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
                         ),
                       ),
                     ],
@@ -432,7 +455,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       context.strings.t('sensitivityHint'),
-                      style: TextStyle(color: palette.muted, fontSize: 12),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -474,7 +497,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                     context.strings.t('sensitivityLevelHint', {
                       'threshold': _thresholdDb.round(),
                     }),
-                    style: TextStyle(color: palette.muted, fontSize: 11),
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
               ),
@@ -612,7 +635,7 @@ class _PitchArcPainter extends StatelessWidget {
       curve: AppMotion.standardCurve,
       builder: (context, animatedCents, _) {
         return SizedBox(
-          height: 128,
+          height: AppAdaptive.compactValue(context, compact: 104, regular: 128),
           child: CustomPaint(
             key: const Key('tuner-segmented-arc'),
             painter: _SegmentedArcPainter(
@@ -940,7 +963,12 @@ class _ChartFrame extends StatelessWidget {
     final palette = context.colors;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      padding: EdgeInsets.fromLTRB(
+        AppAdaptive.cardPadding(context),
+        14,
+        AppAdaptive.cardPadding(context),
+        14,
+      ),
       decoration: BoxDecoration(
         color: palette.surface,
         borderRadius: BorderRadius.circular(24),
@@ -955,10 +983,20 @@ class _ChartFrame extends StatelessWidget {
                   child: Text(
                     title!,
                     style: Theme.of(context).textTheme.titleMedium,
+                    softWrap: true,
                   ),
                 ),
-                if (trailing != null)
-                  Text(trailing!, style: _coordinateStyle(context)),
+                if (trailing != null) ...[
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      trailing!,
+                      style: _coordinateStyle(context),
+                      textAlign: TextAlign.end,
+                      softWrap: true,
+                    ),
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 10),
@@ -983,33 +1021,38 @@ class _StatusLine extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        BreathingPulse(
-          active: listening,
-          color: palette.success,
-          shape: BoxShape.circle,
-          child: AnimatedContainer(
-            duration: AppMotion.duration(context, AppMotion.fast),
-            width: 9,
-            height: 9,
-            decoration: BoxDecoration(
-              color: listening ? palette.success : palette.muted,
-              shape: BoxShape.circle,
+        Flexible(
+          child: BreathingPulse(
+            active: listening,
+            color: palette.success,
+            shape: BoxShape.circle,
+            child: AnimatedContainer(
+              duration: AppMotion.duration(context, AppMotion.fast),
+              width: 9,
+              height: 9,
+              decoration: BoxDecoration(
+                color: listening ? palette.success : palette.muted,
+                shape: BoxShape.circle,
+              ),
             ),
           ),
         ),
         const SizedBox(width: 8),
-        AnimatedSwitcher(
-          duration: AppMotion.duration(context, AppMotion.base),
-          child: Text(
-            listening
-                ? detected
-                      ? context.strings.t('pitchDetected')
-                      : context.strings.t('listening')
-                : context.strings.t('microphoneNotStarted'),
-            key: ValueKey((status, detected)),
-            style: TextStyle(
-              color: listening ? palette.success : palette.muted,
-              fontWeight: FontWeight.w700,
+        Flexible(
+          child: AnimatedSwitcher(
+            duration: AppMotion.duration(context, AppMotion.base),
+            child: Text(
+              listening
+                  ? detected
+                        ? context.strings.t('pitchDetected')
+                        : context.strings.t('listening')
+                  : context.strings.t('microphoneNotStarted'),
+              key: ValueKey((status, detected)),
+              style: TextStyle(
+                color: listening ? palette.success : palette.muted,
+                fontWeight: FontWeight.w700,
+              ),
+              softWrap: true,
             ),
           ),
         ),
@@ -1038,44 +1081,52 @@ class _NoteDisplay extends StatelessWidget {
       children: [
         SizedBox(
           key: const Key('tuner-note-transition'),
-          height: 106,
-          child: AnimatedSwitcher(
-            duration: AppMotion.duration(context, AppMotion.base),
-            layoutBuilder: (currentChild, previousChildren) {
-              return Stack(
-                alignment: Alignment.topCenter,
-                children: [...previousChildren, ?currentChild],
-              );
-            },
-            child: Stack(
-              key: ValueKey('$note$octave'),
-              clipBehavior: Clip.none,
-              alignment: Alignment.topRight,
-              children: [
-                Text(
-                  note,
-                  style: TextStyle(
-                    color: active ? palette.text : palette.muted,
-                    fontSize: 96,
-                    height: 1,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0,
-                  ),
-                ),
-                if (octave.isNotEmpty)
-                  Positioned(
-                    right: -18,
-                    top: 2,
-                    child: Text(
-                      octave,
-                      style: TextStyle(
-                        color: palette.muted,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
+          height: AppAdaptive.compactValue(context, compact: 86, regular: 106),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.topCenter,
+            child: AnimatedSwitcher(
+              duration: AppMotion.duration(context, AppMotion.base),
+              layoutBuilder: (currentChild, previousChildren) {
+                return Stack(
+                  alignment: Alignment.topCenter,
+                  children: [...previousChildren, ?currentChild],
+                );
+              },
+              child: Stack(
+                key: ValueKey('$note$octave'),
+                clipBehavior: Clip.none,
+                alignment: Alignment.topRight,
+                children: [
+                  Text(
+                    note,
+                    style: TextStyle(
+                      color: active ? palette.text : palette.muted,
+                      fontSize: AppAdaptive.compactValue(
+                        context,
+                        compact: 76,
+                        regular: 96,
                       ),
+                      height: 1,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0,
                     ),
                   ),
-              ],
+                  if (octave.isNotEmpty)
+                    Positioned(
+                      right: -18,
+                      top: 2,
+                      child: Text(
+                        octave,
+                        style: TextStyle(
+                          color: palette.muted,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1085,6 +1136,7 @@ class _NoteDisplay extends StatelessWidget {
           child: Text(
             subtitle,
             key: ValueKey(subtitle),
+            textAlign: TextAlign.center,
             style: TextStyle(color: palette.muted, fontWeight: FontWeight.w600),
           ),
         ),

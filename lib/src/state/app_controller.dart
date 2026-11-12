@@ -15,6 +15,7 @@ class AppController extends ChangeNotifier {
 
   static const defaultDisplayName = '__default__';
   static const legacyDefaultDisplayName = '口琴练习者';
+  static const sawHarmonicaGuideKey = 'sawHarmonicaGuide';
 
   String displayName = defaultDisplayName;
   String harmonicaKey = 'F';
@@ -28,6 +29,7 @@ class AppController extends ChangeNotifier {
   int practiceSeconds = 0;
   int bestScore = 0;
   bool isLoaded = false;
+  bool sawHarmonicaGuide = false;
   final Set<String> practiceDates = {};
   final Set<String> completedLessons = {};
   final List<Song> customSongs = [];
@@ -89,6 +91,8 @@ class AppController extends ChangeNotifier {
       hapticsEnabled = values['hapticsEnabled'] as bool? ?? hapticsEnabled;
       highContrast = values['highContrast'] as bool? ?? highContrast;
       reduceMotion = values['reduceMotion'] as bool? ?? reduceMotion;
+      sawHarmonicaGuide =
+          values[sawHarmonicaGuideKey] as bool? ?? sawHarmonicaGuide;
       final savedThemeMode = values['themeMode'];
       if (savedThemeMode != null) {
         themeMode = _decodeThemeMode(savedThemeMode);
@@ -167,6 +171,13 @@ class AppController extends ChangeNotifier {
     reduceMotion = value;
     notifyListeners();
     await _persist('reduceMotion', value);
+  }
+
+  Future<void> markHarmonicaGuideSeen() async {
+    if (sawHarmonicaGuide) return;
+    sawHarmonicaGuide = true;
+    notifyListeners();
+    await _persist(sawHarmonicaGuideKey, true);
   }
 
   Future<void> setThemeMode(ThemeMode value) async {
@@ -287,6 +298,7 @@ class AppController extends ChangeNotifier {
     hapticsEnabled = true;
     highContrast = false;
     reduceMotion = false;
+    sawHarmonicaGuide = false;
     themeMode = ThemeMode.system;
     languageCode = 'zh';
     microphoneSensitivity = 0.68;

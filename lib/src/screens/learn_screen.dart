@@ -1,38 +1,24 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../localization/app_strings.dart';
-import '../services/haptics.dart';
 import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_adaptive.dart';
 import '../widgets/motion_widgets.dart';
 import '../widgets/shared_widgets.dart';
+import '../widgets/harmonica_guide.dart'
+    show showHarmonicaGuide, showHarmonicaKeyPicker;
 import 'lesson_routes.dart';
 
 class LearnScreen extends StatelessWidget {
   const LearnScreen({super.key});
 
-  static const _harmonicaKeys = [
-    'C',
-    'D♭',
-    'D',
-    'E♭',
-    'E',
-    'F',
-    'F#',
-    'G',
-    'A♭',
-    'A',
-    'B♭',
-    'B',
-  ];
-
   @override
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
     final strings = context.strings;
+    final pagePadding = AppAdaptive.pagePadding(context);
     final progress = controller.lessonProgress;
     final progressPercent = (progress * 100).round();
     final nextLesson = lessons.firstWhere(
@@ -44,16 +30,16 @@ class LearnScreen extends StatelessWidget {
       key: const PageStorageKey('learn'),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+          padding: EdgeInsets.fromLTRB(pagePadding, 18, pagePadding, 0),
           sliver: SliverToBoxAdapter(
             child: _Header(
               harmonicaKey: controller.harmonicaKey,
-              onChooseKey: () => _chooseKey(context),
+              onChooseKey: () => showHarmonicaKeyPicker(context),
             ),
           ),
         ),
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 34, 20, 0),
+          padding: EdgeInsets.fromLTRB(pagePadding, 34, pagePadding, 0),
           sliver: SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -105,6 +91,19 @@ class LearnScreen extends StatelessWidget {
                     onStart: () => _openLesson(context, nextLesson),
                   ),
                 ),
+                if (!controller.sawHarmonicaGuide &&
+                    nextLesson.id == 'lesson_1') ...[
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      key: const Key('learn-beginner-guide'),
+                      onPressed: () => _showBeginnerGuide(context),
+                      icon: const Icon(Icons.front_hand_outlined),
+                      label: Text(strings.t('guideStepTitle')),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 40),
                 SectionLabel(strings.t('learningPath')),
                 const SizedBox(height: 6),
@@ -131,7 +130,7 @@ class LearnScreen extends StatelessWidget {
           ),
         ),
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+          padding: EdgeInsets.fromLTRB(pagePadding, 0, pagePadding, 32),
           sliver: SliverList.builder(
             itemCount: lessons.length,
             itemBuilder: (context, index) {
@@ -151,54 +150,28 @@ class LearnScreen extends StatelessWidget {
     );
   }
 
-  static Future<void> _chooseKey(BuildContext context) async {
-    final controller = AppScope.of(context);
-    unawaited(AppHaptics.selection(context));
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      sheetAnimationStyle: AppMotion.sheetAnimationStyle(context),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.strings.t('chooseHarmonicaKey'),
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  context.strings.t('chooseHarmonicaKeyDetail'),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _harmonicaKeys.map((key) {
-                    return ChoiceChip(
-                      label: Text(context.strings.t('keyName', {'key': key})),
-                      selected: controller.harmonicaKey == key,
-                      onSelected: (_) => Navigator.pop(context, key),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-        );
+  static void _showBeginnerGuide(BuildContext context) {
+    showHarmonicaGuide(
+      context,
+      skipIsClose: false,
+      onSkip: () {
+        if (!context.mounted) return;
+        Navigator.of(context)
+            .push(lessonRoute(context, lessonById('lesson_1')));
+      },
+      onComplete: () {
+        if (!context.mounted) return;
+        Navigator.of(context)
+            .push(lessonRoute(context, lessonById('lesson_2')));
       },
     );
-    if (selected == null || !context.mounted) return;
-    await controller.setHarmonicaKey(selected);
-    if (!context.mounted) return;
-    await AppHaptics.selection(context);
   }
 
   static void _openLesson(BuildContext context, LessonDefinition lesson) {
+    if (lesson.id == 'lesson_1' && !AppScope.of(context).sawHarmonicaGuide) {
+      _showBeginnerGuide(context);
+      return;
+    }
     Navigator.of(context).push(lessonRoute(context, lesson));
   }
 }

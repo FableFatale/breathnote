@@ -144,12 +144,18 @@ Future<void> pumpBreathnote(
   WidgetTester tester, {
   AppController? controller,
   Size size = const Size(412, 915),
+  double systemTextScale = 1,
+  bool sawHarmonicaGuide = true,
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
+  tester.platformDispatcher.textScaleFactorTestValue = systemTextScale;
+  final appController = controller ?? AppController();
+  appController.sawHarmonicaGuide = sawHarmonicaGuide;
   addTearDown(tester.view.resetDevicePixelRatio);
   addTearDown(tester.view.resetPhysicalSize);
-  await tester.pumpWidget(BreathnoteApp(controller: controller));
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+  await tester.pumpWidget(BreathnoteApp(controller: appController));
   await tester.pumpAndSettle();
 }
 
@@ -458,6 +464,111 @@ void main() {
     expect(find.text('含住第 4 孔，轻轻吹气。'), findsOneWidget);
   });
 
+  testWidgets('beginner guide leads from lesson 1 to first-note practice', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await pumpBreathnote(
+      tester,
+      controller: controller,
+      sawHarmonicaGuide: false,
+    );
+
+    expect(find.byKey(const Key('learn-beginner-guide')), findsOneWidget);
+    await tester.tap(find.text('认识你的口琴').first);
+    await tester.pumpAndSettle();
+    expect(find.text('认识你的口琴'), findsWidgets);
+    expect(find.text('第 1 步，共 3 步'), findsOneWidget);
+    expect(find.text('继续'), findsOneWidget);
+
+    expect(find.byKey(const Key('guide-harmonica-diagram')), findsOneWidget);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('guide-next')));
+    await tester.pumpAndSettle();
+    expect(find.text('第 2 步，共 3 步'), findsOneWidget);
+    expect(find.byKey(const Key('guide-direction-blow')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('guide-direction-draw')));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('guide-harmonica-diagram')),
+        matching: find.byIcon(Icons.arrow_downward_rounded),
+      ),
+      findsWidgets,
+    );
+    await tester.tap(find.byKey(const Key('guide-next')));
+    await tester.pumpAndSettle();
+    expect(find.text('第 3 步，共 3 步'), findsOneWidget);
+    expect(find.byKey(const Key('guide-key-action')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('guide-key-cover')),
+        matching: find.text('F 调'),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('guide-next')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('目标音'), findsOneWidget);
+    expect(find.text('含住第 4 孔，轻轻吹气。'), findsOneWidget);
+    expect(controller.completedLessons, contains('lesson_1'));
+  });
+
+  testWidgets('guide skip opens lesson 1 without completing it', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await pumpBreathnote(
+      tester,
+      controller: controller,
+      sawHarmonicaGuide: false,
+    );
+
+    await tester.tap(find.byKey(const Key('learn-beginner-guide')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('guide-skip')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('10 孔布鲁斯口琴'), findsOneWidget);
+    expect(find.text('完成本课'), findsOneWidget);
+    expect(find.byKey(const Key('lesson-1-guide')), findsOneWidget);
+    expect(controller.completedLessons, isNot(contains('lesson_1')));
+  });
+
+  testWidgets('guide key picker updates the visible key', (tester) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await pumpBreathnote(
+      tester,
+      controller: controller,
+      sawHarmonicaGuide: false,
+    );
+
+    await tester.tap(find.byKey(const Key('learn-beginner-guide')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('guide-next')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('guide-next')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('guide-key-action')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('harmonica-key-C')));
+    await tester.pumpAndSettle();
+
+    expect(controller.harmonicaKey, 'C');
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('guide-key-cover')),
+        matching: find.text('C 调'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('keeps practice guidance tied to the guide action', (
     tester,
   ) async {
@@ -732,6 +843,54 @@ void main() {
     await tester.tap(find.byKey(const Key('accessibility-setting')));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('tuner fits the maximum supported effective text scale', (
+    tester,
+  ) async {
+    final controller = AppController()..textScale = 1.2;
+    addTearDown(controller.dispose);
+    await pumpBreathnote(
+      tester,
+      controller: controller,
+      size: const Size(360, 800),
+      systemTextScale: 1.5,
+    );
+
+    await tester.tap(find.text('调音'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('开始调音'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('tuner keeps translated content inside a 360dp viewport', (
+    tester,
+  ) async {
+    for (final locale in [('zh', '调音'), ('en', 'Tuner'), ('ja', 'チューナー')]) {
+      final controller = AppController()
+        ..languageCode = locale.$1
+        ..textScale = 1.2;
+      addTearDown(controller.dispose);
+      await pumpBreathnote(
+        tester,
+        controller: controller,
+        size: const Size(360, 800),
+        systemTextScale: 1.5,
+      );
+
+      await tester.tap(find.text(locale.$2).first);
+      await tester.pumpAndSettle();
+      await tester.drag(
+        find.byType(SingleChildScrollView).first,
+        const Offset(0, -600),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    }
   });
 
   testWidgets('switches language across the whole app', (tester) async {
