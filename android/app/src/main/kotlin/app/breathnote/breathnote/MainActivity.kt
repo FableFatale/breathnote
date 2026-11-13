@@ -1,10 +1,18 @@
 package app.breathnote.breathnote
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
 import android.net.Uri
+import android.os.Build
+import android.os.VibrationAttributes
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.provider.Settings
+import android.view.HapticFeedbackConstants
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
@@ -97,6 +105,11 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
             }
             "stopGuideSequence" -> {
                 guideTonePlayer.stop()
+                result.success(null)
+            }
+            "triggerHaptic" -> {
+                val type = call.argument<String>("type") ?: "selection"
+                triggerNativeHaptic(type)
                 result.success(null)
             }
             "openAppSettings" -> {
@@ -219,6 +232,93 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
 
     private fun emitAudioError(code: String, message: String) {
         runOnUiThread { eventSink?.error(code, message, null) }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun triggerNativeHaptic(type: String) {
+        try {
+            val view = window?.decorView
+            if (view != null) {
+                val feedbackConstant =
+                    when (type) {
+                        "reed" -> HapticFeedbackConstants.LONG_PRESS
+                        "success" ->
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                HapticFeedbackConstants.CONFIRM
+                            } else {
+                                HapticFeedbackConstants.VIRTUAL_KEY
+                            }
+                        "warning" ->
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                                HapticFeedbackConstants.REJECT
+                            } else {
+                                HapticFeedbackConstants.LONG_PRESS
+                            }
+                        "light" -> HapticFeedbackConstants.KEYBOARD_TAP
+                        else -> HapticFeedbackConstants.CLOCK_TICK
+                    }
+                view.performHapticFeedback(
+                    feedbackConstant,
+                    HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING or
+                        HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING,
+                )
+            }
+
+            val vibrator: Vibrator? =
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    val manager =
+                        getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                    manager?.defaultVibrator
+                } else {
+                    getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                }
+
+            if (vibrator == null || !vibrator.hasVibrator()) return
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val effect =
+                    when (type) {
+                        "reed" ->
+                            VibrationEffect.createWaveform(
+                                longArrayOf(0, 18, 12, 30),
+                                intArrayOf(0, 190, 0, 255),
+                                -1,
+                            )
+                        "success" ->
+                            VibrationEffect.createWaveform(
+                                longArrayOf(0, 22, 36, 40),
+                                intArrayOf(0, 180, 0, 255),
+                                -1,
+                            )
+                        "warning" ->
+                            VibrationEffect.createWaveform(
+                                longArrayOf(0, 42, 38, 52),
+                                intArrayOf(0, 255, 0, 255),
+                                -1,
+                            )
+                        "light" -> VibrationEffect.createOneShot(24, 190)
+                        else -> VibrationEffect.createOneShot(18, 165)
+                    }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val attrs =
+                        VibrationAttributes.Builder()
+                            .setUsage(VibrationAttributes.USAGE_TOUCH)
+                            .build()
+                    vibrator.vibrate(effect, attrs)
+                } else {
+                    val audioAttrs =
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build()
+                    vibrator.vibrate(effect, audioAttrs)
+                }
+            } else {
+                vibrator.vibrate(if (type == "reed") 35L else 20L)
+            }
+        } catch (_: Exception) {
+            // Ignore hardware vibrator exceptions on unsupported devices.
+        }
     }
 
     override fun onStop() {

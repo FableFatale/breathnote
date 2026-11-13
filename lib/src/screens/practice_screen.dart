@@ -11,6 +11,7 @@ import '../services/guide_tone_service.dart';
 import '../services/haptics.dart';
 import '../services/pitch_service.dart';
 import '../state/app_controller.dart';
+import '../theme/app_adaptive.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/chuming_coach.dart';
@@ -494,7 +495,12 @@ class _PracticeScreenState extends State<PracticeScreen>
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(12, 24, 12, 24),
+              padding: EdgeInsets.fromLTRB(
+                AppAdaptive.pagePadding(context),
+                20,
+                AppAdaptive.pagePadding(context),
+                24,
+              ),
               child: Column(
                 children: [
                   _StageProgress(
@@ -610,7 +616,12 @@ class _PracticeScreenState extends State<PracticeScreen>
           ),
           SafeArea(
             top: false,
-            minimum: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+            minimum: EdgeInsets.fromLTRB(
+              AppAdaptive.pagePadding(context),
+              0,
+              AppAdaptive.pagePadding(context),
+              12,
+            ),
             child: _ControlDock(
               speed: _guideSpeed,
               loop: _guideLoop,

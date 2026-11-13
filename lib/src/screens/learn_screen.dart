@@ -1,16 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../localization/app_strings.dart';
+import '../services/haptics.dart';
 import '../state/app_controller.dart';
+import '../theme/app_adaptive.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
-import '../theme/app_adaptive.dart';
 import '../widgets/chuming_coach.dart';
 import '../widgets/cute_illustrations.dart';
 import '../widgets/gesture_guide.dart';
-import '../widgets/shared_widgets.dart';
 import '../widgets/harmonica_guide.dart'
     show showHarmonicaGuide, showHarmonicaKeyPicker;
+import '../widgets/shared_widgets.dart';
 import 'lesson_routes.dart';
 
 class LearnScreen extends StatelessWidget {
@@ -30,7 +33,7 @@ class LearnScreen extends StatelessWidget {
       key: const PageStorageKey('learn'),
       slivers: [
         SliverPadding(
-          padding: EdgeInsets.fromLTRB(pagePadding, 18, pagePadding, 0),
+          padding: EdgeInsets.fromLTRB(pagePadding, 20, pagePadding, 0),
           sliver: SliverToBoxAdapter(
             child: _Header(
               harmonicaKey: controller.harmonicaKey,
@@ -39,10 +42,10 @@ class LearnScreen extends StatelessWidget {
           ),
         ),
         SliverPadding(
-          padding: EdgeInsets.fromLTRB(pagePadding, 20, pagePadding, 0),
+          padding: EdgeInsets.fromLTRB(pagePadding, 16, pagePadding, 0),
           sliver: SliverToBoxAdapter(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const ChumingCoachBanner(
                   featureId: 'learn',
@@ -57,26 +60,31 @@ class LearnScreen extends StatelessWidget {
                     onStart: () => _openLesson(context, nextLesson),
                   ),
                 ),
-                const SizedBox(height: 28),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
                   children: [
-                    Text(
-                      strings.t('learningPath'),
-                      style: Theme.of(context).textTheme.headlineSmall,
+                    Expanded(
+                      child: Text(
+                        strings.t('learningPath'),
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
                     ),
-                    Text(
-                      strings.t('pathProgress', {
-                        'done': controller.completedLessons.length,
-                        'total': lessons.length,
-                      }),
-                      style: Theme.of(context).textTheme.bodyMedium
-                          ?.copyWith(color: context.colors.muted),
-                    ),
-                    SwipeGestureGuide(
-                      label: strings.t('gestureSwipeTabs'),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        strings.t('pathProgress', {
+                          'done': controller.completedLessons.length,
+                          'total': lessons.length,
+                        }),
+                        textAlign: TextAlign.end,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: context.colors.muted,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -118,12 +126,13 @@ class LearnScreen extends StatelessWidget {
       onComplete: () {
         if (!context.mounted) return;
         Navigator.of(context)
-            .push(lessonRoute(context, lessonById('lesson_2')));
+            .push(lessonRoute(context, lessonById('lesson_1')));
       },
     );
   }
 
   static void _openLesson(BuildContext context, LessonDefinition lesson) {
+    unawaited(AppHaptics.selection(context));
     if (lesson.id == 'lesson_1' && !AppScope.of(context).sawHarmonicaGuide) {
       _showBeginnerGuide(context);
       return;
@@ -167,27 +176,33 @@ class _Header extends StatelessWidget {
         ),
         Material(
           color: palette.surfaceHigh,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           child: InkWell(
             key: const Key('learn-key-selector'),
             onTap: onChooseKey,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 48),
+              constraints: const BoxConstraints(minHeight: 40),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       context.strings.t('keyName', {'key': harmonicaKey}),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
                     ),
                     const SizedBox(width: 4),
                     Icon(
                       Icons.chevron_right_rounded,
                       color: palette.muted,
-                      size: 19,
+                      size: 18,
                     ),
                   ],
                 ),
@@ -213,6 +228,8 @@ class _PracticeCard extends StatelessWidget {
     final strings = context.strings;
     final title = strings.lessonTitle(lesson.id);
     final compact = AppAdaptive.isCompact(context);
+    final cardPadding = AppAdaptive.cardPadding(context);
+
     return Semantics(
       key: const Key('featured-lesson'),
       container: true,
@@ -226,37 +243,47 @@ class _PracticeCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
           onTap: onStart,
           child: Padding(
-            padding: const EdgeInsets.all(18),
+            padding: EdgeInsets.all(cardPadding),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 8,
-                  runSpacing: 6,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Pill(
-                      label: strings.t('lessonLabel', {
-                        'number': lesson.number,
-                      }),
-                      color: palette.primary.withValues(alpha: 0.10),
-                      foreground: palette.primary,
-                    ),
-                    Text(
-                      strings.t('aboutMinutes', {'count': lesson.minutes}),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    if (controller.streakDays > 0)
-                      CuteStreakBadge(
-                        streakDays: controller.streakDays,
-                        label: strings.t('commonDays', {
-                          'count': controller.streakDays,
+                    Flexible(
+                      child: Pill(
+                        label: strings.t('lessonLabel', {
+                          'number': lesson.number,
                         }),
+                        color: palette.primary.withValues(alpha: 0.10),
+                        foreground: palette.primary,
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        alignment: WrapAlignment.end,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          if (controller.streakDays > 0)
+                            CuteStreakBadge(
+                              streakDays: controller.streakDays,
+                              label: strings.t('commonDays', {
+                                'count': controller.streakDays,
+                              }),
+                            ),
+                          Text(
+                            strings.t('aboutMinutes', {'count': lesson.minutes}),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 Row(
                   children: [
                     if (!compact) ...[
@@ -278,13 +305,13 @@ class _PracticeCard extends StatelessWidget {
                       child: FilledButton(
                         onPressed: onStart,
                         style: FilledButton.styleFrom(
-                          fixedSize: const Size(56, 56),
+                          fixedSize: const Size(52, 52),
                           padding: EdgeInsets.zero,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(18),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                        child: const Icon(Icons.play_arrow_rounded, size: 30),
+                        child: const Icon(Icons.play_arrow_rounded, size: 28),
                       ),
                     ),
                   ],
@@ -329,13 +356,13 @@ class _TimelineLesson extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 76),
+          constraints: const BoxConstraints(minHeight: 72),
           child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(
-                  width: 48,
+                  width: 40,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
@@ -355,7 +382,7 @@ class _TimelineLesson extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 40),
+                            const SizedBox(height: 38),
                             Expanded(
                               child: Center(
                                 child: SizedBox(
@@ -375,15 +402,15 @@ class _TimelineLesson extends StatelessWidget {
                       AnimatedContainer(
                         duration: AppMotion.duration(context, AppMotion.base),
                         curve: AppMotion.standardCurve,
-                        width: 40,
-                        height: 40,
+                        width: 38,
+                        height: 38,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: complete
                               ? palette.success.withValues(alpha: 0.10)
                               : active
-                              ? palette.primary.withValues(alpha: 0.06)
-                              : palette.background,
+                              ? palette.primary.withValues(alpha: 0.08)
+                              : palette.surface,
                           shape: BoxShape.circle,
                           border: Border.all(
                             color: complete
@@ -418,7 +445,7 @@ class _TimelineLesson extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 4),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
@@ -438,7 +465,7 @@ class _TimelineLesson extends StatelessWidget {
                         Icon(
                           Icons.chevron_right_rounded,
                           color: palette.muted,
-                          size: 21,
+                          size: 20,
                         ),
                       ],
                     ),

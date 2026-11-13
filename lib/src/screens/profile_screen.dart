@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../localization/app_strings.dart';
 import '../services/haptics.dart';
 import '../state/app_controller.dart';
+import '../theme/app_adaptive.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/cute_illustrations.dart';
@@ -292,9 +293,10 @@ class ProfileScreen extends StatelessWidget {
         controller.displayName == AppController.defaultDisplayName
         ? strings.t('profileDefaultName')
         : controller.displayName;
+    final pagePadding = AppAdaptive.pagePadding(context);
     return ListView(
       key: const PageStorageKey('profile'),
-      padding: const EdgeInsets.fromLTRB(20, 22, 20, 28),
+      padding: EdgeInsets.fromLTRB(pagePadding, 20, pagePadding, 28),
       children: [
         Row(
           children: [
@@ -365,6 +367,10 @@ class ProfileScreen extends StatelessWidget {
             children: [
               ListTile(
                 key: const Key('harmonica-key-setting'),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 2,
+                ),
                 leading: const HarmonicaBrandIcon(size: 22),
                 title: Text(strings.t('myHarmonica')),
                 trailing: Row(
@@ -374,19 +380,27 @@ class ProfileScreen extends StatelessWidget {
                       strings.t('keyName', {'key': controller.harmonicaKey}),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
+                    const SizedBox(width: 4),
                     Icon(Icons.chevron_right_rounded, color: palette.muted),
                   ],
                 ),
                 onTap: () => _chooseKey(context),
               ),
-              const Divider(height: 1),
+              const Divider(height: 1, indent: 18, endIndent: 18),
               SwitchListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 2,
+                ),
                 secondary: const Icon(Icons.vibration_rounded),
                 title: Text(strings.t('haptics')),
                 value: controller.hapticsEnabled,
                 onChanged: (value) async {
-                  await AppHaptics.selection(context);
                   await controller.setHapticsEnabled(value);
+                  if (!context.mounted) return;
+                  if (value) {
+                    await AppHaptics.reedResonance(context);
+                  }
                 },
               ),
             ],
@@ -398,6 +412,10 @@ class ProfileScreen extends StatelessWidget {
             children: [
               ListTile(
                 key: const Key('appearance-language-setting'),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 2,
+                ),
                 leading: const Icon(Icons.palette_outlined),
                 title: Text(strings.t('theme')),
                 trailing: Icon(
@@ -406,9 +424,13 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 onTap: () => _showAppearanceLanguage(context),
               ),
-              const Divider(height: 1),
+              const Divider(height: 1, indent: 18, endIndent: 18),
               ListTile(
                 key: const Key('accessibility-setting'),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 2,
+                ),
                 leading: const Icon(Icons.accessibility_new_rounded),
                 title: Text(strings.t('accessibilityDisplay')),
                 trailing: Icon(
@@ -417,8 +439,12 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 onTap: () => _showAccessibility(context),
               ),
-              const Divider(height: 1),
+              const Divider(height: 1, indent: 18, endIndent: 18),
               ListTile(
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 2,
+                ),
                 leading: const Icon(Icons.lock_outline_rounded),
                 title: Text(strings.t('localDataPrivacy')),
                 trailing: Icon(
@@ -426,6 +452,7 @@ class ProfileScreen extends StatelessWidget {
                   color: palette.muted,
                 ),
                 onTap: () {
+                  unawaited(AppHaptics.selection(context));
                   Navigator.of(context).push(
                     AppPageRoute<void>(
                       reduceMotion: AppMotion.isReduced(context),
@@ -434,16 +461,23 @@ class ProfileScreen extends StatelessWidget {
                   );
                 },
               ),
-              const Divider(height: 1),
+              const Divider(height: 1, indent: 18, endIndent: 18),
               ListTile(
                 key: const Key('help-setting'),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 2,
+                ),
                 leading: const Icon(Icons.help_outline_rounded),
                 title: Text(strings.t('help')),
                 trailing: Icon(
                   Icons.chevron_right_rounded,
                   color: palette.muted,
                 ),
-                onTap: () => showHelpScreen(context),
+                onTap: () {
+                  unawaited(AppHaptics.selection(context));
+                  unawaited(showHelpScreen(context));
+                },
               ),
             ],
           ),

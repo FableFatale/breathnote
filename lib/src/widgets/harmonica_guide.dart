@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../localization/app_strings.dart';
+import '../models/harmonica_layout.dart';
 import '../services/haptics.dart';
 import '../state/app_controller.dart';
 import '../theme/app_adaptive.dart';
@@ -102,11 +103,12 @@ Future<void> showHarmonicaGuide(
             skipIsClose: skipIsClose,
             onChooseKey: () => showHarmonicaKeyPicker(sheetContext),
             onSkip: () {
+              unawaited(AppHaptics.selection(sheetContext));
               Navigator.pop(sheetContext);
               onSkip();
             },
             onComplete: () async {
-              await AppScope.of(context).markLessonComplete('lesson_1');
+              unawaited(AppHaptics.selection(sheetContext));
               if (!sheetContext.mounted || !context.mounted) return;
               Navigator.pop(sheetContext);
               onComplete();
@@ -138,6 +140,7 @@ class HarmonicaGuide extends StatefulWidget {
 
 class _HarmonicaGuideState extends State<HarmonicaGuide> {
   int _step = 1;
+  int _selectedHole = 4;
   bool _selectedBlow = true;
 
   void _selectDirection(bool blow) {
@@ -146,14 +149,22 @@ class _HarmonicaGuideState extends State<HarmonicaGuide> {
     setState(() => _selectedBlow = blow);
   }
 
+  void _selectHole(int hole) {
+    setState(() => _selectedHole = hole);
+  }
+
   void _next() {
+    unawaited(AppHaptics.selection(context));
     if (_step >= 3) {
       unawaited(widget.onComplete());
       return;
     }
     setState(() {
       _step += 1;
-      if (_step == 2) _selectedBlow = true;
+      if (_step == 2) {
+        _selectedHole = 4;
+        _selectedBlow = true;
+      }
     });
   }
 
@@ -163,6 +174,8 @@ class _HarmonicaGuideState extends State<HarmonicaGuide> {
     final palette = context.colors;
     final controller = AppScope.of(context);
     final compact = AppAdaptive.isCompact(context);
+    final lang = strings.languageCode;
+    final holeInfo = harmonicaHoleInfo(_selectedHole, isBlow: _selectedBlow);
     final steps = <(String, String)>[
       ('guideStep1', 'guideStep1Body'),
       ('guideStep2', 'guideStep2Body'),
@@ -183,7 +196,7 @@ class _HarmonicaGuideState extends State<HarmonicaGuide> {
                   ? (_selectedBlow ? ChumingMood.blowing : ChumingMood.drawing)
                   : ChumingMood.idle,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Expanded(
               child: Text(
                 strings.t('guideStepTitle'),
@@ -200,19 +213,22 @@ class _HarmonicaGuideState extends State<HarmonicaGuide> {
             ),
           ],
         ),
-        SizedBox(height: compact ? 12 : 20),
+        SizedBox(height: compact ? 12 : 18),
         AnimatedSwitcher(
           duration: AppMotion.duration(context, AppMotion.fast),
           child: Column(
-            key: ValueKey('$_step-$_selectedBlow'),
+            key: ValueKey('$_step-$_selectedHole-$_selectedBlow'),
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (_step == 1)
-                const _GuideDiagram(
-                  key: Key('guide-harmonica-diagram'),
-                  activeTab: null,
-                )
-              else if (_step == 2) ...[
+              if (_step == 1) ...[
+                _GuideDiagram(
+                  key: const Key('guide-harmonica-diagram'),
+                  activeTab: '$_selectedHole↑',
+                  onHoleTap: _selectHole,
+                ),
+                const SizedBox(height: 10),
+                _CompactHoleSummary(info: holeInfo, lang: lang),
+              ] else if (_step == 2) ...[
                 _DirectionChoices(
                   selectedBlow: _selectedBlow,
                   onSelect: _selectDirection,
@@ -220,8 +236,11 @@ class _HarmonicaGuideState extends State<HarmonicaGuide> {
                 const SizedBox(height: 12),
                 _GuideDiagram(
                   key: const Key('guide-harmonica-diagram'),
-                  activeTab: _selectedBlow ? '4↑' : '4↓',
+                  activeTab: '$_selectedHole${_selectedBlow ? '↑' : '↓'}',
+                  onHoleTap: _selectHole,
                 ),
+                const SizedBox(height: 10),
+                _CompactHoleSummary(info: holeInfo, lang: lang),
               ] else
                 _GuideKeyCover(
                   key: const Key('guide-key-cover'),
@@ -230,7 +249,7 @@ class _HarmonicaGuideState extends State<HarmonicaGuide> {
                   }),
                   onChooseKey: widget.onChooseKey,
                 ),
-              SizedBox(height: compact ? 14 : 18),
+              SizedBox(height: compact ? 12 : 16),
               Text(title, style: Theme.of(context).textTheme.titleMedium),
               const SizedBox(height: 6),
               Text(body, style: Theme.of(context).textTheme.bodyMedium),
@@ -242,7 +261,7 @@ class _HarmonicaGuideState extends State<HarmonicaGuide> {
           key: const Key('guide-next'),
           onPressed: _next,
           icon: Icon(
-            _step < 3 ? Icons.arrow_forward_rounded : Icons.mic_rounded,
+            _step < 3 ? Icons.arrow_forward_rounded : Icons.menu_book_rounded,
           ),
           label: Text(
             _step < 3 ? strings.t('commonContinue') : strings.t('guideNext'),
@@ -277,6 +296,56 @@ class _HarmonicaGuideState extends State<HarmonicaGuide> {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _CompactHoleSummary extends StatelessWidget {
+  const _CompactHoleSummary({required this.info, required this.lang});
+
+  final HarmonicaHoleInfo info;
+  final String lang;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.colors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: palette.surfaceHigh,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: palette.outline),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: palette.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              info.tab,
+              style: TextStyle(
+                color: palette.primary,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w800,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '${info.roleTitle(lang)} · ${info.zoneLabel(lang)}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: palette.text,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -347,9 +416,14 @@ class _DirectionChoices extends StatelessWidget {
 }
 
 class _GuideDiagram extends StatelessWidget {
-  const _GuideDiagram({required this.activeTab, super.key});
+  const _GuideDiagram({
+    required this.activeTab,
+    this.onHoleTap,
+    super.key,
+  });
 
   final String? activeTab;
+  final ValueChanged<int>? onHoleTap;
 
   @override
   Widget build(BuildContext context) {
@@ -364,12 +438,12 @@ class _GuideDiagram extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: palette.surface,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: palette.outline),
       ),
       child: Column(
         children: [
-          HarmonicaDiagram(activeTab: activeTab),
+          HarmonicaDiagram(activeTab: activeTab, onHoleTap: onHoleTap),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -407,7 +481,7 @@ class _GuideKeyCover extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       decoration: BoxDecoration(
         color: palette.surface,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: palette.outline),
       ),
       child: Column(

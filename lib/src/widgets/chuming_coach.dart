@@ -46,10 +46,10 @@ class ChumingCoachBanner extends StatelessWidget {
               padding: EdgeInsets.only(bottom: bottomSpacing),
               child: Container(
                 key: Key('coach-banner-$featureId'),
-                padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+                padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
                 decoration: BoxDecoration(
                   color: blueTokens.mutedFill,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: blueTokens.border),
                 ),
                 child: Row(
@@ -105,7 +105,7 @@ class ChumingCoachBanner extends StatelessWidget {
                     TextButton(
                       key: Key('coach-dismiss-$featureId'),
                       onPressed: () {
-                        unawaited(AppHaptics.selection(context));
+                        unawaited(AppHaptics.reedResonance(context));
                         unawaited(controller.dismissCoachTip(featureId));
                       },
                       style: TextButton.styleFrom(

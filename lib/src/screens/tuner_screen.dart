@@ -328,21 +328,23 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
           Row(
             children: [
               GestureDetector(
-                onTap: () => unawaited(
-                  AppScope.of(context).reopenCoachTip('tuner'),
-                ),
+                onTap: () {
+                  unawaited(AppHaptics.reedResonance(context));
+                  unawaited(AppScope.of(context).reopenCoachTip('tuner'));
+                },
                 child: ChumingBird(
-                  size: 32,
+                  size: 36,
                   mood: detected
                       ? ChumingMood.celebrating
                       : ChumingMood.listening,
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   context.strings.t('tuner'),
-                  style: Theme.of(context).textTheme.headlineSmall,
+                  style: Theme.of(context).textTheme.headlineSmall
+                      ?.copyWith(fontSize: 22),
                 ),
               ),
               IconButton.filledTonal(
@@ -353,7 +355,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
             ],
           ),
           if (!shortViewport) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
             const ChumingCoachBanner(
               featureId: 'tuner',
               messageKey: 'coachTuner',
@@ -479,12 +481,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
           ),
           Card(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                cardPadding,
-                cardPadding,
-                cardPadding,
-                cardPadding - 3,
-              ),
+              padding: EdgeInsets.all(cardPadding),
               child: Column(
                 children: [
                   Row(
@@ -1138,53 +1135,54 @@ class _StatusLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.colors;
     final listening = status == _TunerStatus.listening;
-    final mood = listening
-        ? (detected ? ChumingMood.celebrating : ChumingMood.listening)
-        : ChumingMood.idle;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ChumingBird(
-          size: 32,
-          mood: mood,
-        ),
-        const SizedBox(width: 8),
-        Flexible(
-          child: BreathingPulse(
-            active: listening,
-            color: palette.success,
-            shape: BoxShape.circle,
-            child: AnimatedContainer(
-              duration: AppMotion.duration(context, AppMotion.fast),
-              width: 9,
-              height: 9,
-              decoration: BoxDecoration(
-                color: listening ? palette.success : palette.muted,
-                shape: BoxShape.circle,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: palette.surfaceHigh,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: palette.outline),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: BreathingPulse(
+              active: listening,
+              color: palette.success,
+              shape: BoxShape.circle,
+              child: AnimatedContainer(
+                duration: AppMotion.duration(context, AppMotion.fast),
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: listening ? palette.success : palette.muted,
+                  shape: BoxShape.circle,
+                ),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Flexible(
-          child: AnimatedSwitcher(
-            duration: AppMotion.duration(context, AppMotion.base),
-            child: Text(
-              listening
-                  ? detected
-                        ? context.strings.t('pitchDetected')
-                        : context.strings.t('listening')
-                  : context.strings.t('microphoneNotStarted'),
-              key: ValueKey((status, detected)),
-              style: TextStyle(
-                color: listening ? palette.success : palette.muted,
-                fontWeight: FontWeight.w700,
+          const SizedBox(width: 8),
+          Flexible(
+            child: AnimatedSwitcher(
+              duration: AppMotion.duration(context, AppMotion.base),
+              child: Text(
+                listening
+                    ? detected
+                          ? context.strings.t('pitchDetected')
+                          : context.strings.t('listening')
+                    : context.strings.t('microphoneNotStarted'),
+                key: ValueKey((status, detected)),
+                style: TextStyle(
+                  color: listening ? palette.success : palette.muted,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+                softWrap: true,
               ),
-              softWrap: true,
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

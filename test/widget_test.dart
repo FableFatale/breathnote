@@ -535,9 +535,18 @@ void main() {
     await tester.tap(find.byKey(const Key('guide-next')));
     await tester.pumpAndSettle();
 
+    expect(find.text('10 孔布鲁斯口琴'), findsOneWidget);
+    expect(find.byKey(const Key('lesson-1-next-hole')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('lesson-1-next-hole')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('完成本课'));
+    await tester.tap(find.text('完成本课'));
+    await tester.pumpAndSettle();
+    expect(controller.completedLessons, contains('lesson_1'));
+    await tester.tap(find.byKey(const Key('lesson-1-next')));
+    await tester.pumpAndSettle();
     expect(find.text('目标音'), findsOneWidget);
     expect(find.text('含住第 4 孔，轻轻吹气。'), findsOneWidget);
-    expect(controller.completedLessons, contains('lesson_1'));
   });
 
   testWidgets('guide skip opens lesson 1 without completing it', (
@@ -1453,16 +1462,6 @@ void main() {
 
     expect(find.byType(HarmonicaBrandIcon), findsWidgets);
     expect(find.byType(ChumingBird), findsWidgets);
-    expect(find.byType(SwipeGestureGuide), findsOneWidget);
-
-    // Tap swipe gesture guide multiple times to replay animation
-    final swipeGuide = find.byKey(const Key('swipe-gesture-guide'));
-    await tester.ensureVisible(swipeGuide);
-    await tester.tap(swipeGuide);
-    await tester.pump(const Duration(milliseconds: 200));
-    await tester.pumpAndSettle();
-    await tester.tap(swipeGuide);
-    await tester.pumpAndSettle();
 
     // Open practice lesson and replay breath gesture guide
     await tester.tap(find.text('吹响第一个音').first);

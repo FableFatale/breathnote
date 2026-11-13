@@ -6,6 +6,7 @@ import '../localization/app_strings.dart';
 import '../models/song.dart';
 import '../services/haptics.dart';
 import '../state/app_controller.dart';
+import '../theme/app_adaptive.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/chuming_coach.dart';
@@ -100,29 +101,35 @@ class _SongsScreenState extends State<SongsScreen> {
       return filterMatches && queryMatches;
     }).toList();
 
+    final pagePadding = AppAdaptive.pagePadding(context);
+
     return CustomScrollView(
       key: const PageStorageKey('songs'),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
+          padding: EdgeInsets.fromLTRB(pagePadding, 20, pagePadding, 12),
           sliver: SliverToBoxAdapter(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
                   children: [
                     GestureDetector(
-                      onTap: () => unawaited(controller.reopenCoachTip('songs')),
+                      onTap: () {
+                        unawaited(AppHaptics.reedResonance(context));
+                        unawaited(controller.reopenCoachTip('songs'));
+                      },
                       child: const ChumingBird(
-                        size: 34,
+                        size: 36,
                         mood: ChumingMood.listening,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         context.strings.t('songsLibrary'),
-                        style: Theme.of(context).textTheme.headlineSmall,
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontSize: 22),
                       ),
                     ),
                     IconButton.filled(
@@ -133,7 +140,7 @@ class _SongsScreenState extends State<SongsScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 const ChumingCoachBanner(
                   featureId: 'songs',
                   messageKey: 'coachSongs',
@@ -162,30 +169,33 @@ class _SongsScreenState extends State<SongsScreen> {
                     BorderSide(color: palette.outline),
                   ),
                 ),
-                const SizedBox(height: 14),
-                SegmentedButton<String>(
-                  segments: [
-                    ButtonSegment(
-                      value: 'all',
-                      label: Text(context.strings.t('all')),
-                    ),
-                    ButtonSegment(
-                      value: 'easy',
-                      label: Text(context.strings.t('easy')),
-                    ),
-                    ButtonSegment(
-                      value: 'advanced',
-                      label: Text(context.strings.t('advanced')),
-                    ),
-                  ],
-                  selected: {_filter},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (value) async {
-                    setState(() => _filter = value.first);
-                    await AppHaptics.selection(context);
-                  },
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<String>(
+                    segments: [
+                      ButtonSegment(
+                        value: 'all',
+                        label: Text(context.strings.t('all')),
+                      ),
+                      ButtonSegment(
+                        value: 'easy',
+                        label: Text(context.strings.t('easy')),
+                      ),
+                      ButtonSegment(
+                        value: 'advanced',
+                        label: Text(context.strings.t('advanced')),
+                      ),
+                    ],
+                    selected: {_filter},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (value) async {
+                      setState(() => _filter = value.first);
+                      await AppHaptics.selection(context);
+                    },
+                  ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 12),
               ],
             ),
           ),
@@ -200,7 +210,7 @@ class _SongsScreenState extends State<SongsScreen> {
           )
         else
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+            padding: EdgeInsets.fromLTRB(pagePadding, 0, pagePadding, 28),
             sliver: SliverList.separated(
               itemCount: visible.length,
               separatorBuilder: (_, _) => const SizedBox(height: 10),
@@ -209,6 +219,7 @@ class _SongsScreenState extends State<SongsScreen> {
                 return _SongTile(
                   song: song,
                   onTap: () {
+                    unawaited(AppHaptics.selection(context));
                     Navigator.of(context).push(
                       AppPageRoute<void>(
                         reduceMotion: AppMotion.isReduced(context),
@@ -452,24 +463,24 @@ class _SongTile extends StatelessWidget {
               child: InkWell(
                 onTap: onTap,
                 child: Padding(
-                  padding: const EdgeInsets.all(13),
+                  padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
                       Container(
-                        width: 58,
-                        height: 68,
+                        width: 52,
+                        height: 52,
                         decoration: BoxDecoration(
                           color: palette.primary,
                           borderRadius: BorderRadius.circular(14),
                         ),
                         alignment: Alignment.center,
                         child: HarmonicaBrandIcon(
-                          size: 30,
+                          size: 28,
                           color: palette.onPrimary,
                           accentColor: const Color(0xFF60F178),
                         ),
                       ),
-                      const SizedBox(width: 13),
+                      const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,

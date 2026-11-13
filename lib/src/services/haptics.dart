@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import '../state/app_controller.dart';
 
 abstract final class AppHaptics {
+  static const _channel = MethodChannel('app.breathnote/audio_control');
+
   /// Notifies visual reed-resonance indicators whenever a haptic pulse fires.
   static final ValueNotifier<int> pulseTick = ValueNotifier<int>(0);
 
@@ -11,14 +13,28 @@ abstract final class AppHaptics {
     pulseTick.value = (pulseTick.value + 1) & 0x3fffffff;
   }
 
+  static Future<void> _invokeNative(
+    String type,
+    Future<void> Function() fallback,
+  ) async {
+    _notifyVisualPulse();
+    try {
+      await _channel.invokeMethod<void>('triggerHaptic', {'type': type});
+    } on MissingPluginException {
+      // Widget tests or non-Android platforms fallback to standard haptics.
+    } on PlatformException {
+      // Ignore platform channel errors.
+    }
+    try {
+      await fallback();
+    } on MissingPluginException {
+      // Widget tests and unsupported platforms have no haptic channel.
+    }
+  }
+
   static Future<void> selection(BuildContext context) async {
     if (AppScope.of(context).hapticsEnabled) {
-      _notifyVisualPulse();
-      try {
-        await HapticFeedback.selectionClick();
-      } on MissingPluginException {
-        // Widget tests and unsupported platforms have no haptic channel.
-      }
+      await _invokeNative('selection', HapticFeedback.selectionClick);
     }
   }
 
@@ -26,46 +42,28 @@ abstract final class AppHaptics {
   /// when tapping a hole or holding an in-tune breath.
   static Future<void> reedResonance(BuildContext context) async {
     if (AppScope.of(context).hapticsEnabled) {
-      _notifyVisualPulse();
-      try {
+      await _invokeNative('reed', () async {
         await HapticFeedback.selectionClick();
         await HapticFeedback.lightImpact();
-      } on MissingPluginException {
-        // Widget tests and unsupported platforms have no haptic channel.
-      }
+      });
     }
   }
 
   static Future<void> light(BuildContext context) async {
     if (AppScope.of(context).hapticsEnabled) {
-      _notifyVisualPulse();
-      try {
-        await HapticFeedback.lightImpact();
-      } on MissingPluginException {
-        // Widget tests and unsupported platforms have no haptic channel.
-      }
+      await _invokeNative('light', HapticFeedback.lightImpact);
     }
   }
 
   static Future<void> success(BuildContext context) async {
     if (AppScope.of(context).hapticsEnabled) {
-      _notifyVisualPulse();
-      try {
-        await HapticFeedback.mediumImpact();
-      } on MissingPluginException {
-        // Widget tests and unsupported platforms have no haptic channel.
-      }
+      await _invokeNative('success', HapticFeedback.mediumImpact);
     }
   }
 
   static Future<void> warning(BuildContext context) async {
     if (AppScope.of(context).hapticsEnabled) {
-      _notifyVisualPulse();
-      try {
-        await HapticFeedback.heavyImpact();
-      } on MissingPluginException {
-        // Widget tests and unsupported platforms have no haptic channel.
-      }
+      await _invokeNative('warning', HapticFeedback.heavyImpact);
     }
   }
 }
