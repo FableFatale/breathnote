@@ -50,13 +50,13 @@ void main() {
       };
 
       await pumpApp(tester, languageCode: locale.$1);
-      await tester.ensureVisible(find.byKey(const Key('learn-beginner-guide')));
+      await tester.ensureVisible(find.byKey(const Key('featured-lesson')));
       await tester.pumpAndSettle();
       final guideCenter = tester.getCenter(
-        find.byKey(const Key('learn-beginner-guide')),
+        find.byKey(const Key('featured-lesson')),
       );
       expect(guideCenter.dy, inInclusiveRange(0, 800));
-      await tester.tap(find.byKey(const Key('learn-beginner-guide')));
+      await tester.tap(find.byKey(const Key('featured-lesson')));
       await tester.pumpAndSettle();
 
       FlutterError.onError = previousOnError;

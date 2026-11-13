@@ -464,6 +464,27 @@ void main() {
     expect(find.text('含住第 4 孔，轻轻吹气。'), findsOneWidget);
   });
 
+  testWidgets('shows the next lesson and completed lesson count', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await pumpBreathnote(tester, controller: controller);
+
+    expect(find.text('已完成 0/5 课'), findsOneWidget);
+    await controller.markLessonComplete('lesson_1');
+    await tester.pumpAndSettle();
+
+    expect(find.text('已完成 1/5 课'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('featured-lesson')),
+        matching: find.text('吹响第一个音'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('beginner guide leads from lesson 1 to first-note practice', (
     tester,
   ) async {
@@ -475,7 +496,7 @@ void main() {
       sawHarmonicaGuide: false,
     );
 
-    expect(find.byKey(const Key('learn-beginner-guide')), findsOneWidget);
+    expect(find.byKey(const Key('featured-lesson')), findsOneWidget);
     await tester.tap(find.text('认识你的口琴').first);
     await tester.pumpAndSettle();
     expect(find.text('认识你的口琴'), findsWidgets);
@@ -528,7 +549,7 @@ void main() {
       sawHarmonicaGuide: false,
     );
 
-    await tester.tap(find.byKey(const Key('learn-beginner-guide')));
+    await tester.tap(find.byKey(const Key('featured-lesson')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('guide-skip')));
     await tester.pumpAndSettle();
@@ -548,7 +569,7 @@ void main() {
       sawHarmonicaGuide: false,
     );
 
-    await tester.tap(find.byKey(const Key('learn-beginner-guide')));
+    await tester.tap(find.byKey(const Key('featured-lesson')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('guide-next')));
     await tester.pumpAndSettle();
@@ -600,7 +621,6 @@ void main() {
       AppStrings('en').t('openLesson', {'title': 'Play your first note'}),
       'Play your first note',
     );
-    expect(AppStrings('ja').t('startToday'), '今日から');
     expect(AppStrings('ja').t('lessonLabel', {'number': '02'}), '第 02 レッスン');
     expect(AppStrings('ja').songTitle('two_tigers', '两只老虎'), 'グーチョキパーでなにつくろう');
   });
@@ -919,7 +939,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('初鸣'), findsOneWidget);
     expect(find.text('Learning path'), findsOneWidget);
-    expect(find.text('Start with one breath'), findsOneWidget);
+    expect(find.text('0/5 completed'), findsOneWidget);
+    expect(find.text('Start with one breath'), findsNothing);
     expect(find.text('LEARNING PATH'), findsNothing);
     expect(find.text('TARGET NOTE'), findsNothing);
   });

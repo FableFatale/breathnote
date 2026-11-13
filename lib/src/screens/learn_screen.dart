@@ -5,7 +5,6 @@ import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_adaptive.dart';
-import '../widgets/motion_widgets.dart';
 import '../widgets/shared_widgets.dart';
 import '../widgets/harmonica_guide.dart'
     show showHarmonicaGuide, showHarmonicaKeyPicker;
@@ -19,8 +18,6 @@ class LearnScreen extends StatelessWidget {
     final controller = AppScope.of(context);
     final strings = context.strings;
     final pagePadding = AppAdaptive.pagePadding(context);
-    final progress = controller.lessonProgress;
-    final progressPercent = (progress * 100).round();
     final nextLesson = lessons.firstWhere(
       (lesson) => !controller.completedLessons.contains(lesson.id),
       orElse: () => lessons.last,
@@ -39,93 +36,36 @@ class LearnScreen extends StatelessWidget {
           ),
         ),
         SliverPadding(
-          padding: EdgeInsets.fromLTRB(pagePadding, 34, pagePadding, 0),
+          padding: EdgeInsets.fromLTRB(pagePadding, 28, pagePadding, 0),
           sliver: SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(child: SectionLabel(strings.t('todayPractice'))),
-                    Icon(
-                      Icons.local_fire_department_rounded,
-                      color: context.colors.success,
-                      size: 17,
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      controller.currentStreak == 0
-                          ? strings.t('startToday')
-                          : strings.t('streakDays', {
-                              'count': controller.currentStreak,
-                            }),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        strings.t('learnHero'),
-                        style: Theme.of(context).textTheme.displaySmall
-                            ?.copyWith(
-                              fontSize: MediaQuery.sizeOf(context).width <= 320
-                                  ? 27
-                                  : null,
-                            ),
-                      ),
-                    ),
-                    const SizedBox(width: 18),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: _HeroMark(color: context.colors.primary),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 30),
                 AnimatedSwitcher(
                   duration: AppMotion.duration(context, AppMotion.base),
                   child: _PracticeCard(
                     key: ValueKey(nextLesson.id),
                     lesson: nextLesson,
-                    progress: progress,
-                    progressPercent: progressPercent,
                     onStart: () => _openLesson(context, nextLesson),
                   ),
                 ),
-                if (!controller.sawHarmonicaGuide &&
-                    nextLesson.id == 'lesson_1') ...[
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      key: const Key('learn-beginner-guide'),
-                      onPressed: () => _showBeginnerGuide(context),
-                      icon: const Icon(Icons.front_hand_outlined),
-                      label: Text(strings.t('guideStepTitle')),
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 40),
-                SectionLabel(strings.t('learningPath')),
-                const SizedBox(height: 6),
-                Row(
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Expanded(
-                      child: Text(
-                        strings.t('learningPathTitle'),
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
+                    Text(
+                      strings.t('learningPath'),
+                      style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     Text(
                       strings.t('pathProgress', {
                         'done': controller.completedLessons.length,
                         'total': lessons.length,
                       }),
-                      style: Theme.of(context).textTheme.bodySmall,
+                      style: Theme.of(context).textTheme.bodyMedium
+                          ?.copyWith(color: context.colors.muted),
                     ),
                   ],
                 ),
@@ -244,43 +184,10 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _HeroMark extends StatelessWidget {
-  const _HeroMark({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Icon(Icons.piano_rounded, color: color, size: 54),
-        Positioned(
-          right: -6,
-          top: -15,
-          child: Icon(
-            Icons.music_note_rounded,
-            color: context.colors.accent,
-            size: 25,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _PracticeCard extends StatelessWidget {
-  const _PracticeCard({
-    required this.lesson,
-    required this.progress,
-    required this.progressPercent,
-    required this.onStart,
-    super.key,
-  });
+  const _PracticeCard({required this.lesson, required this.onStart, super.key});
 
   final LessonDefinition lesson;
-  final double progress;
-  final int progressPercent;
   final VoidCallback onStart;
 
   @override
@@ -289,6 +196,7 @@ class _PracticeCard extends StatelessWidget {
     final strings = context.strings;
     final title = strings.lessonTitle(lesson.id);
     return Semantics(
+      key: const Key('featured-lesson'),
       container: true,
       button: true,
       label: strings.t('openLesson', {'title': title}),
@@ -355,21 +263,6 @@ class _PracticeCard extends StatelessWidget {
                       child: const Icon(Icons.play_arrow_rounded, size: 30),
                     ),
                   ],
-                ),
-                const SizedBox(height: 22),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(999),
-                  child: MotionLinearProgress(
-                    value: progress,
-                    minHeight: 4,
-                    backgroundColor: palette.surfaceHigh,
-                    color: palette.accent,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  strings.t('completedPercent', {'percent': progressPercent}),
-                  style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
             ),
@@ -528,11 +421,6 @@ class _TimelineLesson extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          strings.t('commonMinutes', {'count': lesson.minutes}),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        const SizedBox(width: 2),
                         Icon(
                           Icons.chevron_right_rounded,
                           color: palette.muted,
