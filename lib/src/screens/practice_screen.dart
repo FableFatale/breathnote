@@ -13,6 +13,7 @@ import '../services/pitch_service.dart';
 import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
+import '../widgets/chuming_coach.dart';
 import '../widgets/cute_illustrations.dart';
 import '../widgets/gesture_guide.dart';
 import '../widgets/motion_widgets.dart';
@@ -501,7 +502,12 @@ class _PracticeScreenState extends State<PracticeScreen>
                     currentStage: currentStage,
                     complete: _completed,
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 18),
+                  const ChumingCoachBanner(
+                    featureId: 'practice',
+                    messageKey: 'coachPractice',
+                    mood: ChumingMood.blowing,
+                  ),
                   Row(
                     children: [
                       SectionLabel(strings.t('targetNote')),

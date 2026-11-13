@@ -14,6 +14,7 @@ import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_adaptive.dart';
+import '../widgets/chuming_coach.dart';
 import '../widgets/cute_illustrations.dart';
 import '../widgets/gesture_guide.dart';
 import '../widgets/motion_widgets.dart';
@@ -326,6 +327,18 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
         children: [
           Row(
             children: [
+              GestureDetector(
+                onTap: () => unawaited(
+                  AppScope.of(context).reopenCoachTip('tuner'),
+                ),
+                child: ChumingBird(
+                  size: 32,
+                  mood: detected
+                      ? ChumingMood.celebrating
+                      : ChumingMood.listening,
+                ),
+              ),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   context.strings.t('tuner'),
@@ -339,6 +352,15 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
               ),
             ],
           ),
+          if (!shortViewport) ...[
+            const SizedBox(height: 10),
+            const ChumingCoachBanner(
+              featureId: 'tuner',
+              messageKey: 'coachTuner',
+              mood: ChumingMood.listening,
+              bottomSpacing: 4,
+            ),
+          ],
           SizedBox(
             height: shortViewport
                 ? 6

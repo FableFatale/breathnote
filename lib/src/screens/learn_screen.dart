@@ -5,6 +5,7 @@ import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_adaptive.dart';
+import '../widgets/chuming_coach.dart';
 import '../widgets/cute_illustrations.dart';
 import '../widgets/gesture_guide.dart';
 import '../widgets/shared_widgets.dart';
@@ -38,11 +39,16 @@ class LearnScreen extends StatelessWidget {
           ),
         ),
         SliverPadding(
-          padding: EdgeInsets.fromLTRB(pagePadding, 28, pagePadding, 0),
+          padding: EdgeInsets.fromLTRB(pagePadding, 20, pagePadding, 0),
           sliver: SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const ChumingCoachBanner(
+                  featureId: 'learn',
+                  messageKey: 'coachLearn',
+                  mood: ChumingMood.idle,
+                ),
                 AnimatedSwitcher(
                   duration: AppMotion.duration(context, AppMotion.base),
                   child: _PracticeCard(
@@ -51,7 +57,7 @@ class LearnScreen extends StatelessWidget {
                     onStart: () => _openLesson(context, nextLesson),
                   ),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 28),
                 Wrap(
                   spacing: 12,
                   runSpacing: 8,

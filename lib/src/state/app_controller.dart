@@ -32,6 +32,7 @@ class AppController extends ChangeNotifier {
   bool sawHarmonicaGuide = false;
   final Set<String> practiceDates = {};
   final Set<String> completedLessons = {};
+  final Set<String> seenCoachTips = {};
   final List<Song> customSongs = [];
   final List<PitchAttempt> pitchAttempts = [];
 
@@ -114,6 +115,7 @@ class AppController extends ChangeNotifier {
       bestScore = (values['bestScore'] as num?)?.toInt() ?? bestScore;
       practiceDates.addAll(_decodeStringList(values['practiceDates']));
       completedLessons.addAll(_decodeStringList(values['completedLessons']));
+      seenCoachTips.addAll(_decodeStringList(values['seenCoachTips']));
       pitchAttempts.addAll(_decodePitchAttempts(values['pitchAttempts']));
       final rawSongs = values['customSongs'];
       if (rawSongs is String && rawSongs.isNotEmpty) {
@@ -180,6 +182,18 @@ class AppController extends ChangeNotifier {
     sawHarmonicaGuide = true;
     notifyListeners();
     await _persist(sawHarmonicaGuideKey, true);
+  }
+
+  Future<void> dismissCoachTip(String featureId) async {
+    if (!seenCoachTips.add(featureId)) return;
+    notifyListeners();
+    await _persist('seenCoachTips', jsonEncode(seenCoachTips.toList()));
+  }
+
+  Future<void> reopenCoachTip(String featureId) async {
+    if (!seenCoachTips.remove(featureId)) return;
+    notifyListeners();
+    await _persist('seenCoachTips', jsonEncode(seenCoachTips.toList()));
   }
 
   Future<void> setThemeMode(ThemeMode value) async {
@@ -309,6 +323,7 @@ class AppController extends ChangeNotifier {
     bestScore = 0;
     practiceDates.clear();
     completedLessons.clear();
+    seenCoachTips.clear();
     customSongs.clear();
     pitchAttempts.clear();
     notifyListeners();

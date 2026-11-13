@@ -291,6 +291,12 @@ class AppStrings {
       'song_jasmine_title': '茉莉花',
       'song_jasmine_subtitle': '江苏民歌，进阶',
       'gestureSwipeTabs': '左右滑动切换标签',
+      'coachBadge': '初鸣小老师',
+      'coachGotIt': '知道了',
+      'coachLearn': '先核对右上角口琴调性，点击蓝色播放键开始第 1 课。',
+      'coachSongs': '点选曲目即可跟吹练习，或点右上角「+」录入自定义孔位曲谱。',
+      'coachTuner': '点击开始调音后平稳吹响单音，指示器进入绿区即代表音准锁定。',
+      'coachPractice': '先点下方喇叭听示范音，再点麦克风对准目标孔位平稳吹吸。',
     },
     'en': {
       'appTitle': '初鸣',
@@ -562,6 +568,12 @@ class AppStrings {
       'song_jasmine_title': 'Jasmine Flower',
       'song_jasmine_subtitle': 'Jiangsu folk song, intermediate',
       'gestureSwipeTabs': 'Swipe to switch tabs',
+      'coachBadge': 'Chuming Coach',
+      'coachGotIt': 'Got it',
+      'coachLearn': 'Check your harmonica key on the top right, then tap Play to start Lesson 1.',
+      'coachSongs': 'Pick any song to play along, or tap + to add your own harmonica tabs.',
+      'coachTuner': 'Tap Start tuning and play a steady note; the green zone means you are in tune.',
+      'coachPractice': 'Tap the speaker to hear the guide tone first, then tap the mic to play along.',
     },
     'ja': {
       'appTitle': '初鸣',
@@ -822,6 +834,12 @@ class AppStrings {
       'song_jasmine_title': '茉莉花',
       'song_jasmine_subtitle': '江蘇民謡、中級',
       'gestureSwipeTabs': '左右スワイプで切替',
+      'coachBadge': '初鳴先生',
+      'coachGotIt': 'OK',
+      'coachLearn': '右上のキーを確認し、青い再生ボタンで第 1 レッスンを始めましょう。',
+      'coachSongs': '曲を選んで練習するか、右上の「+」でカスタム楽譜を追加できます。',
+      'coachTuner': '開始を押して単音を吹き、緑色のゾーンに入れば音程ロックです。',
+      'coachPractice': 'まずスピーカーでお手本を聴き、マイクを押して目標の穴を吹きましょう。',
     },
   };
 }

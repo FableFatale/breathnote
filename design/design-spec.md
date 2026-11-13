@@ -2,7 +2,7 @@
 
 > **交互式设计系统参考站点**：[design/palermo-system/index.html](file:///Users/smartisan/qinyin/design/palermo-system/index.html)
 > **Flutter Token 核心实现**：[lib/src/theme/palermo_tokens.dart](file:///Users/smartisan/qinyin/lib/src/theme/palermo_tokens.dart)
-> **App 内置交互式组件馆**：[lib/src/screens/design_system_screen.dart](file:///Users/smartisan/qinyin/lib/src/screens/design_system_screen.dart)
+> **初鸣小老师引导组件**：[lib/src/widgets/chuming_coach.dart](file:///Users/smartisan/qinyin/lib/src/widgets/chuming_coach.dart)
 
 ---
 
@@ -63,6 +63,6 @@
 4. **`HarmonicaDiagram`（10 孔口琴交互孔位图）**
    - 位置：[shared_widgets.dart](file:///Users/smartisan/qinyin/lib/src/widgets/shared_widgets.dart)
    - 行为：顶部采用 Palermo 10 孔光谱色带，吹气孔激活显示 Palermo Blue，吸气孔激活显示 Palermo Orange。
-5. **`DesignSystemScreen`（App 内置设计系统与组件展示馆）**
-   - 位置：[design_system_screen.dart](file:///Users/smartisan/qinyin/lib/src/screens/design_system_screen.dart)
-   - 入口：「我的」页面底部 → **Palermo 设计系统与组件馆**。
+5. **`ChumingCoachBanner`（初鸣小老师首次功能引导气泡）**
+   - 位置：[chuming_coach.dart](file:///Users/smartisan/qinyin/lib/src/widgets/chuming_coach.dart)
+   - 行为：用户首次进入「学习」、「曲谱」、「调音」、「单音练习」时，由初鸣小鸟展示简短功能用法说明；点击「知道了」后持久化收起，点击页面顶部的初鸣小鸟可随时重播引导。

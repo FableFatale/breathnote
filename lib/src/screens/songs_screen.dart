@@ -8,6 +8,7 @@ import '../services/haptics.dart';
 import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
+import '../widgets/chuming_coach.dart';
 import '../widgets/cute_illustrations.dart';
 import '../widgets/shared_widgets.dart';
 import 'song_practice_screen.dart';
@@ -110,9 +111,12 @@ class _SongsScreenState extends State<SongsScreen> {
               children: [
                 Row(
                   children: [
-                    const ChumingBird(
-                      size: 34,
-                      mood: ChumingMood.listening,
+                    GestureDetector(
+                      onTap: () => unawaited(controller.reopenCoachTip('songs')),
+                      child: const ChumingBird(
+                        size: 34,
+                        mood: ChumingMood.listening,
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -129,7 +133,12 @@ class _SongsScreenState extends State<SongsScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
+                const ChumingCoachBanner(
+                  featureId: 'songs',
+                  messageKey: 'coachSongs',
+                  mood: ChumingMood.listening,
+                ),
                 SearchBar(
                   controller: _searchController,
                   hintText: context.strings.t('searchSongs'),
