@@ -7,6 +7,7 @@ import '../services/haptics.dart';
 import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
+import '../widgets/cute_illustrations.dart';
 import '../widgets/shared_widgets.dart';
 import 'help_screen.dart';
 import 'local_data_screen.dart';
@@ -309,13 +310,18 @@ class ProfileScreen extends StatelessWidget {
               width: 58,
               height: 58,
               decoration: BoxDecoration(
-                color: palette.primary.withValues(alpha: 0.14),
+                color: palette.primary.withValues(alpha: 0.10),
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: palette.outline,
+                ),
               ),
-              child: Icon(
-                Icons.person_rounded,
-                color: palette.primary,
-                size: 31,
+              alignment: Alignment.center,
+              child: ChumingBird(
+                size: 46,
+                mood: controller.practiceDates.isNotEmpty
+                    ? ChumingMood.celebrating
+                    : ChumingMood.idle,
               ),
             ),
             const SizedBox(width: 14),
@@ -379,7 +385,7 @@ class ProfileScreen extends StatelessWidget {
             children: [
               ListTile(
                 key: const Key('harmonica-key-setting'),
-                leading: const Icon(Icons.piano_rounded),
+                leading: const HarmonicaBrandIcon(size: 22),
                 title: Text(strings.t('myHarmonica')),
                 subtitle: Text(strings.t('harmonicaSettingDetail')),
                 trailing: Row(

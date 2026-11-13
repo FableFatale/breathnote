@@ -8,6 +8,7 @@ import '../state/app_controller.dart';
 import '../theme/app_adaptive.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
+import 'cute_illustrations.dart';
 import 'shared_widgets.dart';
 
 const _harmonicaKeys = [
@@ -179,8 +180,15 @@ class _HarmonicaGuideState extends State<HarmonicaGuide> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            ChumingBird(
+              size: 32,
+              mood: _step == 2
+                  ? (_selectedBlow ? ChumingMood.blowing : ChumingMood.drawing)
+                  : ChumingMood.idle,
+            ),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 strings.t('guideStepTitle'),

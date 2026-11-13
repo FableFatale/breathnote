@@ -10,6 +10,8 @@ import 'package:breathnote/src/screens/tuner_screen.dart';
 import 'package:breathnote/src/state/app_controller.dart';
 import 'package:breathnote/src/theme/app_motion.dart';
 import 'package:breathnote/src/theme/app_theme.dart';
+import 'package:breathnote/src/widgets/cute_illustrations.dart';
+import 'package:breathnote/src/widgets/gesture_guide.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -1442,5 +1444,34 @@ void main() {
     expect(harness.calls, contains('stopPitchDetection'));
     expect(find.text('麦克风读取失败，请重试。'), findsOneWidget);
     expect(find.text('重试'), findsOneWidget);
+  });
+
+  testWidgets('renders brand harmonica icon, mascot, and replayable gestures', (
+    tester,
+  ) async {
+    await pumpBreathnote(tester);
+
+    expect(find.byType(HarmonicaBrandIcon), findsWidgets);
+    expect(find.byType(ChumingBird), findsWidgets);
+    expect(find.byType(SwipeGestureGuide), findsOneWidget);
+
+    // Tap swipe gesture guide multiple times to replay animation
+    final swipeGuide = find.byKey(const Key('swipe-gesture-guide'));
+    await tester.ensureVisible(swipeGuide);
+    await tester.tap(swipeGuide);
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    await tester.tap(swipeGuide);
+    await tester.pumpAndSettle();
+
+    // Open practice lesson and replay breath gesture guide
+    await tester.tap(find.text('吹响第一个音').first);
+    await tester.pumpAndSettle();
+
+    final breathGuide = find.byKey(const Key('breath-gesture-guide'));
+    expect(breathGuide, findsOneWidget);
+    await tester.tap(breathGuide);
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
   });
 }

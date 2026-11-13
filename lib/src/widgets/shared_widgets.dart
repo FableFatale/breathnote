@@ -4,6 +4,7 @@ import '../localization/app_strings.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_adaptive.dart';
+import 'cute_illustrations.dart';
 
 class SectionLabel extends StatelessWidget {
   const SectionLabel(this.text, {super.key});
@@ -91,13 +92,33 @@ class EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.colors;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 54, color: context.colors.accent),
+            Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                const ChumingBird(
+                  size: 68,
+                  mood: ChumingMood.listening,
+                ),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: palette.surfaceHigh,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: palette.outline),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(5),
+                    child: Icon(icon, size: 16, color: palette.accent),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             Text(
               title,
@@ -240,6 +261,11 @@ class HarmonicaDiagram extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
+                          Container(
+                            height: active ? 4 : 2.5,
+                            color: AppPalette.holeColor(hole)
+                                .withValues(alpha: active ? 0.95 : 0.45),
+                          ),
                           Expanded(
                             child: Center(
                               child: Text(
@@ -258,11 +284,15 @@ class HarmonicaDiagram extends StatelessWidget {
                           ),
                           Container(height: 1, color: palette.outline),
                           Expanded(
-                            child: active && !isBlow
+                            child: active
                                 ? Center(
                                     child: Icon(
-                                      Icons.arrow_downward_rounded,
-                                      color: palette.primary,
+                                      isBlow
+                                          ? Icons.arrow_upward_rounded
+                                          : Icons.arrow_downward_rounded,
+                                      color: isBlow
+                                          ? palette.primary
+                                          : palette.accentInk,
                                       size: 14,
                                     ),
                                   )

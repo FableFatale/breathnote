@@ -8,6 +8,7 @@ import '../services/haptics.dart';
 import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
+import '../widgets/cute_illustrations.dart';
 import '../widgets/shared_widgets.dart';
 import 'song_practice_screen.dart';
 
@@ -109,6 +110,11 @@ class _SongsScreenState extends State<SongsScreen> {
               children: [
                 Row(
                   children: [
+                    const ChumingBird(
+                      size: 36,
+                      mood: ChumingMood.listening,
+                    ),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: SectionLabel(context.strings.t('songsLibrary')),
                     ),
@@ -452,12 +458,13 @@ class _SongTile extends StatelessWidget {
                         height: 68,
                         decoration: BoxDecoration(
                           color: palette.primary,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                         ),
-                        child: Icon(
-                          Icons.music_note_rounded,
+                        alignment: Alignment.center,
+                        child: HarmonicaBrandIcon(
+                          size: 30,
                           color: palette.onPrimary,
-                          size: 29,
+                          accentColor: const Color(0xFFE5B869),
                         ),
                       ),
                       const SizedBox(width: 13),

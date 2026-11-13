@@ -121,11 +121,30 @@ class AppPalette extends ThemeExtension<AppPalette> {
       outline: Color.lerp(outline, other.outline, t)!,
     );
   }
+  static const List<Color> holeSpectrum = [
+    Color(0xFFC96F6A),
+    Color(0xFFD48A62),
+    Color(0xFFD6B35F),
+    Color(0xFFA8B96B),
+    Color(0xFF76B58C),
+    Color(0xFF59AFA9),
+    Color(0xFF5B9BD1),
+    Color(0xFF6FA8FF),
+    Color(0xFF8A8BD1),
+    Color(0xFFA67BAE),
+  ];
+
+  static Color holeColor(int hole) {
+    final index = (hole - 1).clamp(0, holeSpectrum.length - 1);
+    return holeSpectrum[index];
+  }
 }
 
 extension AppThemeContext on BuildContext {
   AppPalette get colors =>
       Theme.of(this).extension<AppPalette>() ?? AppPalette.light;
+
+  AppPalette get palette => colors;
 }
 
 abstract final class AppTheme {

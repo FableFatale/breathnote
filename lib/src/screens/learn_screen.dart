@@ -5,6 +5,8 @@ import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_adaptive.dart';
+import '../widgets/cute_illustrations.dart';
+import '../widgets/gesture_guide.dart';
 import '../widgets/shared_widgets.dart';
 import '../widgets/harmonica_guide.dart'
     show showHarmonicaGuide, showHarmonicaKeyPicker;
@@ -52,7 +54,7 @@ class LearnScreen extends StatelessWidget {
                 const SizedBox(height: 40),
                 Wrap(
                   spacing: 12,
-                  runSpacing: 4,
+                  runSpacing: 8,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
@@ -66,6 +68,9 @@ class LearnScreen extends StatelessWidget {
                       }),
                       style: Theme.of(context).textTheme.bodyMedium
                           ?.copyWith(color: context.colors.muted),
+                    ),
+                    SwipeGestureGuide(
+                      label: strings.t('gestureSwipeTabs'),
                     ),
                   ],
                 ),
@@ -133,13 +138,18 @@ class _Header extends StatelessWidget {
     return Row(
       children: [
         Container(
-          width: 34,
-          height: 34,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
             color: palette.primary,
-            borderRadius: BorderRadius.circular(7),
+            borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(Icons.piano_rounded, color: Colors.white, size: 22),
+          alignment: Alignment.center,
+          child: const HarmonicaBrandIcon(
+            size: 24,
+            color: Colors.white,
+            accentColor: Color(0xFFE5B869),
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -192,9 +202,11 @@ class _PracticeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controller = AppScope.of(context);
     final palette = context.colors;
     final strings = context.strings;
     final title = strings.lessonTitle(lesson.id);
+    final compact = AppAdaptive.isCompact(context);
     return Semantics(
       key: const Key('featured-lesson'),
       container: true,
@@ -229,11 +241,26 @@ class _PracticeCard extends StatelessWidget {
                       strings.t('aboutMinutes', {'count': lesson.minutes}),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
+                    if (controller.streakDays > 0)
+                      CuteStreakBadge(
+                        streakDays: controller.streakDays,
+                        label: strings.t('commonDays', {
+                          'count': controller.streakDays,
+                        }),
+                      ),
                   ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 Row(
                   children: [
+                    if (!compact) ...[
+                      const ChumingBird(
+                        size: 46,
+                        mood: ChumingMood.idle,
+                        interactive: false,
+                      ),
+                      const SizedBox(width: 12),
+                    ],
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -251,16 +278,18 @@ class _PracticeCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    FilledButton(
-                      onPressed: onStart,
-                      style: FilledButton.styleFrom(
-                        fixedSize: const Size(56, 56),
-                        padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18),
+                    TapGesturePulse(
+                      child: FilledButton(
+                        onPressed: onStart,
+                        style: FilledButton.styleFrom(
+                          fixedSize: const Size(56, 56),
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
                         ),
+                        child: const Icon(Icons.play_arrow_rounded, size: 30),
                       ),
-                      child: const Icon(Icons.play_arrow_rounded, size: 30),
                     ),
                   ],
                 ),

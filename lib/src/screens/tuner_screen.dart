@@ -14,6 +14,8 @@ import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_adaptive.dart';
+import '../widgets/cute_illustrations.dart';
+import '../widgets/gesture_guide.dart';
 import '../widgets/motion_widgets.dart';
 import 'help_screen.dart';
 
@@ -256,7 +258,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                 const SizedBox(height: 16),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.piano_rounded),
+                  leading: const HarmonicaBrandIcon(size: 22),
                   title: Text(context.strings.t('currentHarmonica')),
                   trailing: Text(
                     context.strings.t('keyName', {
@@ -401,27 +403,30 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
           ),
           SizedBox(
             width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _unsupported
-                  ? () => unawaited(showHelpScreen(context))
-                  : _status == _TunerStatus.requestingPermission
-                  ? null
-                  : listening
-                  ? _stopListening
-                  : _startListening,
-              icon: Icon(
-                _unsupported
-                    ? Icons.help_outline_rounded
+            child: TapGesturePulse(
+              enabled: !listening,
+              child: FilledButton.icon(
+                onPressed: _unsupported
+                    ? () => unawaited(showHelpScreen(context))
+                    : _status == _TunerStatus.requestingPermission
+                    ? null
                     : listening
-                    ? Icons.stop_rounded
-                    : Icons.mic_rounded,
-              ),
-              label: Text(
-                _unsupported
-                    ? context.strings.t('help')
-                    : listening
-                    ? context.strings.t('stopTuning')
-                    : _primaryButtonLabel,
+                    ? _stopListening
+                    : _startListening,
+                icon: Icon(
+                  _unsupported
+                      ? Icons.help_outline_rounded
+                      : listening
+                      ? Icons.stop_rounded
+                      : Icons.mic_rounded,
+                ),
+                label: Text(
+                  _unsupported
+                      ? context.strings.t('help')
+                      : listening
+                      ? context.strings.t('stopTuning')
+                      : _primaryButtonLabel,
+                ),
               ),
             ),
           ),
@@ -1111,9 +1116,17 @@ class _StatusLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.colors;
     final listening = status == _TunerStatus.listening;
+    final mood = listening
+        ? (detected ? ChumingMood.celebrating : ChumingMood.listening)
+        : ChumingMood.idle;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        ChumingBird(
+          size: 32,
+          mood: mood,
+        ),
+        const SizedBox(width: 8),
         Flexible(
           child: BreathingPulse(
             active: listening,

@@ -290,6 +290,7 @@ class AppStrings {
       'song_two_tigers_subtitle': '传统童谣，入门',
       'song_jasmine_title': '茉莉花',
       'song_jasmine_subtitle': '江苏民歌，进阶',
+      'gestureSwipeTabs': '左右滑动切换标签',
     },
     'en': {
       'appTitle': '初鸣',
@@ -560,6 +561,7 @@ class AppStrings {
       'song_two_tigers_subtitle': 'Traditional song, beginner',
       'song_jasmine_title': 'Jasmine Flower',
       'song_jasmine_subtitle': 'Jiangsu folk song, intermediate',
+      'gestureSwipeTabs': 'Swipe to switch tabs',
     },
     'ja': {
       'appTitle': '初鸣',
@@ -819,6 +821,7 @@ class AppStrings {
       'song_two_tigers_subtitle': 'フランス民謡、初級',
       'song_jasmine_title': '茉莉花',
       'song_jasmine_subtitle': '江蘇民謡、中級',
+      'gestureSwipeTabs': '左右スワイプで切替',
     },
   };
 }

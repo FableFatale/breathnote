@@ -12,6 +12,8 @@ import '../services/pitch_service.dart';
 import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
+import '../widgets/cute_illustrations.dart';
+import '../widgets/gesture_guide.dart';
 import '../widgets/motion_widgets.dart';
 import '../widgets/shared_widgets.dart';
 import 'help_screen.dart';
@@ -445,6 +447,14 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
+                              const SizedBox(height: 8),
+                              BreathGestureGuide(
+                                isBlow: target.isBlow,
+                                label: context.strings.t(
+                                  target.isBlow ? 'blowAction' : 'drawAction',
+                                ),
+                                compact: true,
+                              ),
                             ],
                           ),
                         ),
@@ -771,7 +781,10 @@ class _SongCompletion extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            Icon(Icons.celebration_rounded, color: palette.accent, size: 54),
+            const ChumingBird(
+              size: 72,
+              mood: ChumingMood.celebrating,
+            ),
             const SizedBox(height: 12),
             Text(
               context.strings.t('melodyComplete'),

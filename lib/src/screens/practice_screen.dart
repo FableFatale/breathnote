@@ -13,6 +13,8 @@ import '../services/pitch_service.dart';
 import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
+import '../widgets/cute_illustrations.dart';
+import '../widgets/gesture_guide.dart';
 import '../widgets/motion_widgets.dart';
 import '../widgets/shared_widgets.dart';
 import 'help_screen.dart';
@@ -534,16 +536,39 @@ class _PracticeScreenState extends State<PracticeScreen>
                         : Column(
                             key: const ValueKey('target-note'),
                             children: [
-                              Text(
-                                note,
-                                style: TextStyle(
-                                  color: palette.primary,
-                                  fontFamily: 'MingjieSerif',
-                                  fontSize: 60,
-                                  height: 1,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0,
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  ChumingBird(
+                                    size: 46,
+                                    mood: widget.target.isBlow
+                                        ? ChumingMood.blowing
+                                        : ChumingMood.drawing,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    note,
+                                    style: TextStyle(
+                                      color: palette.primary,
+                                      fontFamily: 'MingjieSerif',
+                                      fontSize: 60,
+                                      height: 1,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 0,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              BreathGestureGuide(
+                                isBlow: widget.target.isBlow,
+                                label: strings.t(
+                                  widget.target.isBlow
+                                      ? 'blowAction'
+                                      : 'drawAction',
                                 ),
+                                compact: true,
                               ),
                               const SizedBox(height: 8),
                               Text(
@@ -1247,18 +1272,27 @@ class _CompletionDisplay extends StatelessWidget {
           child: AnimatedOpacity(
             duration: AppMotion.duration(context, AppMotion.base),
             opacity: visible ? 1 : 0,
-            child: Container(
-              width: 82,
-              height: 82,
-              decoration: BoxDecoration(
-                color: palette.success.withValues(alpha: 0.14),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.check_rounded,
-                color: palette.success,
-                size: 46,
-              ),
+            child: Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                const ChumingBird(
+                  size: 76,
+                  mood: ChumingMood.celebrating,
+                ),
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: palette.success,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.check_rounded,
+                    color: palette.onPrimary,
+                    size: 18,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
