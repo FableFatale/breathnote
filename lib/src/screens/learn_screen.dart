@@ -70,7 +70,12 @@ class LearnScreen extends StatelessWidget {
                     Expanded(
                       child: Text(
                         strings.t('learnHero'),
-                        style: Theme.of(context).textTheme.displaySmall,
+                        style: Theme.of(context).textTheme.displaySmall
+                            ?.copyWith(
+                              fontSize: MediaQuery.sizeOf(context).width <= 320
+                                  ? 27
+                                  : null,
+                            ),
                       ),
                     ),
                     const SizedBox(width: 18),

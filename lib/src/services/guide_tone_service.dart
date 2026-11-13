@@ -13,12 +13,19 @@ class GuideToneService {
     required double speed,
     required bool repeat,
   }) async {
-    return await _channel.invokeMethod<int>('playGuideSequence', {
-          'frequencies': frequencies,
-          'speed': speed,
-          'repeat': repeat,
-        }) ??
-        0;
+    try {
+      return await _channel.invokeMethod<int>('playGuideSequence', {
+            'frequencies': frequencies,
+            'speed': speed,
+            'repeat': repeat,
+          }) ??
+          0;
+    } on MissingPluginException {
+      throw PlatformException(
+        code: 'unsupported',
+        message: 'featureUnavailable',
+      );
+    }
   }
 
   Future<void> stop() async {

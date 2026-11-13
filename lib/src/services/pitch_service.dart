@@ -31,9 +31,17 @@ class PitchService {
   }
 
   Future<MicrophonePermission> requestPermission() async {
-    final value = await _methods.invokeMethod<String>(
-      'requestMicrophonePermission',
-    );
+    final String? value;
+    try {
+      value = await _methods.invokeMethod<String>(
+        'requestMicrophonePermission',
+      );
+    } on MissingPluginException {
+      throw PlatformException(
+        code: 'unsupported',
+        message: 'featureUnavailable',
+      );
+    }
     return switch (value) {
       'granted' => MicrophonePermission.granted,
       'permanentlyDenied' => MicrophonePermission.permanentlyDenied,
@@ -42,23 +50,42 @@ class PitchService {
   }
 
   Future<bool> hasPermission() async {
-    return await _methods.invokeMethod<bool>('hasMicrophonePermission') ??
-        false;
+    try {
+      return await _methods.invokeMethod<bool>('hasMicrophonePermission') ??
+          false;
+    } on MissingPluginException {
+      return false;
+    }
   }
 
-  Future<void> openAppSettings() {
-    return _methods.invokeMethod<void>('openAppSettings');
+  Future<void> openAppSettings() async {
+    try {
+      await _methods.invokeMethod<void>('openAppSettings');
+    } on MissingPluginException {
+      // Unsupported platforms have no native app settings page.
+    }
   }
 
   Future<bool> start({double sensitivity = 0.68}) async {
-    return await _methods.invokeMethod<bool>('startPitchDetection', {
-          'sensitivity': sensitivity,
-        }) ??
-        false;
+    try {
+      return await _methods.invokeMethod<bool>('startPitchDetection', {
+            'sensitivity': sensitivity,
+          }) ??
+          false;
+    } on MissingPluginException {
+      throw PlatformException(
+        code: 'unsupported',
+        message: 'featureUnavailable',
+      );
+    }
   }
 
-  Future<void> setSensitivity(double value) {
-    return _methods.invokeMethod<void>('setSensitivity', {'value': value});
+  Future<void> setSensitivity(double value) async {
+    try {
+      await _methods.invokeMethod<void>('setSensitivity', {'value': value});
+    } on MissingPluginException {
+      // The preference still updates in memory on unsupported platforms.
+    }
   }
 
   Future<void> stop() async {

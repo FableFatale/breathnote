@@ -15,6 +15,7 @@ import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/motion_widgets.dart';
 import '../widgets/shared_widgets.dart';
+import 'help_screen.dart';
 import 'lesson_routes.dart';
 
 class PracticeScreen extends StatefulWidget {
@@ -63,6 +64,7 @@ class _PracticeScreenState extends State<PracticeScreen>
   bool _guidePlaying = false;
   bool _guideLoop = false;
   bool _resumeAfterGuide = false;
+  bool _unsupported = false;
   double _guideSpeed = 1;
   int _score = 0;
 
@@ -98,6 +100,7 @@ class _PracticeScreenState extends State<PracticeScreen>
     if (!mounted) return;
     setState(() {
       _status = _PracticeStatus.requestingPermission;
+      _unsupported = false;
       _errorMessage = null;
     });
     try {
@@ -112,12 +115,15 @@ class _PracticeScreenState extends State<PracticeScreen>
         return;
       }
       await _beginListening();
-    } on PlatformException catch (error) {
+    } catch (error) {
       if (!mounted) return;
+      final unsupported = _isUnsupportedError(error);
       setState(() {
         _status = _PracticeStatus.error;
-        _errorMessage =
-            error.message ?? context.strings.t('microphoneStartError');
+        _unsupported = unsupported;
+        _errorMessage = unsupported
+            ? null
+            : _messageForError(error, 'microphoneStartError');
       });
     }
   }
@@ -297,12 +303,16 @@ class _PracticeScreenState extends State<PracticeScreen>
         Duration(milliseconds: duration + 120),
         _stopGuideAndResume,
       );
-    } on PlatformException catch (error) {
+    } catch (error) {
       if (!mounted) return;
+      final unsupported = _isUnsupportedError(error);
       setState(() {
         _guidePlaying = false;
         _status = _PracticeStatus.error;
-        _errorMessage = error.message ?? context.strings.t('guideToneError');
+        _unsupported = unsupported;
+        _errorMessage = unsupported
+            ? null
+            : _messageForError(error, 'guideToneError');
       });
     }
   }
@@ -356,6 +366,10 @@ class _PracticeScreenState extends State<PracticeScreen>
   }
 
   Future<void> _handlePrimaryAction() async {
+    if (_unsupported) {
+      await showHelpScreen(context);
+      return;
+    }
     if (_completed) {
       await _openNextOrFinish();
       return;
@@ -380,6 +394,19 @@ class _PracticeScreenState extends State<PracticeScreen>
     }
     await Navigator.of(context)
         .pushReplacement(lessonRoute(context, lessonById(nextId)));
+  }
+
+  String _messageForError(Object error, String fallbackKey) {
+    final strings = context.strings;
+    if (error is PlatformException) {
+      if (error.code == 'unsupported') return strings.t('featureUnavailable');
+      if (error.message != null) return error.message!;
+    }
+    return strings.t(fallbackKey);
+  }
+
+  bool _isUnsupportedError(Object error) {
+    return error is PlatformException && error.code == 'unsupported';
   }
 
   void _pausePracticeTimer() {
@@ -511,7 +538,7 @@ class _PracticeScreenState extends State<PracticeScreen>
                                 note,
                                 style: TextStyle(
                                   color: palette.primary,
-                                  fontFamily: 'serif',
+                                  fontFamily: 'MingjieSerif',
                                   fontSize: 60,
                                   height: 1,
                                   fontWeight: FontWeight.w700,
@@ -579,6 +606,7 @@ class _PracticeScreenState extends State<PracticeScreen>
               guidePlaying: _guidePlaying,
               listening: _status == _PracticeStatus.listening,
               waiting: _status == _PracticeStatus.requestingPermission,
+              unsupported: _unsupported,
               onSpeed: _completed ? _restart : _toggleSpeed,
               onPrimary: _handlePrimaryAction,
               onLoop: _toggleLoop,
@@ -598,6 +626,7 @@ class _PracticeScreenState extends State<PracticeScreen>
 
   IconData get _guidanceIcon {
     if (_completed) return Icons.check_rounded;
+    if (_unsupported) return Icons.help_outline_rounded;
     if (_guidePlaying) return Icons.volume_up_rounded;
     if (_status == _PracticeStatus.listening) {
       return _reading.detected
@@ -613,6 +642,9 @@ class _PracticeScreenState extends State<PracticeScreen>
   }
 
   VoidCallback get _guidanceAction {
+    if (_unsupported) {
+      return () => unawaited(showHelpScreen(context));
+    }
     if (_status == _PracticeStatus.permanentlyDenied) {
       return _pitchService.openAppSettings;
     }
@@ -625,6 +657,7 @@ class _PracticeScreenState extends State<PracticeScreen>
   String _guidanceTitle(String note, double cents) {
     final strings = context.strings;
     if (_completed) return strings.t('pitchStable');
+    if (_unsupported) return strings.t('featureUnavailable');
     if (_guidePlaying) return strings.t('guidePlaying');
     if (_status == _PracticeStatus.requestingPermission) {
       return strings.t('requestingPermission');
@@ -649,6 +682,7 @@ class _PracticeScreenState extends State<PracticeScreen>
   String get _guidanceDetail {
     final strings = context.strings;
     if (_completed) return strings.t('pitchScore', {'score': _score});
+    if (_unsupported) return strings.t('useAndroidApp');
     if (_guidePlaying) return strings.t('guidePlayingDetail');
     if (_status == _PracticeStatus.listening) {
       if (_reading.detected &&
@@ -671,6 +705,7 @@ class _PracticeScreenState extends State<PracticeScreen>
 
   Color _guidanceColor(AppPalette palette, double cents) {
     if (_completed) return palette.success;
+    if (_unsupported) return palette.muted;
     if (_status == _PracticeStatus.listening &&
         _reading.detected &&
         cents.abs() <= 25) {
@@ -983,6 +1018,7 @@ class _ControlDock extends StatelessWidget {
     required this.guidePlaying,
     required this.listening,
     required this.waiting,
+    required this.unsupported,
     required this.onSpeed,
     required this.onPrimary,
     required this.onLoop,
@@ -995,6 +1031,7 @@ class _ControlDock extends StatelessWidget {
   final bool guidePlaying;
   final bool listening;
   final bool waiting;
+  final bool unsupported;
   final VoidCallback onSpeed;
   final VoidCallback onPrimary;
   final VoidCallback onLoop;
@@ -1021,7 +1058,7 @@ class _ControlDock extends StatelessWidget {
               icon: completed ? Icons.replay_rounded : Icons.speed_rounded,
               label: completed ? strings.t('practiceAgain') : speedLabel,
               color: palette.muted,
-              onTap: onSpeed,
+              onTap: unsupported ? null : onSpeed,
             ),
           ),
           const SizedBox(width: 10),
@@ -1037,6 +1074,8 @@ class _ControlDock extends StatelessWidget {
                   enabled: !waiting,
                   label: completed
                       ? completedLabel
+                      : unsupported
+                      ? strings.t('help')
                       : guidePlaying
                       ? strings.t('stopGuide')
                       : listening
@@ -1066,6 +1105,8 @@ class _ControlDock extends StatelessWidget {
                           : Icon(
                               completed
                                   ? Icons.check_rounded
+                                  : unsupported
+                                  ? Icons.help_outline_rounded
                                   : guidePlaying || listening
                                   ? Icons.stop_rounded
                                   : Icons.mic_rounded,
@@ -1084,6 +1125,8 @@ class _ControlDock extends StatelessWidget {
               Text(
                 completed
                     ? completedLabel
+                    : unsupported
+                    ? strings.t('help')
                     : guidePlaying
                     ? strings.t('stopGuide')
                     : listening
@@ -1107,7 +1150,7 @@ class _ControlDock extends StatelessWidget {
               label: strings.t('loop'),
               color: loop ? palette.primary : palette.muted,
               selected: loop,
-              onTap: completed ? null : onLoop,
+              onTap: completed || unsupported ? null : onLoop,
             ),
           ),
         ],

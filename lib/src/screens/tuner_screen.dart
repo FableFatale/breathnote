@@ -15,7 +15,7 @@ import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_adaptive.dart';
 import '../widgets/motion_widgets.dart';
-import '../widgets/shared_widgets.dart';
+import 'help_screen.dart';
 
 class TunerScreen extends StatefulWidget {
   const TunerScreen({required this.active, super.key});
@@ -44,6 +44,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
   int _lastSensitivityStep = 68;
   bool _changingSensitivity = false;
   bool _wasInTune = false;
+  bool _unsupported = false;
   String? _errorMessage;
   final List<double> _sessionCents = [];
   double _levelDb = -120;
@@ -92,6 +93,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
     if (_status == _TunerStatus.requestingPermission) return;
     setState(() {
       _status = _TunerStatus.requestingPermission;
+      _unsupported = false;
       _errorMessage = null;
     });
 
@@ -126,12 +128,15 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
             : context.strings.t('microphoneSettingsError');
       });
       if (started) await AppHaptics.light(context);
-    } on PlatformException catch (error) {
+    } catch (error) {
       if (!mounted) return;
+      final unsupported = _isUnsupportedError(error);
       setState(() {
         _status = _TunerStatus.error;
-        _errorMessage =
-            error.message ?? context.strings.t('microphoneStartError');
+        _unsupported = unsupported;
+        _errorMessage = unsupported
+            ? context.strings.t('useAndroidApp')
+            : _messageForError(error, 'microphoneStartError');
       });
     }
   }
@@ -260,12 +265,14 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                   ),
                 ),
                 ListTile(
+                  key: const Key('tuner-help-setting'),
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.lock_outline_rounded),
-                  title: Text(context.strings.t('localAudioProcessing')),
-                  subtitle: Text(
-                    context.strings.t('localAudioProcessingDetail'),
-                  ),
+                  leading: const Icon(Icons.help_outline_rounded),
+                  title: Text(context.strings.t('help')),
+                  onTap: () {
+                    Navigator.pop(context);
+                    unawaited(showHelpScreen(context));
+                  },
                 ),
                 if (_status == _TunerStatus.permanentlyDenied)
                   SizedBox(
@@ -303,10 +310,16 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
     final pagePadding = AppAdaptive.pagePadding(context);
     final cardPadding = AppAdaptive.cardPadding(context);
     final compact = AppAdaptive.isCompact(context);
+    final shortViewport = MediaQuery.sizeOf(context).height <= 600;
 
     return SingleChildScrollView(
       key: const PageStorageKey('tuner'),
-      padding: EdgeInsets.fromLTRB(pagePadding, 20, pagePadding, 108),
+      padding: EdgeInsets.fromLTRB(
+        pagePadding,
+        shortViewport ? 12 : 20,
+        pagePadding,
+        108,
+      ),
       child: Column(
         children: [
           Row(
@@ -324,9 +337,21 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
               ),
             ],
           ),
-          SizedBox(height: compact ? 12 : AppAdaptive.groupGap(context) / 1.6),
+          SizedBox(
+            height: shortViewport
+                ? 6
+                : compact
+                ? 12
+                : AppAdaptive.groupGap(context) / 1.6,
+          ),
           _StatusLine(status: _status, detected: detected),
-          SizedBox(height: compact ? 12 : AppAdaptive.groupGap(context) / 1.6),
+          SizedBox(
+            height: shortViewport
+                ? 6
+                : compact
+                ? 12
+                : AppAdaptive.groupGap(context) / 1.6,
+          ),
           _NoteDisplay(
             note: detected ? _reading.note : '--',
             octave: detected ? _reading.octave.toString() : '',
@@ -339,9 +364,15 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                 : context.strings.t('waitingSound'),
             active: detected,
           ),
-          SizedBox(height: compact ? 14 : 28),
+          SizedBox(
+            height: shortViewport
+                ? 6
+                : compact
+                ? 14
+                : 28,
+          ),
           _PitchArc(cents: cents, active: detected),
-          const SizedBox(height: 14),
+          SizedBox(height: shortViewport ? 6 : 14),
           Semantics(
             key: const Key('tuner-arc-summary'),
             container: true,
@@ -361,18 +392,34 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
               ),
             ),
           ),
-          SizedBox(height: compact ? 14 : 22),
+          SizedBox(
+            height: shortViewport
+                ? 8
+                : compact
+                ? 14
+                : 22,
+          ),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _status == _TunerStatus.requestingPermission
+              onPressed: _unsupported
+                  ? () => unawaited(showHelpScreen(context))
+                  : _status == _TunerStatus.requestingPermission
                   ? null
                   : listening
                   ? _stopListening
                   : _startListening,
-              icon: Icon(listening ? Icons.stop_rounded : Icons.mic_rounded),
+              icon: Icon(
+                _unsupported
+                    ? Icons.help_outline_rounded
+                    : listening
+                    ? Icons.stop_rounded
+                    : Icons.mic_rounded,
+              ),
               label: Text(
-                listening
+                _unsupported
+                    ? context.strings.t('help')
+                    : listening
                     ? context.strings.t('stopTuning')
                     : _primaryButtonLabel,
               ),
@@ -391,10 +438,18 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
             Text(
               _errorMessage!,
               textAlign: TextAlign.center,
-              style: TextStyle(color: palette.danger),
+              style: TextStyle(
+                color: _unsupported ? palette.muted : palette.danger,
+              ),
             ),
           ],
-          SizedBox(height: compact ? 14 : 18),
+          SizedBox(
+            height: shortViewport
+                ? 10
+                : compact
+                ? 14
+                : 18,
+          ),
           Card(
             child: Padding(
               padding: EdgeInsets.fromLTRB(
@@ -413,6 +468,22 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(fontWeight: FontWeight.w700),
                         ),
+                      ),
+                      IconButton(
+                        tooltip: context.strings.t('helpSensitivityTitle'),
+                        onPressed: () => unawaited(
+                          showHelpScreen(
+                            context,
+                            section: HelpSection.sensitivity,
+                          ),
+                        ),
+                        icon: const Icon(Icons.info_outline_rounded, size: 18),
+                        visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 40,
+                          height: 40,
+                        ),
+                        padding: EdgeInsets.zero,
                       ),
                       Flexible(
                         child: FittedBox(
@@ -451,13 +522,6 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                       );
                     },
                   ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      context.strings.t('sensitivityHint'),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
                   const SizedBox(height: 10),
                   Semantics(
                     key: const Key('tuner-input-level'),
@@ -493,12 +557,6 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    context.strings.t('sensitivityLevelHint', {
-                      'threshold': _thresholdDb.round(),
-                    }),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
                 ],
               ),
             ),
@@ -520,14 +578,27 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
             ),
           ],
           const SizedBox(height: 14),
-          const PrivacyNote(),
         ],
       ),
     );
   }
 
+  String _messageForError(Object error, String fallbackKey) {
+    final strings = context.strings;
+    if (error is PlatformException) {
+      if (error.code == 'unsupported') return strings.t('featureUnavailable');
+      if (error.message != null) return error.message!;
+    }
+    return strings.t(fallbackKey);
+  }
+
+  bool _isUnsupportedError(Object error) {
+    return error is PlatformException && error.code == 'unsupported';
+  }
+
   String get _hintText {
     final strings = context.strings;
+    if (_unsupported) return strings.t('featureUnavailable');
     if (_status == _TunerStatus.denied) {
       return strings.t('permissionNeededForTuner');
     }
@@ -629,13 +700,16 @@ class _PitchArcPainter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final shortViewport = MediaQuery.sizeOf(context).height <= 600;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(end: active ? cents.toDouble() : 0),
       duration: AppMotion.duration(context, AppMotion.fast),
       curve: AppMotion.standardCurve,
       builder: (context, animatedCents, _) {
         return SizedBox(
-          height: AppAdaptive.compactValue(context, compact: 104, regular: 128),
+          height: shortViewport
+              ? 74
+              : AppAdaptive.compactValue(context, compact: 104, regular: 128),
           child: CustomPaint(
             key: const Key('tuner-segmented-arc'),
             painter: _SegmentedArcPainter(
@@ -726,6 +800,7 @@ class _SessionDistribution extends StatelessWidget {
     return _ChartFrame(
       title: context.strings.t('sessionPitch'),
       trailing: context.strings.t('sampleCount', {'count': samples.length}),
+      helpSection: HelpSection.charts,
       child: Column(
         children: [
           SizedBox(
@@ -869,6 +944,7 @@ class _WeakNoteMap extends StatelessWidget {
     return _ChartFrame(
       title: context.strings.t('weakNoteMap'),
       trailing: trailing,
+      helpSection: HelpSection.charts,
       child: Column(
         children: [
           Row(
@@ -894,10 +970,6 @@ class _WeakNoteMap extends StatelessWidget {
             if (row == 0) const SizedBox(height: 6),
           ],
           const SizedBox(height: 8),
-          Text(
-            context.strings.t('weakNoteMapHint'),
-            style: TextStyle(color: context.colors.muted, fontSize: 11),
-          ),
         ],
       ),
     );
@@ -952,22 +1024,29 @@ class _WeakNoteRow extends StatelessWidget {
 }
 
 class _ChartFrame extends StatelessWidget {
-  const _ChartFrame({required this.child, this.title, this.trailing});
+  const _ChartFrame({
+    required this.child,
+    this.title,
+    this.trailing,
+    this.helpSection,
+  });
 
   final Widget child;
   final String? title;
   final String? trailing;
+  final HelpSection? helpSection;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.colors;
+    final shortViewport = MediaQuery.sizeOf(context).height <= 600;
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(
         AppAdaptive.cardPadding(context),
-        14,
+        shortViewport ? 10 : 14,
         AppAdaptive.cardPadding(context),
-        14,
+        shortViewport ? 10 : 14,
       ),
       decoration: BoxDecoration(
         color: palette.surface,
@@ -986,6 +1065,20 @@ class _ChartFrame extends StatelessWidget {
                     softWrap: true,
                   ),
                 ),
+                if (helpSection != null)
+                  IconButton(
+                    tooltip: context.strings.t('help'),
+                    onPressed: () => unawaited(
+                      showHelpScreen(context, section: helpSection!),
+                    ),
+                    icon: const Icon(Icons.info_outline_rounded, size: 18),
+                    visualDensity: VisualDensity.compact,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 40,
+                      height: 40,
+                    ),
+                    padding: EdgeInsets.zero,
+                  ),
                 if (trailing != null) ...[
                   const SizedBox(width: 8),
                   Flexible(
@@ -1077,11 +1170,14 @@ class _NoteDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.colors;
+    final shortViewport = MediaQuery.sizeOf(context).height <= 600;
     return Column(
       children: [
         SizedBox(
           key: const Key('tuner-note-transition'),
-          height: AppAdaptive.compactValue(context, compact: 86, regular: 106),
+          height: shortViewport
+              ? 62
+              : AppAdaptive.compactValue(context, compact: 86, regular: 106),
           child: FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.topCenter,
@@ -1104,7 +1200,7 @@ class _NoteDisplay extends StatelessWidget {
                       color: active ? palette.text : palette.muted,
                       fontSize: AppAdaptive.compactValue(
                         context,
-                        compact: 76,
+                        compact: shortViewport ? 56 : 76,
                         regular: 96,
                       ),
                       height: 1,

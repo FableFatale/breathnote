@@ -8,6 +8,7 @@ import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
+import 'help_screen.dart';
 import 'local_data_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -465,11 +466,20 @@ class ProfileScreen extends StatelessWidget {
                   );
                 },
               ),
+              const Divider(height: 1),
+              ListTile(
+                key: const Key('help-setting'),
+                leading: const Icon(Icons.help_outline_rounded),
+                title: Text(strings.t('help')),
+                trailing: Icon(
+                  Icons.chevron_right_rounded,
+                  color: palette.muted,
+                ),
+                onTap: () => showHelpScreen(context),
+              ),
             ],
           ),
         ),
-        const SizedBox(height: 18),
-        const PrivacyNote(),
       ],
     );
   }

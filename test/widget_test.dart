@@ -832,7 +832,8 @@ void main() {
       const Offset(0, -600),
     );
     await tester.pumpAndSettle();
-    expect(find.text('声音只在设备上分析，不会上传或保存。'), findsOneWidget);
+    expect(find.text('声音只在设备上分析，不会上传或保存。'), findsNothing);
+    expect(find.byKey(const Key('help-setting')), findsNothing);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.text('我的'));
@@ -898,6 +899,7 @@ void main() {
     addTearDown(controller.dispose);
     await pumpBreathnote(tester, controller: controller);
 
+    expect(find.text('初鸣'), findsOneWidget);
     await tester.tap(find.text('我的'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('appearance-language-setting')));
@@ -915,6 +917,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Learn'));
     await tester.pumpAndSettle();
+    expect(find.text('初鸣'), findsOneWidget);
     expect(find.text('Learning path'), findsOneWidget);
     expect(find.text('Start with one breath'), findsOneWidget);
     expect(find.text('LEARNING PATH'), findsNothing);
@@ -1260,6 +1263,120 @@ void main() {
     );
     expect(semantics.label, contains('dBFS'));
     expect(semantics.label, isNot(contains('61%')));
+  });
+
+  testWidgets('shows localized unsupported audio message in Chinese', (
+    tester,
+  ) async {
+    const audioChannel = MethodChannel('app.breathnote/audio_control');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(audioChannel, (call) async {
+      throw MissingPluginException(
+        'No implementation found for method ${call.method} on channel ${audioChannel.name}',
+      );
+    });
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(audioChannel, null);
+    });
+
+    await pumpBreathnote(tester);
+    await tester.tap(find.text('调音'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('开始调音'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('当前设备暂不支持此功能'), findsOneWidget);
+    expect(find.text('请使用 Android 应用。'), findsOneWidget);
+    expect(find.text('帮助'), findsOneWidget);
+    expect(find.text('重试'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('shows localized unsupported audio message in Japanese', (
+    tester,
+  ) async {
+    const audioChannel = MethodChannel('app.breathnote/audio_control');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(audioChannel, (call) async {
+      throw MissingPluginException(
+        'No implementation found for method ${call.method} on channel ${audioChannel.name}',
+      );
+    });
+    addTearDown(() {
+      messenger.setMockMethodCallHandler(audioChannel, null);
+    });
+
+    final controller = AppController()..languageCode = 'ja';
+    addTearDown(controller.dispose);
+    await pumpBreathnote(tester, controller: controller);
+    await tester.tap(find.text('チューナー').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('チューナーを開始'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('この端末では利用できません'), findsOneWidget);
+    expect(find.text('Android アプリをご利用ください。'), findsOneWidget);
+    expect(find.text('ヘルプ'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('opens help once from profile and keeps explanations there', (
+    tester,
+  ) async {
+    await pumpBreathnote(tester);
+    await tester.tap(find.text('我的'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('声音只在设备上分析，不会上传或保存。'), findsNothing);
+    await tester.ensureVisible(find.byKey(const Key('help-setting')));
+    await tester.tap(find.byKey(const Key('help-setting')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('帮助'), findsOneWidget);
+    expect(find.textContaining('声音只在设备上实时分析'), findsOneWidget);
+    expect(find.text('检测灵敏度'), findsWidgets);
+    expect(find.text('图表'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('opens chart help from the tuner section icon', (tester) async {
+    final controller = AppController();
+    controller.pitchAttempts.add(
+      PitchAttempt(tab: '4↑', absoluteCents: 32, timestamp: DateTime.now()),
+    );
+    addTearDown(controller.dispose);
+    await pumpBreathnote(
+      tester,
+      controller: controller,
+      size: const Size(360, 320),
+    );
+    await tester.tap(find.text('调音'));
+    await tester.pumpAndSettle();
+
+    final helpIcons = find.byIcon(Icons.info_outline_rounded);
+    expect(helpIcons, findsWidgets);
+    await tester.ensureVisible(helpIcons.last);
+    await tester.tap(helpIcons.last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('图表'), findsOneWidget);
+    expect(find.textContaining('每个点代表一次采样'), findsOneWidget);
+    final helpList = find.byType(ListView);
+    final chartContext = tester.element(find.text('图表').last);
+    expect(Scrollable.of(chartContext).position.pixels, greaterThan(0));
+
+    await tester.drag(helpList, const Offset(0, 600));
+    await tester.pumpAndSettle();
+    expect(Scrollable.of(chartContext).position.pixels, 0);
+
+    await controller.setHighContrast(true);
+    await tester.pumpAndSettle();
+    expect(Scrollable.of(chartContext).position.pixels, 0);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('stops native audio when the song pitch stream fails', (

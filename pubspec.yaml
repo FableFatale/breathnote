@@ -32,6 +32,7 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  shared_preferences: ^2.5.6
 
 dev_dependencies:
   flutter_test:
@@ -54,6 +55,18 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  fonts:
+    - family: MingjieSans
+      fonts:
+        - asset: assets/fonts/MingjieSans-400.ttf
+          weight: 400
+        - asset: assets/fonts/MingjieSans-700.ttf
+          weight: 700
+    - family: MingjieSerif
+      fonts:
+        - asset: assets/fonts/MingjieSerif-700.ttf
+          weight: 700
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -196,6 +196,7 @@ abstract final class AppTheme {
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
+      fontFamily: 'MingjieSans',
       scaffoldBackgroundColor: palette.background,
       extensions: [palette],
       splashFactory: InkSparkle.splashFactory,
@@ -210,7 +211,7 @@ abstract final class AppTheme {
       textTheme: TextTheme(
         displayLarge: TextStyle(
           color: textColor,
-          fontFamily: 'serif',
+          fontFamily: 'MingjieSerif',
           fontSize: 60,
           height: 1,
           fontWeight: FontWeight.w700,
@@ -218,7 +219,7 @@ abstract final class AppTheme {
         ),
         displaySmall: TextStyle(
           color: textColor,
-          fontFamily: 'serif',
+          fontFamily: 'MingjieSerif',
           fontSize: 30,
           height: 1.22,
           fontWeight: FontWeight.w700,
@@ -226,7 +227,7 @@ abstract final class AppTheme {
         ),
         headlineSmall: TextStyle(
           color: textColor,
-          fontFamily: 'serif',
+          fontFamily: 'MingjieSerif',
           fontSize: 20,
           height: 1.3,
           fontWeight: FontWeight.w700,
@@ -234,7 +235,7 @@ abstract final class AppTheme {
         ),
         titleLarge: TextStyle(
           color: textColor,
-          fontFamily: 'serif',
+          fontFamily: 'MingjieSerif',
           fontSize: 20,
           height: 1.3,
           fontWeight: FontWeight.w700,
@@ -242,7 +243,7 @@ abstract final class AppTheme {
         ),
         titleMedium: TextStyle(
           color: textColor,
-          fontFamily: 'serif',
+          fontFamily: 'MingjieSerif',
           fontSize: 20,
           height: 1.3,
           fontWeight: FontWeight.w700,
@@ -293,7 +294,7 @@ abstract final class AppTheme {
         elevation: 0,
         titleTextStyle: TextStyle(
           color: textColor,
-          fontFamily: 'serif',
+          fontFamily: 'MingjieSerif',
           fontSize: 20,
           fontWeight: FontWeight.w700,
           letterSpacing: 0,

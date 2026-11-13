@@ -1,7 +1,7 @@
-# Breathnote Android
+# 初鸣 Android
 
-Breathnote (`息音`) is a Flutter harmonica-learning app for Android 13 and
-newer.
+初鸣 is the first harmonica-learning product under the 鸣阶 brand. It supports
+Android 13 and newer.
 
 ## V1 features
 

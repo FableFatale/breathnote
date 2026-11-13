@@ -15,7 +15,7 @@ abstract final class AppAdaptive {
   static bool isVeryCompact(BuildContext context) {
     final media = MediaQuery.maybeOf(context);
     if (media == null) return false;
-    return media.size.width < veryCompactWidth ||
+    return media.size.width <= veryCompactWidth ||
         media.textScaler.scale(1) >= 1.5;
   }
 

@@ -14,6 +14,7 @@ import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/motion_widgets.dart';
 import '../widgets/shared_widgets.dart';
+import 'help_screen.dart';
 
 class SongPracticeScreen extends StatefulWidget {
   const SongPracticeScreen({required this.song, this.lessonId, super.key});
@@ -56,6 +57,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   bool _guidePlaying = false;
   bool _guideLoop = false;
   bool _resumeAfterGuide = false;
+  bool _unsupported = false;
   double _guideSpeed = 1;
 
   @override
@@ -90,6 +92,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     if (!mounted) return;
     setState(() {
       _status = _SongStatus.requestingPermission;
+      _unsupported = false;
       _errorMessage = null;
     });
     try {
@@ -104,12 +107,15 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         return;
       }
       await _beginListening();
-    } on PlatformException catch (error) {
+    } catch (error) {
       if (!mounted) return;
+      final unsupported = _isUnsupportedError(error);
       setState(() {
         _status = _SongStatus.error;
-        _errorMessage =
-            error.message ?? context.strings.t('microphoneStartError');
+        _unsupported = unsupported;
+        _errorMessage = unsupported
+            ? null
+            : _messageForError(error, 'microphoneStartError');
       });
     }
   }
@@ -298,12 +304,16 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         Duration(milliseconds: duration + 120),
         _stopGuideAndResume,
       );
-    } on PlatformException catch (error) {
+    } catch (error) {
       if (!mounted) return;
+      final unsupported = _isUnsupportedError(error);
       setState(() {
         _guidePlaying = false;
         _status = _SongStatus.error;
-        _errorMessage = error.message ?? context.strings.t('guideMelodyError');
+        _unsupported = unsupported;
+        _errorMessage = unsupported
+            ? null
+            : _messageForError(error, 'guideMelodyError');
       });
     }
   }
@@ -485,7 +495,11 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    _reading.detected
+                                    _unsupported
+                                        ? context.strings.t(
+                                            'featureUnavailable',
+                                          )
+                                        : _reading.detected
                                         ? _reading.noteWithOctave
                                         : _status == _SongStatus.listening
                                         ? context.strings.t(
@@ -526,7 +540,9 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                onPressed: _status == _SongStatus.requestingPermission
+                onPressed: _unsupported
+                    ? () => unawaited(showHelpScreen(context))
+                    : _status == _SongStatus.requestingPermission
                     ? null
                     : _status == _SongStatus.listening
                     ? () => _stopAll(resetStatus: true)
@@ -534,6 +550,8 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                 icon: Icon(
                   _status == _SongStatus.listening
                       ? Icons.stop_rounded
+                      : _unsupported
+                      ? Icons.help_outline_rounded
                       : Icons.mic_rounded,
                 ),
                 label: Text(_buttonLabel),
@@ -544,7 +562,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
               playing: _guidePlaying,
               speed: _guideSpeed,
               loop: _guideLoop,
-              enabled: true,
+              enabled: !_unsupported,
               onPlay: _toggleGuide,
               onSpeedChanged: (value) async {
                 if (_guidePlaying) await _stopGuideAndResume();
@@ -596,14 +614,27 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
             ),
           ],
           const SizedBox(height: 14),
-          const PrivacyNote(),
         ],
       ),
     );
   }
 
+  String _messageForError(Object error, String fallbackKey) {
+    final strings = context.strings;
+    if (error is PlatformException) {
+      if (error.code == 'unsupported') return strings.t('featureUnavailable');
+      if (error.message != null) return error.message!;
+    }
+    return strings.t(fallbackKey);
+  }
+
+  bool _isUnsupportedError(Object error) {
+    return error is PlatformException && error.code == 'unsupported';
+  }
+
   String get _buttonLabel {
     final strings = context.strings;
+    if (_unsupported) return strings.t('help');
     return switch (_status) {
       _SongStatus.requestingPermission => strings.t('requestingPermission'),
       _SongStatus.listening => strings.t('stopPractice'),

@@ -5,7 +5,7 @@
         android:required="true"/>
 
     <application
-        android:label="息音"
+        android:label="初鸣"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"

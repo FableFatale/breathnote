@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../localization/app_strings.dart';
@@ -84,7 +85,7 @@ class _HomeShellState extends State<HomeShell> {
       TunerScreen(active: _index == 2),
       const ProfileScreen(),
     ];
-    return Scaffold(
+    final scaffold = Scaffold(
       body: SafeArea(
         bottom: false,
         child: NotificationListener<ScrollStartNotification>(
@@ -132,6 +133,17 @@ class _HomeShellState extends State<HomeShell> {
           ],
         ),
       ),
+    );
+    if (!kIsWeb) return scaffold;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth <= 760) return scaffold;
+        return ColoredBox(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          child: Center(child: SizedBox(width: 720, child: scaffold)),
+        );
+      },
     );
   }
 }
