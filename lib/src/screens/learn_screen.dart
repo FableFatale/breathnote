@@ -61,29 +61,24 @@ class LearnScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 6,
                   children: [
-                    Expanded(
-                      child: Text(
-                        strings.t('learningPath'),
-                        style: Theme.of(context).textTheme.headlineSmall,
-                      ),
+                    Text(
+                      strings.t('learningPath'),
+                      style: Theme.of(context).textTheme.headlineSmall,
                     ),
-                    const SizedBox(width: 12),
-                    Flexible(
-                      child: Text(
-                        strings.t('pathProgress', {
-                          'done': controller.completedLessons.length,
-                          'total': lessons.length,
-                        }),
-                        textAlign: TextAlign.end,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: context.colors.muted,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    Text(
+                      strings.t('pathProgress', {
+                        'done': controller.completedLessons.length,
+                        'total': lessons.length,
+                      }),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: context.colors.muted,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -247,40 +242,30 @@ class _PracticeCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 6,
                   children: [
-                    Flexible(
-                      child: Pill(
-                        label: strings.t('lessonLabel', {
-                          'number': lesson.number,
+                    Pill(
+                      label: strings.t('lessonLabel', {
+                        'number': lesson.number,
+                      }),
+                      color: palette.primary.withValues(alpha: 0.10),
+                      foreground: palette.primary,
+                    ),
+                    Text(
+                      strings.t('aboutMinutes', {'count': lesson.minutes}),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if (controller.streakDays > 0)
+                      CuteStreakBadge(
+                        streakDays: controller.streakDays,
+                        label: strings.t('commonDays', {
+                          'count': controller.streakDays,
                         }),
-                        color: palette.primary.withValues(alpha: 0.10),
-                        foreground: palette.primary,
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        alignment: WrapAlignment.end,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          if (controller.streakDays > 0)
-                            CuteStreakBadge(
-                              streakDays: controller.streakDays,
-                              label: strings.t('commonDays', {
-                                'count': controller.streakDays,
-                              }),
-                            ),
-                          Text(
-                            strings.t('aboutMinutes', {'count': lesson.minutes}),
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 16),

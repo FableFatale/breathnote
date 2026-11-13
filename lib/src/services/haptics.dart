@@ -19,16 +19,16 @@ abstract final class AppHaptics {
   ) async {
     _notifyVisualPulse();
     try {
+      await fallback();
+    } on MissingPluginException {
+      // Widget tests and unsupported platforms have no haptic channel.
+    }
+    try {
       await _channel.invokeMethod<void>('triggerHaptic', {'type': type});
     } on MissingPluginException {
       // Widget tests or non-Android platforms fallback to standard haptics.
     } on PlatformException {
       // Ignore platform channel errors.
-    }
-    try {
-      await fallback();
-    } on MissingPluginException {
-      // Widget tests and unsupported platforms have no haptic channel.
     }
   }
 

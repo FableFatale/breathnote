@@ -141,9 +141,11 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
           ),
         ],
       ),
-      body: ListView(
+      body: SingleChildScrollView(
         padding: EdgeInsets.fromLTRB(pagePadding, 8, pagePadding, 32),
-        children: [
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
           const ChumingCoachBanner(
             featureId: 'lesson_1',
             messageKey: 'coachLesson1',
@@ -320,6 +322,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                   ),
           ),
         ],
+        ),
       ),
     );
   }
