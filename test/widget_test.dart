@@ -11,7 +11,6 @@ import 'package:breathnote/src/state/app_controller.dart';
 import 'package:breathnote/src/theme/app_motion.dart';
 import 'package:breathnote/src/theme/app_theme.dart';
 import 'package:breathnote/src/widgets/cute_illustrations.dart';
-import 'package:breathnote/src/widgets/gesture_guide.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
