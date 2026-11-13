@@ -369,7 +369,7 @@ class _SemanticFamilyCard extends StatelessWidget {
   });
 
   final String title;
-  final PalermoSemanticColor colorSet;
+  final PalermoSemanticFamily colorSet;
   final String hexLabel;
 
   @override

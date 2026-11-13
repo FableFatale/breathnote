@@ -101,6 +101,44 @@ abstract final class PalermoTokens {
     emphasis: Color(0xFF006469),
   );
 
+  // ── Semantic Accent Families (Dark Mode) ──────────────────────────
+  static const blueDark = PalermoSemanticFamily(
+    base: Color(0xFF5E9EFF),
+    border: Color(0xFF28467A),
+    mutedFill: Color(0xFF17233B),
+    emphasis: Color(0xFF99C2FF),
+  );
+
+  static const greenDark = PalermoSemanticFamily(
+    base: Color(0xFF60F178),
+    border: Color(0xFF1E542B),
+    mutedFill: Color(0xFF122B18),
+    emphasis: Color(0xFF98F7A7),
+  );
+
+  static const orangeDark = PalermoSemanticFamily(
+    base: Color(0xFFFF8940),
+    border: Color(0xFF613417),
+    mutedFill: Color(0xFF2E190B),
+    emphasis: Color(0xFFFFB380),
+  );
+
+  static const redDark = PalermoSemanticFamily(
+    base: Color(0xFFFF6369),
+    border: Color(0xFF632427),
+    mutedFill: Color(0xFF301214),
+    emphasis: Color(0xFFFFA1A4),
+  );
+
+  static PalermoSemanticFamily blue(bool isDark) =>
+      isDark ? blueDark : blueLight;
+  static PalermoSemanticFamily green(bool isDark) =>
+      isDark ? greenDark : greenLight;
+  static PalermoSemanticFamily orange(bool isDark) =>
+      isDark ? orangeDark : orangeLight;
+  static PalermoSemanticFamily red(bool isDark) =>
+      isDark ? redDark : redLight;
+
   // ── 10-Hole Chromatic Spectrum (Palermo Workflow Palette) ─────────
   static const List<Color> holeSpectrum = [
     Color(0xFFFF5F57), // Hole 1 - Coral Red

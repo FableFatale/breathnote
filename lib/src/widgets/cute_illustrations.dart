@@ -517,7 +517,6 @@ class _ChumingBirdPainter extends CustomPainter {
     double bodyRadius,
   ) {
     final w = size.width;
-    final h = size.height;
     final starPaint = Paint()..color = const Color(0xFFF99C00);
     canvas.drawCircle(
       Offset(center.dx + w * 0.32, center.dy - bodyRadius * 0.75 - animProgress * 3),
