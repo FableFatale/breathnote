@@ -167,11 +167,10 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const SizedBox(height: 14),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _ZoneChip(
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _ZoneChip(
                           label: strings.t('zoneMiddleShort'),
                           selected:
                               _selectedHole >= 4 && _selectedHole <= 7,
@@ -180,8 +179,10 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                             _selectHole(4, isBlow: true);
                           },
                         ),
-                        const SizedBox(width: 8),
-                        _ZoneChip(
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: _ZoneChip(
                           label: strings.t('zoneLowShort'),
                           selected: _selectedHole <= 3,
                           onTap: () {
@@ -189,8 +190,10 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                             _selectHole(1, isBlow: true);
                           },
                         ),
-                        const SizedBox(width: 8),
-                        _ZoneChip(
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: _ZoneChip(
                           label: strings.t('zoneHighShort'),
                           selected: _selectedHole >= 8,
                           onTap: () {
@@ -198,10 +201,10 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                             _selectHole(8, isBlow: true);
                           },
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   Row(
                     children: [
                       Expanded(
@@ -349,21 +352,26 @@ class _ZoneChip extends StatelessWidget {
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          height: 36,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          alignment: Alignment.center,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: selected ? palette.primary : palette.outline,
             ),
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected ? palette.primary : palette.text,
-              fontSize: 12,
-              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: selected ? palette.primary : palette.text,
+                fontSize: 11.5,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+              ),
             ),
           ),
         ),
@@ -528,57 +536,100 @@ class _HoleMeaningDetailCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.spaceBetween,
+          Row(
             children: [
-              OutlinedButton.icon(
-                key: const Key('lesson-1-prev-hole'),
-                onPressed: canPrev ? onPrev : null,
-                icon: const Icon(Icons.chevron_left_rounded, size: 18),
-                label: Text(strings.t('prevHole')),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+              Expanded(
+                child: OutlinedButton(
+                  key: const Key('lesson-1-prev-hole'),
+                  onPressed: canPrev ? onPrev : null,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 8,
+                    ),
+                    minimumSize: const Size(0, 40),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  minimumSize: const Size(0, 38),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.chevron_left_rounded, size: 18),
+                        const SizedBox(width: 2),
+                        Text(strings.t('prevHole')),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-              FilledButton.tonalIcon(
-                key: const Key('lesson-1-play-hole'),
-                onPressed: onPlayTone,
-                icon: Icon(
-                  playingTone
-                      ? Icons.stop_rounded
-                      : Icons.volume_up_rounded,
-                  size: 18,
-                ),
-                label: Text(
-                  strings.t(
-                    playingTone ? 'playingHoleSound' : 'listenHoleSound',
+              const SizedBox(width: 8),
+              Expanded(
+                child: FilledButton.tonal(
+                  key: const Key('lesson-1-play-hole'),
+                  onPressed: onPlayTone,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 8,
+                    ),
+                    minimumSize: const Size(0, 40),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                ),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          playingTone
+                              ? Icons.stop_rounded
+                              : Icons.volume_up_rounded,
+                          size: 17,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          strings.t(
+                            playingTone
+                                ? 'playingHoleSound'
+                                : 'listenHoleSound',
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  minimumSize: const Size(0, 38),
                 ),
               ),
-              OutlinedButton.icon(
-                key: const Key('lesson-1-next-hole'),
-                onPressed: canNext ? onNext : null,
-                icon: const Icon(Icons.chevron_right_rounded, size: 18),
-                label: Text(strings.t('nextHole')),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton(
+                  key: const Key('lesson-1-next-hole'),
+                  onPressed: canNext ? onNext : null,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 8,
+                    ),
+                    minimumSize: const Size(0, 40),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  minimumSize: const Size(0, 38),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(strings.t('nextHole')),
+                        const SizedBox(width: 2),
+                        const Icon(Icons.chevron_right_rounded, size: 18),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
