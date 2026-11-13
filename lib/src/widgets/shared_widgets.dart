@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../localization/app_strings.dart';
+import '../services/haptics.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_adaptive.dart';
@@ -167,20 +170,53 @@ class PrivacyNote extends StatelessWidget {
   }
 }
 
-class HarmonicaDiagram extends StatelessWidget {
-  const HarmonicaDiagram({required this.activeTab, super.key});
+class HarmonicaDiagram extends StatefulWidget {
+  const HarmonicaDiagram({
+    required this.activeTab,
+    this.onHoleTap,
+    super.key,
+  });
 
   final String? activeTab;
+  final ValueChanged<int>? onHoleTap;
+
+  @override
+  State<HarmonicaDiagram> createState() => _HarmonicaDiagramState();
+}
+
+class _HarmonicaDiagramState extends State<HarmonicaDiagram>
+    with SingleTickerProviderStateMixin {
+  int? _resonatingHole;
+  late final AnimationController _pulseController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 300),
+  );
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  void _triggerHoleResonance(int hole) {
+    unawaited(AppHaptics.reedResonance(context));
+    widget.onHoleTap?.call(hole);
+    if (!mounted) return;
+    setState(() => _resonatingHole = hole);
+    if (!AppMotion.isReduced(context)) {
+      _pulseController.forward(from: 0);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final palette = context.colors;
     final compact = AppAdaptive.isCompact(context);
     final labelWidth = compact ? 18.0 : 34.0;
-    final activeHole = activeTab == null
+    final activeHole = widget.activeTab == null
         ? null
-        : int.tryParse(activeTab!.replaceAll(RegExp(r'[^0-9]'), ''));
-    final isBlow = activeTab?.contains('↑') ?? true;
+        : int.tryParse(widget.activeTab!.replaceAll(RegExp(r'[^0-9]'), ''));
+    final isBlow = widget.activeTab?.contains('↑') ?? true;
 
     Widget directionLabel(String text) {
       if (!compact) {
@@ -224,85 +260,121 @@ class HarmonicaDiagram extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
             child: SizedBox(
               height: compact ? 76 : 88,
-              child: Row(
-                children: List.generate(10, (index) {
-                  final hole = index + 1;
-                  final active = activeHole == hole;
-                  return Expanded(
-                    child: AnimatedContainer(
-                      duration: AppMotion.duration(context, AppMotion.fast),
-                      curve: AppMotion.standardCurve,
-                      decoration: BoxDecoration(
-                        color: active
-                            ? palette.primary.withValues(alpha: 0.08)
-                            : palette.surface,
-                        border: Border(
-                          left: BorderSide(
-                            color: active ? palette.primary : palette.outline,
-                            width: active ? 2 : 1,
-                          ),
-                          right: index == 9 || active
-                              ? BorderSide(
-                                  color: active
-                                      ? palette.primary
+              child: AnimatedBuilder(
+                animation: _pulseController,
+                builder: (context, _) {
+                  final pulse = _pulseController.isAnimating
+                      ? (1.0 - _pulseController.value)
+                      : 0.0;
+                  return Row(
+                    children: List.generate(10, (index) {
+                      final hole = index + 1;
+                      final active = activeHole == hole;
+                      final resonating =
+                          _resonatingHole == hole && pulse > 0.01;
+                      final holeAccent = AppPalette.holeColor(hole);
+                      final highlightColor = active
+                          ? (isBlow ? palette.primary : palette.accentInk)
+                          : holeAccent;
+                      return Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => _triggerHoleResonance(hole),
+                          child: AnimatedContainer(
+                            duration:
+                                AppMotion.duration(context, AppMotion.fast),
+                            curve: AppMotion.standardCurve,
+                            decoration: BoxDecoration(
+                              color: resonating
+                                  ? holeAccent.withValues(
+                                      alpha: 0.16 * pulse + 0.06,
+                                    )
+                                  : active
+                                  ? highlightColor.withValues(alpha: 0.08)
+                                  : palette.surface,
+                              border: Border(
+                                left: BorderSide(
+                                  color: active || resonating
+                                      ? highlightColor
                                       : palette.outline,
-                                  width: active ? 2 : 1,
-                                )
-                              : BorderSide.none,
-                          top: BorderSide(
-                            color: active ? palette.primary : palette.outline,
-                            width: active ? 2 : 1,
-                          ),
-                          bottom: BorderSide(
-                            color: active ? palette.primary : palette.outline,
-                            width: active ? 2 : 1,
-                          ),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            height: active ? 4 : 2.5,
-                            color: AppPalette.holeColor(hole)
-                                .withValues(alpha: active ? 0.95 : 0.45),
-                          ),
-                          Expanded(
-                            child: Center(
-                              child: Text(
-                                '$hole',
-                                style: TextStyle(
-                                  color: active && isBlow
-                                      ? palette.primary
-                                      : palette.muted,
-                                  fontSize: compact ? 10 : 11,
-                                  fontWeight: active
-                                      ? FontWeight.w800
-                                      : FontWeight.w500,
+                                  width: active || resonating ? 2 : 1,
+                                ),
+                                right: index == 9 || active || resonating
+                                    ? BorderSide(
+                                        color: active || resonating
+                                            ? highlightColor
+                                            : palette.outline,
+                                        width: active || resonating ? 2 : 1,
+                                      )
+                                    : BorderSide.none,
+                                top: BorderSide(
+                                  color: active || resonating
+                                      ? highlightColor
+                                      : palette.outline,
+                                  width: active || resonating ? 2 : 1,
+                                ),
+                                bottom: BorderSide(
+                                  color: active || resonating
+                                      ? highlightColor
+                                      : palette.outline,
+                                  width: active || resonating ? 2 : 1,
                                 ),
                               ),
                             ),
-                          ),
-                          Container(height: 1, color: palette.outline),
-                          Expanded(
-                            child: active
-                                ? Center(
-                                    child: Icon(
-                                      isBlow
-                                          ? Icons.arrow_upward_rounded
-                                          : Icons.arrow_downward_rounded,
-                                      color: isBlow
-                                          ? palette.primary
-                                          : palette.accentInk,
-                                      size: 14,
+                            child: Column(
+                              children: [
+                                Container(
+                                  height: active || resonating ? 4.5 : 2.5,
+                                  color: holeAccent.withValues(
+                                    alpha: active || resonating ? 0.98 : 0.45,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Center(
+                                    child: Text(
+                                      '$hole',
+                                      style: TextStyle(
+                                        color: active || resonating
+                                            ? highlightColor
+                                            : palette.muted,
+                                        fontSize: compact ? 10 : 11,
+                                        fontWeight: active || resonating
+                                            ? FontWeight.w800
+                                            : FontWeight.w500,
+                                      ),
                                     ),
-                                  )
-                                : const SizedBox.shrink(),
+                                  ),
+                                ),
+                                Container(height: 1, color: palette.outline),
+                                Expanded(
+                                  child: active
+                                      ? Center(
+                                          child: Icon(
+                                            isBlow
+                                                ? Icons.arrow_upward_rounded
+                                                : Icons.arrow_downward_rounded,
+                                            color: highlightColor,
+                                            size: 14,
+                                          ),
+                                        )
+                                      : resonating
+                                      ? Center(
+                                          child: Icon(
+                                            Icons.graphic_eq_rounded,
+                                            color: holeAccent,
+                                            size: 13,
+                                          ),
+                                        )
+                                      : const SizedBox.shrink(),
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
-                      ),
-                    ),
+                        ),
+                      );
+                    }),
                   );
-                }),
+                },
               ),
             ),
           ),

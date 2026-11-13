@@ -50,12 +50,7 @@ Future<void> showHarmonicaKeyPicker(BuildContext context) async {
                 pickerContext.strings.t('chooseHarmonicaKey'),
                 style: Theme.of(pickerContext).textTheme.headlineSmall,
               ),
-              const SizedBox(height: 8),
-              Text(
-                pickerContext.strings.t('chooseHarmonicaKeyDetail'),
-                style: Theme.of(pickerContext).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,

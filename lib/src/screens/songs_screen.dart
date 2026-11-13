@@ -111,12 +111,15 @@ class _SongsScreenState extends State<SongsScreen> {
                 Row(
                   children: [
                     const ChumingBird(
-                      size: 36,
+                      size: 34,
                       mood: ChumingMood.listening,
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: SectionLabel(context.strings.t('songsLibrary')),
+                      child: Text(
+                        context.strings.t('songsLibrary'),
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
                     ),
                     IconButton.filled(
                       key: const Key('add-custom-song'),
@@ -126,12 +129,7 @@ class _SongsScreenState extends State<SongsScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  context.strings.t('songsHero'),
-                  style: Theme.of(context).textTheme.displaySmall,
-                ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
                 SearchBar(
                   controller: _searchController,
                   hintText: context.strings.t('searchSongs'),
@@ -309,12 +307,7 @@ class _CustomSongSheetState extends State<_CustomSongSheet> {
               context.strings.t('addCustomSong'),
               style: Theme.of(context).textTheme.headlineSmall,
             ),
-            const SizedBox(height: 8),
-            Text(
-              context.strings.t('customSongHelp'),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             TextField(
               key: const Key('custom-song-title'),
               textInputAction: TextInputAction.next,
@@ -464,7 +457,7 @@ class _SongTile extends StatelessWidget {
                         child: HarmonicaBrandIcon(
                           size: 30,
                           color: palette.onPrimary,
-                          accentColor: const Color(0xFFE5B869),
+                          accentColor: const Color(0xFF60F178),
                         ),
                       ),
                       const SizedBox(width: 13),
@@ -492,14 +485,14 @@ class _SongTile extends StatelessWidget {
                                   ),
                               ],
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              song.isCustom
-                                  ? context.strings.t('customSongSubtitle')
-                                  : context.strings.t(song.subtitle),
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            const SizedBox(height: 8),
+                            if (song.isCustom) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                context.strings.t('customSongSubtitle'),
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                            const SizedBox(height: 6),
                             Text(
                               song.tabPreview,
                               overflow: TextOverflow.ellipsis,

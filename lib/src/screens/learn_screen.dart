@@ -262,19 +262,9 @@ class _PracticeCard extends StatelessWidget {
                       const SizedBox(width: 12),
                     ],
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: Theme.of(context).textTheme.headlineSmall,
-                          ),
-                          const SizedBox(height: 7),
-                          Text(
-                            strings.lessonDetail(lesson.id),
-                            style: TextStyle(color: palette.muted),
-                          ),
-                        ],
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.headlineSmall,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -333,7 +323,7 @@ class _TimelineLesson extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 104),
+          constraints: const BoxConstraints(minHeight: 76),
           child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -433,20 +423,9 @@ class _TimelineLesson extends StatelessWidget {
                     child: Row(
                       children: [
                         Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                strings.lessonTitle(lesson.id),
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                strings.lessonDetail(lesson.id),
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
+                          child: Text(
+                            strings.lessonTitle(lesson.id),
+                            style: Theme.of(context).textTheme.titleMedium,
                           ),
                         ),
                         const SizedBox(width: 8),

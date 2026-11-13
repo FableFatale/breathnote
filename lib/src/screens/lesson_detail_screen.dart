@@ -63,13 +63,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
           32,
         ),
         children: [
-          SectionLabel(context.strings.t('lessonOneLabel')),
-          const SizedBox(height: 8),
-          Text(
-            context.strings.t('lessonOneHero'),
-            style: Theme.of(context).textTheme.displaySmall,
-          ),
-          const SizedBox(height: 24),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(18),

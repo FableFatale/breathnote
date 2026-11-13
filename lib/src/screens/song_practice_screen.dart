@@ -166,6 +166,9 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       );
     }
     if (matches) {
+      if (_stableSince == null && _stableSinceMicros == null) {
+        unawaited(AppHaptics.reedResonance(context));
+      }
       final stableLongEnough = reading.timestampMicros > 0
           ? _isStableForMicros(reading.timestampMicros)
           : _isStableForWallClock(now);

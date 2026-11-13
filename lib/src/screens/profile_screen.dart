@@ -8,7 +8,6 @@ import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/cute_illustrations.dart';
-import '../widgets/shared_widgets.dart';
 import 'design_system_screen.dart';
 import 'help_screen.dart';
 import 'local_data_screen.dart';
@@ -94,12 +93,7 @@ class ProfileScreen extends StatelessWidget {
                   context.strings.t('chooseHarmonicaKey'),
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  context.strings.t('chooseHarmonicaKeyDetail'),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -169,7 +163,6 @@ class ProfileScreen extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   secondary: const Icon(Icons.contrast_rounded),
                   title: Text(context.strings.t('highContrast')),
-                  subtitle: Text(context.strings.t('highContrastDetail')),
                   value: controller.highContrast,
                   onChanged: (value) async {
                     await controller.setHighContrast(value);
@@ -181,7 +174,6 @@ class ProfileScreen extends StatelessWidget {
                   contentPadding: EdgeInsets.zero,
                   secondary: const Icon(Icons.animation_rounded),
                   title: Text(context.strings.t('reduceMotion')),
-                  subtitle: Text(context.strings.t('reduceMotionDetail')),
                   value: controller.reduceMotion,
                   onChanged: (value) async {
                     await controller.setReduceMotion(value);
@@ -327,20 +319,10 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(width: 14),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    displayName,
-                    style: Theme.of(context).textTheme.titleMedium
-                        ?.copyWith(fontSize: 19),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    strings.t('localOnly'),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+              child: Text(
+                displayName,
+                style: Theme.of(context).textTheme.titleMedium
+                    ?.copyWith(fontSize: 19),
               ),
             ),
             IconButton.outlined(
@@ -378,9 +360,7 @@ class ProfileScreen extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 28),
-        SectionLabel(strings.t('practiceSettings')),
-        const SizedBox(height: 9),
+        const SizedBox(height: 20),
         Card(
           child: Column(
             children: [
@@ -388,7 +368,6 @@ class ProfileScreen extends StatelessWidget {
                 key: const Key('harmonica-key-setting'),
                 leading: const HarmonicaBrandIcon(size: 22),
                 title: Text(strings.t('myHarmonica')),
-                subtitle: Text(strings.t('harmonicaSettingDetail')),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -405,7 +384,6 @@ class ProfileScreen extends StatelessWidget {
               SwitchListTile(
                 secondary: const Icon(Icons.vibration_rounded),
                 title: Text(strings.t('haptics')),
-                subtitle: Text(strings.t('hapticsDetail')),
                 value: controller.hapticsEnabled,
                 onChanged: (value) async {
                   await AppHaptics.selection(context);
@@ -415,9 +393,7 @@ class ProfileScreen extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 22),
-        SectionLabel(strings.t('appearanceLanguage')),
-        const SizedBox(height: 9),
+        const SizedBox(height: 14),
         Card(
           child: Column(
             children: [
@@ -425,12 +401,6 @@ class ProfileScreen extends StatelessWidget {
                 key: const Key('appearance-language-setting'),
                 leading: const Icon(Icons.palette_outlined),
                 title: Text(strings.t('theme')),
-                subtitle: Text(
-                  strings.t('themeLanguageSummary', {
-                    'theme': _themeName(strings, controller.themeMode),
-                    'language': _languageName(strings, controller.languageCode),
-                  }),
-                ),
                 trailing: Icon(
                   Icons.chevron_right_rounded,
                   color: palette.muted,
@@ -442,13 +412,6 @@ class ProfileScreen extends StatelessWidget {
                 key: const Key('accessibility-setting'),
                 leading: const Icon(Icons.accessibility_new_rounded),
                 title: Text(strings.t('accessibilityDisplay')),
-                subtitle: Text(
-                  [
-                    '${(controller.textScale * 100).round()}%',
-                    if (controller.highContrast) strings.t('highContrast'),
-                    if (controller.reduceMotion) strings.t('reduceMotion'),
-                  ].join(strings.t('summarySeparator')),
-                ),
                 trailing: Icon(
                   Icons.chevron_right_rounded,
                   color: palette.muted,
@@ -459,7 +422,6 @@ class ProfileScreen extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.lock_outline_rounded),
                 title: Text(strings.t('localDataPrivacy')),
-                subtitle: Text(strings.t('localDataDetail')),
                 trailing: Icon(
                   Icons.chevron_right_rounded,
                   color: palette.muted,
@@ -491,8 +453,7 @@ class ProfileScreen extends StatelessWidget {
                   Icons.auto_awesome_mosaic_rounded,
                   color: palette.primary,
                 ),
-                title: const Text('Palermo 设计系统与组件馆'),
-                subtitle: const Text('查看色板 Token、无角口琴图标、小鸟与交互组件'),
+                title: const Text('Palermo 设计系统'),
                 trailing: Icon(
                   Icons.chevron_right_rounded,
                   color: palette.muted,
@@ -511,22 +472,6 @@ class ProfileScreen extends StatelessWidget {
         ),
       ],
     );
-  }
-
-  String _themeName(AppStrings strings, ThemeMode mode) {
-    return switch (mode) {
-      ThemeMode.system => strings.t('themeSystem'),
-      ThemeMode.light => strings.t('themeLight'),
-      ThemeMode.dark => strings.t('themeDark'),
-    };
-  }
-
-  String _languageName(AppStrings strings, String code) {
-    return switch (code) {
-      'en' => strings.t('languageEnglish'),
-      'ja' => strings.t('languageJapanese'),
-      _ => strings.t('languageChinese'),
-    };
   }
 }
 

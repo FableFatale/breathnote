@@ -59,11 +59,6 @@ class _DesignSystemScreenState extends State<DesignSystemScreen> {
                     'Foundations & Breathnote Components',
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '基于 palermo.tryprofound.com 规范提炼的纯净中性 Surface 层级、4 阶语义色板、现代几何无衬线排版及口琴专属交互组件。',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
                 ],
               ),
             ),
@@ -155,19 +150,9 @@ class _DesignSystemScreenState extends State<DesignSystemScreen> {
                       ),
                       const SizedBox(width: 14),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '对称双护板口琴图标 (无角设计)',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '上下对称圆角金属护板 + 5 枚竖向音簧格栅 + 第 4 孔翡翠绿高亮。',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
+                        child: Text(
+                          '对称双护板口琴图标 (无角设计)',
+                          style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ),
                     ],
@@ -248,7 +233,10 @@ class _DesignSystemScreenState extends State<DesignSystemScreen> {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  HarmonicaDiagram(activeTab: activeTab),
+                  HarmonicaDiagram(
+                    activeTab: activeTab,
+                    onHoleTap: (hole) => setState(() => _selectedHole = hole),
+                  ),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 6,
@@ -267,7 +255,7 @@ class _DesignSystemScreenState extends State<DesignSystemScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          const SectionLabel('5. REPLAYABLE GESTURE GUIDES (首次引导 + 点击重播)'),
+          const SectionLabel('5. GESTURES & HAPTICS (手势重播与口琴震感)'),
           const SizedBox(height: 8),
           Card(
             child: Padding(
@@ -277,11 +265,11 @@ class _DesignSystemScreenState extends State<DesignSystemScreen> {
                 runSpacing: 10,
                 children: [
                   const SwipeGestureGuide(
-                    label: '左右滑动切换孔位 (点击可多次重播)',
+                    label: '左右滑动切换孔位',
                   ),
                   BreathGestureGuide(
                     isBlow: _isBlow,
-                    label: _isBlow ? '平稳吹气引导 (点击重播)' : '轻柔吸气引导 (点击重播)',
+                    label: _isBlow ? '平稳吹气引导' : '轻柔吸气引导',
                   ),
                   const CuteStreakBadge(
                     streakDays: 7,

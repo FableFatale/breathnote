@@ -4,28 +4,25 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Upper Cover Plate (Symmetrical Capsule) -->
+    <!-- Subtle inner highlight ring inside Android adaptive safe zone -->
     <path
-        android:pathData="M25,34 H83 A5,5 0,0 1,88 39 A5,5 0,0 1,83 44 H25 A5,5 0,0 1,20 39 A5,5 0,0 1,25 34 Z"
-        android:fillColor="#376CFF" />
-    <!-- Lower Cover Plate (Symmetrical Capsule) -->
+        android:pathData="M30,36 H78 A4,4 0,0 1,82 40 V42 H26 V40 A4,4 0,0 1,30 36 Z"
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.92" />
     <path
-        android:pathData="M25,64 H83 A5,5 0,0 1,88 69 A5,5 0,0 1,83 74 H25 A5,5 0,0 1,20 69 A5,5 0,0 1,25 64 Z"
-        android:fillColor="#376CFF" />
-    <!-- Central Comb Outer Frame -->
+        android:pathData="M26,66 H82 V68 A4,4 0,0 1,78 72 H30 A4,4 0,0 1,26 68 V66 Z"
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.92" />
+    <!-- Central Symmetrical Comb Body (Pure White) -->
     <path
-        android:pathData="M23,41 H85 A6,6 0,0 1,91 47 V61 A6,6 0,0 1,85 67 H23 A6,6 0,0 1,17 61 V47 A6,6 0,0 1,23 41 Z"
-        android:fillColor="#376CFF" />
-    <!-- Central Comb Pure White Core -->
-    <path
-        android:pathData="M23.5,44.2 H84.5 A3.5,3.5 0,0 1,88 47.7 V60.3 A3.5,3.5 0,0 1,84.5 63.8 H23.5 A3.5,3.5 0,0 1,20 60.3 V47.7 A3.5,3.5 0,0 1,23.5 44.2 Z"
+        android:pathData="M27,43 H81 A5,5 0,0 1,86 48 V60 A5,5 0,0 1,81 65 H27 A5,5 0,0 1,22 60 V48 A5,5 0,0 1,27 43 Z"
         android:fillColor="#FFFFFF" />
-    <!-- 4 Standard Reed Slots (Palermo Blue) -->
+    <!-- 4 Standard Reed Slots (Deep Palermo Blue #1E4FD9) -->
     <path
-        android:pathData="M31,47 H33.5 A2,2 0,0 1,35.5 49 V59 A2,2 0,0 1,33.5 61 H31 A2,2 0,0 1,29 59 V49 A2,2 0,0 1,31 47 Z M41.5,47 H44 A2,2 0,0 1,46 49 V59 A2,2 0,0 1,44 61 H41.5 A2,2 0,0 1,39.5 59 V49 A2,2 0,0 1,41.5 47 Z M52,47 H54.5 A2,2 0,0 1,56.5 49 V59 A2,2 0,0 1,54.5 61 H52 A2,2 0,0 1,50 59 V49 A2,2 0,0 1,52 47 Z M73.5,47 H76 A2,2 0,0 1,78 49 V59 A2,2 0,0 1,76 61 H73.5 A2,2 0,0 1,71.5 59 V49 A2,2 0,0 1,73.5 47 Z"
-        android:fillColor="#376CFF" />
-    <!-- 4th Reed Slot Highlight (Palermo Emerald #15B462) -->
+        android:pathData="M31.5,47.5 H34.5 A2,2 0,0 1,36.5 49.5 V58.5 A2,2 0,0 1,34.5 60.5 H31.5 A2,2 0,0 1,29.5 58.5 V49.5 A2,2 0,0 1,31.5 47.5 Z M42,47.5 H45 A2,2 0,0 1,47 49.5 V58.5 A2,2 0,0 1,45 60.5 H42 A2,2 0,0 1,40 58.5 V49.5 A2,2 0,0 1,42 47.5 Z M52.5,47.5 H55.5 A2,2 0,0 1,57.5 49.5 V58.5 A2,2 0,0 1,55.5 60.5 H52.5 A2,2 0,0 1,50.5 58.5 V49.5 A2,2 0,0 1,52.5 47.5 Z M73.5,47.5 H76.5 A2,2 0,0 1,78.5 49.5 V58.5 A2,2 0,0 1,76.5 60.5 H73.5 A2,2 0,0 1,71.5 58.5 V49.5 A2,2 0,0 1,73.5 47.5 Z"
+        android:fillColor="#1E4FD9" />
+    <!-- 4th Reed Slot Highlight (First Note Emerald #15B462) -->
     <path
-        android:pathData="M62.5,46 H65.5 A2.2,2.2 0,0 1,67.7 48.2 V59.8 A2.2,2.2 0,0 1,65.5 62 H62.5 A2.2,2.2 0,0 1,60.3 59.8 V48.2 A2.2,2.2 0,0 1,62.5 46 Z"
+        android:pathData="M62.8,46.5 H66.2 A2.2,2.2 0,0 1,68.4 48.7 V59.3 A2.2,2.2 0,0 1,66.2 61.5 H62.8 A2.2,2.2 0,0 1,60.6 59.3 V48.7 A2.2,2.2 0,0 1,62.8 46.5 Z"
         android:fillColor="#15B462" />
 </vector>

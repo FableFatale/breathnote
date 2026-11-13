@@ -216,6 +216,9 @@ class _PracticeScreenState extends State<PracticeScreen>
       );
     }
     if (matches) {
+      if (_stableSince == null && _stableSinceMicros == null) {
+        unawaited(AppHaptics.reedResonance(context));
+      }
       final stableLongEnough = reading.timestampMicros > 0
           ? _isStableForMicros(reading.timestampMicros)
           : _isStableForWallClock(now);
@@ -439,21 +442,10 @@ class _PracticeScreenState extends State<PracticeScreen>
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 56,
-        backgroundColor: palette.surfaceHigh,
         titleSpacing: 4,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              strings.lessonTitle(widget.lessonId),
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              strings.t('lessonSubtitle', {'number': widget.step}),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
+        title: Text(
+          strings.lessonTitle(widget.lessonId),
+          style: Theme.of(context).textTheme.titleMedium,
         ),
         actions: [
           PopupMenuButton<String>(
@@ -569,16 +561,6 @@ class _PracticeScreenState extends State<PracticeScreen>
                                       : 'drawAction',
                                 ),
                                 compact: true,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                strings.lessonInstruction(widget.lessonId),
-                                style: TextStyle(
-                                  color: palette.muted,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                textAlign: TextAlign.center,
                               ),
                             ],
                           ),
