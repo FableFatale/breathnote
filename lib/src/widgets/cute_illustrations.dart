@@ -655,7 +655,7 @@ class SongArtworkBadge extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(radius),
         border: selected
-            ? Border.all(color: palette.ink, width: 2.5)
+            ? Border.all(color: palette.text, width: 2.5)
             : Border.all(
                 color: Colors.white.withValues(alpha: 0.18),
                 width: 1,

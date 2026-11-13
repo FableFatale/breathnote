@@ -159,7 +159,7 @@ class Song {
       'title': title,
       'subtitle': subtitle,
       'level': level,
-      if (iconId != null) 'iconId': iconId!,
+      'iconId': defaultIconId,
       'notes': notes.map((note) => note.toJson()).toList(),
     };
   }

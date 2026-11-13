@@ -568,7 +568,7 @@ class _SongIconPickerSheet extends StatelessWidget {
                                     : FontWeight.w500,
                                 color: currentIconId == preset.id
                                     ? palette.primary
-                                    : palette.ink,
+                                    : palette.text,
                               ),
                             ),
                           ],
