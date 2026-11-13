@@ -24,11 +24,32 @@ android {
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
         // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`
         // flag during build.
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        val ciRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
+        versionCode = if (ciRunNumber != null) {
+            100 + flutter.versionCode + ciRunNumber
+        } else {
+            flutter.versionCode
+        }
+        versionName = if (ciRunNumber != null) {
+            "${flutter.versionName}.$ciRunNumber"
+        } else {
+            flutter.versionName
+        }
+    }
+
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             // V1 is an internal preview. Store signing will be added before release.
             signingConfig = signingConfigs.getByName("debug")
