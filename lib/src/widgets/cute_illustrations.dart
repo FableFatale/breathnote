@@ -15,7 +15,7 @@ enum ChumingMood {
   celebrating,
 }
 
-/// 定制无角一体口琴品牌图标（替换原有的钢琴图标与带角图标）
+/// 定制对称无角口琴品牌图标（清晰呈现上下护板与音孔阵列，绝不形似文件夹或带角造型）
 class HarmonicaBrandIcon extends StatelessWidget {
   const HarmonicaBrandIcon({
     super.key,
@@ -35,7 +35,7 @@ class HarmonicaBrandIcon extends StatelessWidget {
       size: Size.square(size),
       painter: _HarmonicaBrandIconPainter(
         color: color ?? palette.primary,
-        accentColor: accentColor ?? palette.accent,
+        accentColor: accentColor ?? const Color(0xFF15B462),
       ),
     );
   }
@@ -55,65 +55,66 @@ class _HarmonicaBrandIconPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    // 阶梯一体口琴外框（无任何顶部突兀角线）
-    final bodyPaint = Paint()
+    final platePaint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
 
-    final bodyPath = Path()
-      ..moveTo(w * 0.14, h * 0.34)
-      ..lineTo(w * 0.46, h * 0.34)
-      ..quadraticBezierTo(w * 0.51, h * 0.34, w * 0.54, h * 0.28)
-      ..quadraticBezierTo(w * 0.57, h * 0.24, w * 0.62, h * 0.24)
-      ..lineTo(w * 0.86, h * 0.24)
-      ..arcToPoint(
-        Offset(w * 0.94, h * 0.32),
-        radius: Radius.circular(w * 0.08),
-      )
-      ..lineTo(w * 0.94, h * 0.68)
-      ..arcToPoint(
-        Offset(w * 0.86, h * 0.76),
-        radius: Radius.circular(w * 0.08),
-      )
-      ..lineTo(w * 0.14, h * 0.76)
-      ..arcToPoint(
-        Offset(w * 0.06, h * 0.68),
-        radius: Radius.circular(w * 0.08),
-      )
-      ..lineTo(w * 0.06, h * 0.42)
-      ..arcToPoint(
-        Offset(w * 0.14, h * 0.34),
-        radius: Radius.circular(w * 0.08),
-      )
-      ..close();
+    // 1. 上下对称金属护板（轻微内收阶梯）
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(w * 0.14, h * 0.22, w * 0.86, h * 0.34),
+        Radius.circular(w * 0.05),
+      ),
+      platePaint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(w * 0.14, h * 0.66, w * 0.86, h * 0.78),
+        Radius.circular(w * 0.05),
+      ),
+      platePaint,
+    );
 
-    canvas.drawPath(bodyPath, bodyPaint);
+    // 2. 中部宽体琴格轮廓（带边框与 5 个独立音孔）
+    final combBorderPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.5, w * 0.075);
 
-    // 内部琴格与 5 个代表性音孔窗口（第 2 孔高亮代表初鸣第 4 孔）
-    final holePaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.92)
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(w * 0.06, h * 0.34, w * 0.94, h * 0.66),
+        Radius.circular(w * 0.09),
+      ),
+      combBorderPaint,
+    );
+
+    // 3. 琴孔隔断与第 4 孔主音高亮
+    final dividerPaint = Paint()
+      ..color = color
       ..style = PaintingStyle.fill;
     final highlightPaint = Paint()
       ..color = accentColor
       ..style = PaintingStyle.fill;
 
-    const count = 5;
-    final startX = w * 0.16;
-    final endX = w * 0.84;
-    final holeW = w * 0.085;
-    final gap = (endX - startX - holeW * count) / (count - 1);
+    // 高亮第 2 格（代表口琴第 4 孔初鸣主音）
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTRB(w * 0.25, h * 0.39, w * 0.41, h * 0.61),
+        Radius.circular(w * 0.04),
+      ),
+      highlightPaint,
+    );
 
-    for (var i = 0; i < count; i++) {
-      final x = startX + i * (holeW + gap);
-      final isFourth = i == 1;
-      final top = isFourth ? h * 0.43 : h * 0.46;
-      final bottom = isFourth ? h * 0.65 : h * 0.62;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTRB(x, top, x + holeW, bottom),
-          Radius.circular(holeW * 0.45),
+    // 4 条清晰孔位分隔柱，形成 5 个分明音孔
+    for (final xRatio in [0.23, 0.41, 0.59, 0.77]) {
+      canvas.drawRect(
+        Rect.fromCenter(
+          center: Offset(w * xRatio, h * 0.50),
+          width: math.max(1.3, w * 0.055),
+          height: h * 0.30,
         ),
-        isFourth ? highlightPaint : holePaint,
+        dividerPaint,
       );
     }
   }
@@ -124,7 +125,7 @@ class _HarmonicaBrandIconPainter extends CustomPainter {
   }
 }
 
-/// 初鸣吉祥物小鸟（纯矢量绘制，首次自动播放一次动画，点击可多次重播）
+/// 初鸣吉祥物小鸟（Palermo 清新亮色系圆润蓝白小肥啾，首次自动播放一次动画，点击可多次重播）
 class ChumingBird extends StatefulWidget {
   const ChumingBird({
     super.key,
@@ -201,7 +202,6 @@ class _ChumingBirdState extends State<ChumingBird>
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.colors;
     final isReduced = AppMotion.isReduced(context);
 
     final bird = AnimatedBuilder(
@@ -213,8 +213,8 @@ class _ChumingBirdState extends State<ChumingBird>
           painter: _ChumingBirdPainter(
             mood: widget.mood,
             animProgress: animValue,
-            bodyColor: widget.primaryColor ?? palette.primary,
-            accentColor: widget.accentColor ?? palette.accent,
+            bodyColor: widget.primaryColor ?? const Color(0xFF4785FF),
+            accentColor: widget.accentColor ?? const Color(0xFFFF8B1A),
             isDark: Theme.of(context).brightness == Brightness.dark,
           ),
         );
@@ -250,107 +250,132 @@ class _ChumingBirdPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
-    final center = Offset(w / 2, h / 2 - (animProgress * h * 0.04));
+    final center = Offset(w / 2, h * 0.52 - (animProgress * h * 0.04));
+    final bodyRadius = w * 0.36;
 
-    // 1. 底部柔和阴影
+    // 1. 底部柔和椭圆投影
     final shadowPaint = Paint()
-      ..color = Colors.black.withValues(alpha: isDark ? 0.24 : 0.08);
+      ..color = const Color(0xFF376CFF).withValues(alpha: isDark ? 0.22 : 0.10);
     canvas.drawOval(
       Rect.fromCenter(
-        center: Offset(w / 2, h * 0.88),
-        width: w * (0.58 - animProgress * 0.06),
-        height: h * 0.12,
+        center: Offset(w / 2, h * 0.90),
+        width: w * (0.56 - animProgress * 0.06),
+        height: h * 0.10,
       ),
       shadowPaint,
     );
 
-    // 2. 圆润雏鸟躯干
+    // 2. 头顶两瓣柔和同色系羽毛呆毛（不再使用异色天线造型）
+    final tuftPaint = Paint()
+      ..color = const Color(0xFF5E9BFF)
+      ..style = PaintingStyle.fill;
+    canvas.save();
+    canvas.translate(center.dx, center.dy - bodyRadius * 0.88);
+    canvas.rotate(-0.18 + animProgress * 0.12);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(-w * 0.03, -h * 0.04),
+        width: w * 0.11,
+        height: h * 0.15,
+      ),
+      tuftPaint,
+    );
+    canvas.rotate(0.42);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.03, -h * 0.03),
+        width: w * 0.09,
+        height: h * 0.12,
+      ),
+      tuftPaint,
+    );
+    canvas.restore();
+
+    // 3. 圆润晴空蓝小肥啾身体（清新亮蓝色渐变）
     final bodyPaint = Paint()
       ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
         colors: [
-          bodyColor.withValues(alpha: isDark ? 0.96 : 0.88),
+          const Color(0xFF68A4FF),
           bodyColor,
         ],
       ).createShader(Rect.fromLTWH(0, 0, w, h));
 
-    final bodyRadius = w * 0.35;
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(center.dx, center.dy + h * 0.04),
-        width: bodyRadius * 2,
-        height: bodyRadius * 1.88,
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: center,
+          width: bodyRadius * 2.04,
+          height: bodyRadius * 1.92,
+        ),
+        Radius.circular(bodyRadius * 0.96),
       ),
       bodyPaint,
     );
 
-    // 肚皮暖白绒毛
-    final bellyPaint = Paint()
-      ..color = const Color(0xFFFFFCF7).withValues(alpha: isDark ? 0.22 : 0.55);
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(center.dx, center.dy + h * 0.12),
-        width: bodyRadius * 1.28,
-        height: bodyRadius * 1.06,
+    // 4. 大面积雪白脸颊与肚皮面罩（类似银喉长尾山雀/企鹅幼崽的萌系比例）
+    final faceMaskPaint = Paint()..color = const Color(0xFFFFFFFF);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(center.dx, center.dy + h * 0.05),
+          width: bodyRadius * 1.62,
+          height: bodyRadius * 1.44,
+        ),
+        Radius.circular(bodyRadius * 0.72),
       ),
-      bellyPaint,
+      faceMaskPaint,
     );
 
-    // 3. 头顶音符呆毛羽冠
-    final crestPaint = Paint()
-      ..color = accentColor
-      ..style = PaintingStyle.fill;
-    final crestBase = Offset(center.dx, center.dy - bodyRadius * 0.86);
-    final crestPath = Path()
-      ..moveTo(crestBase.dx - w * 0.03, crestBase.dy)
-      ..quadraticBezierTo(
-        crestBase.dx - w * 0.05 + (animProgress * 3),
-        crestBase.dy - h * 0.16,
-        crestBase.dx + w * 0.05,
-        crestBase.dy - h * 0.18,
-      )
-      ..quadraticBezierTo(
-        crestBase.dx + w * 0.03,
-        crestBase.dy - h * 0.08,
-        crestBase.dx + w * 0.06,
-        crestBase.dy,
-      )
-      ..close();
-    canvas.drawPath(crestPath, crestPaint);
-    canvas.drawCircle(
-      Offset(crestBase.dx + w * 0.05, crestBase.dy - h * 0.18),
-      w * 0.04,
-      crestPaint,
-    );
-
-    // 4. 小翅膀
-    final wingPaint = Paint()
-      ..color = bodyColor.withValues(alpha: isDark ? 0.82 : 0.92);
-    final wingAngle = 0.22 + animProgress * 0.24;
+    // 5. 两侧灵动小翅膀
+    final wingPaint = Paint()..color = const Color(0xFF376CFF);
+    final wingFlap = 0.20 + animProgress * 0.25;
 
     canvas.save();
-    canvas.translate(center.dx - bodyRadius * 0.86, center.dy + h * 0.05);
-    canvas.rotate(wingAngle);
-    canvas.drawOval(
-      Rect.fromCenter(center: Offset.zero, width: w * 0.17, height: h * 0.25),
+    canvas.translate(center.dx - bodyRadius * 0.90, center.dy + h * 0.04);
+    canvas.rotate(wingFlap);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset.zero, width: w * 0.15, height: h * 0.24),
+        Radius.circular(w * 0.08),
+      ),
       wingPaint,
     );
     canvas.restore();
 
     canvas.save();
-    canvas.translate(center.dx + bodyRadius * 0.86, center.dy + h * 0.05);
-    canvas.rotate(-wingAngle);
-    canvas.drawOval(
-      Rect.fromCenter(center: Offset.zero, width: w * 0.17, height: h * 0.25),
+    canvas.translate(center.dx + bodyRadius * 0.90, center.dy + h * 0.04);
+    canvas.rotate(-wingFlap);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset.zero, width: w * 0.15, height: h * 0.24),
+        Radius.circular(w * 0.08),
+      ),
       wingPaint,
     );
     canvas.restore();
 
-    // 5. 面部表情
+    // 6. 可爱小脚丫
+    final feetPaint = Paint()
+      ..color = const Color(0xFFFF9F1C)
+      ..strokeWidth = w * 0.045
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(center.dx - w * 0.12, center.dy + bodyRadius * 0.88),
+      Offset(center.dx - w * 0.15, center.dy + bodyRadius * 0.98),
+      feetPaint,
+    );
+    canvas.drawLine(
+      Offset(center.dx + w * 0.12, center.dy + bodyRadius * 0.88),
+      Offset(center.dx + w * 0.15, center.dy + bodyRadius * 0.98),
+      feetPaint,
+    );
+
+    // 7. 面部五官
     _drawFace(canvas, size, center, bodyRadius);
 
-    // 6. 状态专属装饰
+    // 8. 情绪道具
     if (mood == ChumingMood.listening) {
       _drawHeadphones(canvas, size, center, bodyRadius);
     } else if (mood == ChumingMood.celebrating) {
@@ -366,76 +391,81 @@ class _ChumingBirdPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    // 粉嫩腮红
+    // 蜜桃粉腮红
     final blushPaint = Paint()
-      ..color = const Color(0xFFFF85A1).withValues(alpha: 0.5);
+      ..color = const Color(0xFFFF7EB6).withValues(alpha: 0.45);
     canvas.drawOval(
       Rect.fromCenter(
-        center: Offset(center.dx - w * 0.17, center.dy + h * 0.05),
-        width: w * 0.10,
-        height: h * 0.06,
+        center: Offset(center.dx - w * 0.18, center.dy + h * 0.05),
+        width: w * 0.11,
+        height: h * 0.065,
       ),
       blushPaint,
     );
     canvas.drawOval(
       Rect.fromCenter(
-        center: Offset(center.dx + w * 0.17, center.dy + h * 0.05),
-        width: w * 0.10,
-        height: h * 0.06,
+        center: Offset(center.dx + w * 0.18, center.dy + h * 0.05),
+        width: w * 0.11,
+        height: h * 0.065,
       ),
       blushPaint,
     );
 
-    final leftEyeCenter = Offset(center.dx - w * 0.115, center.dy - h * 0.015);
-    final rightEyeCenter = Offset(center.dx + w * 0.115, center.dy - h * 0.015);
-    final eyeRadius = w * 0.044;
+    final leftEyeCenter = Offset(center.dx - w * 0.13, center.dy - h * 0.01);
+    final rightEyeCenter = Offset(center.dx + w * 0.13, center.dy - h * 0.01);
+    final eyeRadius = w * 0.052;
 
     if (mood == ChumingMood.celebrating) {
       final happyEyePaint = Paint()
-        ..color = const Color(0xFF1E212B)
+        ..color = const Color(0xFF18181A)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = w * 0.032
+        ..strokeWidth = w * 0.036
         ..strokeCap = StrokeCap.round;
       canvas.drawArc(
         Rect.fromCircle(center: leftEyeCenter, radius: eyeRadius),
-        math.pi * 1.1,
-        math.pi * 0.8,
+        math.pi * 1.12,
+        math.pi * 0.76,
         false,
         happyEyePaint,
       );
       canvas.drawArc(
         Rect.fromCircle(center: rightEyeCenter, radius: eyeRadius),
-        math.pi * 1.1,
-        math.pi * 0.8,
+        math.pi * 1.12,
+        math.pi * 0.76,
         false,
         happyEyePaint,
       );
     } else {
-      final eyePaint = Paint()..color = const Color(0xFF1E212B);
+      final eyePaint = Paint()..color = const Color(0xFF18181A);
       final highlightPaint = Paint()..color = Colors.white;
       canvas.drawCircle(leftEyeCenter, eyeRadius, eyePaint);
       canvas.drawCircle(rightEyeCenter, eyeRadius, eyePaint);
+      // 双眼神高光点
       canvas.drawCircle(
-        Offset(leftEyeCenter.dx - eyeRadius * 0.3, leftEyeCenter.dy - eyeRadius * 0.3),
-        eyeRadius * 0.36,
+        Offset(leftEyeCenter.dx - eyeRadius * 0.28, leftEyeCenter.dy - eyeRadius * 0.28),
+        eyeRadius * 0.38,
         highlightPaint,
       );
       canvas.drawCircle(
-        Offset(rightEyeCenter.dx - eyeRadius * 0.3, rightEyeCenter.dy - eyeRadius * 0.3),
-        eyeRadius * 0.36,
+        Offset(rightEyeCenter.dx - eyeRadius * 0.28, rightEyeCenter.dy - eyeRadius * 0.28),
+        eyeRadius * 0.38,
         highlightPaint,
       );
     }
 
-    // 鹅黄小鸟喙
-    final beakPaint = Paint()..color = const Color(0xFFFFB834);
-    final beakY = center.dy + h * 0.018;
-    final beakPath = Path()
-      ..moveTo(center.dx - w * 0.055, beakY)
-      ..lineTo(center.dx + w * 0.055, beakY)
-      ..lineTo(center.dx, beakY + h * 0.075)
-      ..close();
-    canvas.drawPath(beakPath, beakPaint);
+    // 圆润暖橘黄小鸟喙
+    final beakPaint = Paint()..color = const Color(0xFFFF9F1C);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(center.dx, center.dy + h * 0.035),
+          width: w * 0.11,
+          height: h * 0.075,
+        ),
+        Radius.circular(w * 0.04),
+      ),
+      beakPaint,
+    );
   }
 
   void _drawHeadphones(
@@ -447,19 +477,19 @@ class _ChumingBirdPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
     final bandPaint = Paint()
-      ..color = accentColor
+      ..color = const Color(0xFF18181A)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = w * 0.048
+      ..strokeWidth = w * 0.045
       ..strokeCap = StrokeCap.round;
 
     canvas.drawArc(
       Rect.fromCenter(
-        center: Offset(center.dx, center.dy - h * 0.06),
-        width: bodyRadius * 2.04,
-        height: bodyRadius * 1.72,
+        center: Offset(center.dx, center.dy - h * 0.04),
+        width: bodyRadius * 2.08,
+        height: bodyRadius * 1.82,
       ),
-      math.pi * 1.1,
-      math.pi * 0.8,
+      math.pi * 1.12,
+      math.pi * 0.76,
       false,
       bandPaint,
     );
@@ -469,9 +499,9 @@ class _ChumingBirdPainter extends CustomPainter {
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromCenter(
-            center: Offset(center.dx + sign * bodyRadius * 0.96, center.dy - h * 0.01),
-            width: w * 0.088,
-            height: h * 0.15,
+            center: Offset(center.dx + sign * bodyRadius * 0.98, center.dy),
+            width: w * 0.09,
+            height: h * 0.16,
           ),
           const Radius.circular(6),
         ),
@@ -488,30 +518,16 @@ class _ChumingBirdPainter extends CustomPainter {
   ) {
     final w = size.width;
     final h = size.height;
-    final crownPaint = Paint()..color = const Color(0xFFFFD043);
-    final cx = center.dx;
-    final cy = center.dy - bodyRadius * 0.90;
-    final crownPath = Path()
-      ..moveTo(cx - w * 0.09, cy)
-      ..lineTo(cx - w * 0.11, cy - h * 0.09)
-      ..lineTo(cx - w * 0.045, cy - h * 0.045)
-      ..lineTo(cx, cy - h * 0.115)
-      ..lineTo(cx + w * 0.045, cy - h * 0.045)
-      ..lineTo(cx + w * 0.11, cy - h * 0.09)
-      ..lineTo(cx + w * 0.09, cy)
-      ..close();
-    canvas.drawPath(crownPath, crownPaint);
-
-    final starPaint = Paint()..color = accentColor.withValues(alpha: 0.85);
+    final starPaint = Paint()..color = const Color(0xFFF99C00);
     canvas.drawCircle(
-      Offset(cx + w * 0.28, cy - h * 0.04 - animProgress * 3),
-      w * 0.028,
+      Offset(center.dx + w * 0.32, center.dy - bodyRadius * 0.75 - animProgress * 3),
+      w * 0.032,
       starPaint,
     );
     canvas.drawCircle(
-      Offset(cx - w * 0.28, cy + h * 0.01 - animProgress * 2),
-      w * 0.024,
-      starPaint,
+      Offset(center.dx - w * 0.32, center.dy - bodyRadius * 0.65 - animProgress * 2),
+      w * 0.026,
+       Paint()..color = const Color(0xFF15B462),
     );
   }
 
@@ -524,18 +540,18 @@ class _ChumingBirdPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
     final bubblePaint = Paint()
-      ..color = (isUp ? const Color(0xFF5B9BD1) : const Color(0xFFD48A62))
-          .withValues(alpha: 0.65);
+      ..color = (isUp ? const Color(0xFF376CFF) : const Color(0xFFFE6E00))
+          .withValues(alpha: 0.70);
 
     final dir = isUp ? -1.0 : 1.0;
     final shift = animProgress * 6 * dir;
     canvas.drawCircle(
-      Offset(center.dx + w * 0.12, center.dy + h * 0.11 + shift),
+      Offset(center.dx + w * 0.14, center.dy + h * 0.12 + shift),
       w * 0.032,
       bubblePaint,
     );
     canvas.drawCircle(
-      Offset(center.dx - w * 0.11, center.dy + h * 0.13 + shift * 1.2),
+      Offset(center.dx - w * 0.12, center.dy + h * 0.14 + shift * 1.2),
       w * 0.024,
       bubblePaint,
     );
@@ -551,7 +567,7 @@ class _ChumingBirdPainter extends CustomPainter {
   }
 }
 
-/// 连续打卡萌趣火苗胶囊 (Streak Pill Badge)
+/// 连续打卡萌趣火苗胶囊 (Palermo Semantic Orange Pill Badge)
 class CuteStreakBadge extends StatelessWidget {
   const CuteStreakBadge({
     super.key,
@@ -564,13 +580,12 @@ class CuteStreakBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.colors;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: palette.accent.withValues(alpha: 0.12),
+        color: PalermoTokens.orangeLight.mutedFill,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: palette.accent.withValues(alpha: 0.28),
+          color: PalermoTokens.orangeLight.border,
         ),
       ),
       child: Padding(
@@ -578,10 +593,10 @@ class CuteStreakBadge extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
+            const Icon(
               Icons.local_fire_department_rounded,
               size: 15,
-              color: palette.accent,
+              color: Color(0xFFFE6E00),
             ),
             const SizedBox(width: 4),
             Flexible(
@@ -592,7 +607,7 @@ class CuteStreakBadge extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: palette.accentInk,
+                  color: PalermoTokens.orangeLight.emphasis,
                   fontFamily: 'monospace',
                 ),
               ),

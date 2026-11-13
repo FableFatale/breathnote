@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Palermo × 初鸣 (Breathnote) — Design System & Component Reference</title>
+  <style>
+    :root, [data-theme="light"] {
+      --bg-canvas: #FAFAFA;
+      --surface: #FFFFFF;
+      --surface-100: #FAFAFA;
+      --surface-200: #F5F5F5;
+      --surface-300: #E8E8E8;
+      --border-subtle: #EBEBEB;
+      --border-strong: #DCDCDC;
+      --text-primary: #18181A;
+      --text-secondary: #787878;
+      --text-muted: #A3A3A3;
+
+      /* Palermo 4-Tier Semantic Tokens (Light) */
+      --blue-base: #376CFF;
+      --blue-border: #ADC4FF;
+      --blue-muted: #EBF1FF;
+      --blue-emphasis: #1E4FD9;
+
+      --green-base: #15B462;
+      --green-border: #9EE4BF;
+      --green-muted: #E8F8F0;
+      --green-emphasis: #0E8A4A;
+
+      --orange-base: #FE6E00;
+      --orange-border: #FFC299;
+      --orange-muted: #FFF1E6;
+      --orange-emphasis: #CC5800;
+
+      --amber-base: #F59E0B;
+      --amber-border: #FDE68A;
+      --amber-muted: #FEF3C7;
+      --amber-emphasis: #B45309;
+
+      --red-base: #FF5F57;
+      --red-border: #FFB8B4;
+      --red-muted: #FFEFEE;
+      --red-emphasis: #D93830;
+
+      --purple-base: #8B5CF6;
+      --purple-border: #DDD6FE;
+      --purple-muted: #F3E8FF;
+      --purple-emphasis: #6D28D9;
+
+      --cyan-base: #06B6D4;
+      --cyan-border: #A5F3FC;
+      --cyan-muted: #ECFEFF;
+      --cyan-emphasis: #0E7490;
+
+      --shadow-xs: 0 1px 2px rgba(24, 24, 26, 0.04);
+      --shadow-sm: 0 2px 8px -2px rgba(24, 24, 26, 0.06), 0 1px 3px rgba(24, 24, 26, 0.04);
+      --shadow-md: 0 8px 24px -4px rgba(24, 24, 26, 0.08), 0 2px 6px -1px rgba(24, 24, 26, 0.04);
+    }
+
+    [data-theme="dark"] {
+      --bg-canvas: #0E0E10;
+      --surface: #18181A;
+      --surface-100: #1E1E20;
+      --surface-200: #262629;
+      --surface-300: #323236;
+      --border-subtle: #2D2D30;
+      --border-strong: #3E3E42;
+      --text-primary: #FAFAFA;
+      --text-secondary: #A0A0A6;
+      --text-muted: #6E6E76;
+
+      /* Palermo 4-Tier Semantic Tokens (Dark) */
+      --blue-base: #5E9EFF;
+      --blue-border: #28467A;
+      --blue-muted: #17233B;
+      --blue-emphasis: #99C2FF;
+
+      --green-base: #60F178;
+      --green-border: #1E542B;
+      --green-muted: #122B18;
+      --green-emphasis: #98F7A7;
+
+      --orange-base: #FF8940;
+      --orange-border: #613417;
+      --orange-muted: #2E190B;
+      --orange-emphasis: #FFB380;
+
+      --amber-base: #FBBF24;
+      --amber-border: #5E450B;
+      --amber-muted: #2E2105;
+      --amber-emphasis: #FDE68A;
+
+      --red-base: #FF6369;
+      --red-border: #632427;
+      --red-muted: #301214;
+      --red-emphasis: #FFA1A4;
+
+      --purple-base: #A78BFA;
+      --purple-border: #433270;
+      --purple-muted: #211838;
+      --purple-emphasis: #DDD6FE;
+
+      --cyan-base: #22D3EE;
+      --cyan-border: #134E5E;
+      --cyan-muted: #09262E;
+      --cyan-emphasis: #A5F3FC;
+
+      --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+      --shadow-sm: 0 2px 8px -2px rgba(0, 0, 0, 0.45);
+      --shadow-md: 0 8px 24px -4px rgba(0, 0, 0, 0.6);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: var(--bg-canvas);
+      color: var(--text-primary);
+      line-height: 1.6;
+      letter-spacing: -0.012em;
+      display: flex;
+      min-height: 100vh;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    code, pre, .mono {
+      font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+    }
+
+    /* Sidebar Navigation (Palermo Docs Layout) */
+    .sidebar {
+      width: 272px;
+      background: var(--surface);
+      border-right: 1px solid var(--border-subtle);
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      overflow-y: auto;
+      padding: 24px 18px;
+      z-index: 20;
+    }
+
+    .brand-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-subtle);
+      margin-bottom: 20px;
+    }
+
+    .brand-logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--blue-base);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-xs);
+    }
+
+    .brand-title {
+      font-weight: 800;
+      font-size: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    .nav-group {
+      margin-bottom: 22px;
+    }
+
+    .nav-group-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-secondary);
+      padding: 0 10px;
+      margin-bottom: 8px;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px;
+      border-radius: 8px;
+      color: var(--text-primary);
+      text-decoration: none;
+      font-size: 13.5px;
+      font-weight: 500;
+      transition: background 0.15s ease;
+    }
+
+    .nav-link:hover {
+      background: var(--surface-200);
+    }
+
+    .nav-link.active {
+      background: var(--blue-muted);
+      color: var(--blue-base);
+      font-weight: 600;
+    }
+
+    /* Main Content Area */
+    .main {
+      margin-left: 272px;
+      flex: 1;
+      max-width: 1060px;
+      padding: 40px 56px 96px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 36px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: var(--shadow-xs);
+    }
+
+    .theme-toggle:hover {
+      background: var(--surface-200);
+    }
+
+    section {
+      margin-bottom: 64px;
+      scroll-margin-top: 32px;
+    }
+
+    .section-eyebrow {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--blue-base);
+      margin-bottom: 6px;
+    }
+
+    h1 {
+      font-size: 34px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      margin-bottom: 10px;
+    }
+
+    h3 {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.015em;
+      margin-bottom: 8px;
+    }
+
+    .lead {
+      font-size: 15.5px;
+      color: var(--text-secondary);
+      max-width: 740px;
+      margin-bottom: 24px;
+    }
+
+    /* Cards & Previews */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: var(--shadow-xs);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    /* Color Swatches */
+    .swatch-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .swatch {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.12s ease;
+    }
+
+    .swatch:hover {
+      transform: translateY(-2px);
+    }
+
+    .swatch-color {
+      height: 64px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .swatch-meta {
+      padding: 10px 12px;
+    }
+
+    .swatch-name {
+      font-size: 12.5px;
+      font-weight: 700;
+    }
+
+    .swatch-hex {
+      font-size: 11.5px;
+      color: var(--text-secondary);
+    }
+
+    /* Semantic 4-tier matrix */
+    .semantic-family {
+      background: var(--surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .semantic-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .semantic-tiers {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .tier-box {
+      border-radius: 10px;
+      padding: 12px;
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .tier-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .tier-code {
+      font-size: 11px;
+      opacity: 0.85;
+    }
+
+    /* Pills & Buttons */
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+
+    .pill-blue {
+      background: var(--blue-muted);
+      color: var(--blue-emphasis);
+      border-color: var(--blue-border);
+    }
+
+    .pill-green {
+      background: var(--green-muted);
+      color: var(--green-emphasis);
+      border-color: var(--green-border);
+    }
+
+    .pill-orange {
+      background: var(--orange-muted);
+      color: var(--orange-emphasis);
+      border-color: var(--orange-border);
+    }
+
+    .pill-red {
+      background: var(--red-muted);
+      color: var(--red-emphasis);
+      border-color: var(--red-border);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 18px;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: transform 0.1s ease, opacity 0.15s ease;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: var(--blue-base);
+      color: #FFFFFF;
+    }
+
+    .btn-secondary {
+      background: var(--surface-200);
+      color: var(--text-primary);
+      border-color: var(--border-subtle);
+    }
+
+    .btn-success {
+      background: var(--green-base);
+      color: #FFFFFF;
+    }
+
+    /* Interactive 10-Hole Harmonica Diagram */
+    .harmonica-grid {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--border-subtle);
+      background: var(--surface);
+    }
+
+    .hole-cell {
+      border-right: 1px solid var(--border-subtle);
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s ease;
+      display: flex;
+      flex-direction: column;
+      height: 92px;
+    }
+
+    .hole-cell:last-child {
+      border-right: none;
+    }
+
+    .hole-cell.active-blow {
+      background: var(--blue-muted);
+      box-shadow: inset 0 0 0 2px var(--blue-base);
+    }
+
+    .hole-cell.active-draw {
+      background: var(--orange-muted);
+      box-shadow: inset 0 0 0 2px var(--orange-base);
+    }
+
+    .hole-spectrum {
+      height: 4px;
+      width: 100%;
+    }
+
+    .hole-num {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .hole-divider {
+      height: 1px;
+      background: var(--border-subtle);
+    }
+
+    .hole-dir {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    /* Segmented Pitch Arc Meter */
+    .pitch-bars {
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 6px;
+      height: 68px;
+      margin: 16px 0;
+    }
+
+    .pitch-bar {
+      width: 12px;
+      border-radius: 999px;
+      background: var(--surface-300);
+      transition: all 0.15s ease;
+    }
+
+    /* Gesture Replay Chip */
+    .gesture-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 13px;
+      border-radius: 999px;
+      background: var(--blue-muted);
+      border: 1px solid var(--blue-border);
+      color: var(--blue-emphasis);
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    @keyframes swipeNudge {
+      0%, 100% { transform: translateX(0); }
+      35% { transform: translateX(-6px); }
+      70% { transform: translateX(6px); }
+    }
+
+    @keyframes breathPulse {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-4px) scale(1.15); }
+    }
+
+    .anim-swipe {
+      animation: swipeNudge 0.85s ease-in-out 2;
+    }
+
+    .anim-breath {
+      animation: breathPulse 0.9s ease-in-out 2;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--text-primary);
+      color: var(--surface);
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+      z-index: 100;
+    }
+
+    .toast.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand-header">
+      <div class="brand-logo">
+        <svg width="24" height="24" viewBox="0 0 108 108" fill="none">
+          <rect x="20" y="34" width="68" height="10" rx="5" fill="#FFFFFF"/>
+          <rect x="20" y="64" width="68" height="10" rx="5" fill="#FFFFFF"/>
+          <rect x="17" y="42" width="74" height="24" rx="6" fill="#376CFF" stroke="#FFFFFF" stroke-width="5"/>
+          <rect x="29" y="47" width="6.5" height="14" rx="2.5" fill="#FFFFFF"/>
+          <rect x="40" y="47" width="6.5" height="14" rx="2.5" fill="#FFFFFF"/>
+          <rect x="51" y="47" width="6.5" height="14" rx="2.5" fill="#FFFFFF"/>
+          <rect x="61.5" y="45.5" width="7.2" height="17" rx="3" fill="#60F178"/>
+          <rect x="73" y="47" width="6.5" height="14" rx="2.5" fill="#FFFFFF"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-title">Palermo × 初鸣</div>
+        <div class="brand-sub">Design System v2.0</div>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Getting Started</div>
+      <a class="nav-link active" href="#overview">设计原则与重构总览</a>
+      <a class="nav-link" href="#comparison">旧版问题 vs Palermo 方案</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Foundations (基础规范)</div>
+      <a class="nav-link" href="#surfaces">Surface & Neutral 层级</a>
+      <a class="nav-link" href="#semantic-colors">4-Tier 语义色板系统</a>
+      <a class="nav-link" href="#typography">Typography 现代无衬线字体</a>
+      <a class="nav-link" href="#brand-assets">无角口琴图标 & 初鸣小鸟</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Components (核心组件库)</div>
+      <a class="nav-link" href="#comp-buttons">Buttons & Semantic Pills</a>
+      <a class="nav-link" href="#comp-harmonica">10-Hole 交互口琴孔位图</a>
+      <a class="nav-link" href="#comp-tuner">Segmented 音准弧形仪表</a>
+      <a class="nav-link" href="#comp-gestures">可重播手势引导组件</a>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <span class="pill pill-blue">Palermo Reference Replicated</span>
+        <span class="pill pill-green" style="margin-left: 6px;">Flutter Token Synced</span>
+      </div>
+      <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()">
+        <span>🌗 切换 Light / Dark 主题</span>
+      </button>
+    </div>
+
+    <!-- Section 1: Overview -->
+    <section id="overview">
+      <div class="section-eyebrow">Getting Started</div>
+      <h1>Palermo × 初鸣 (Breathnote) 设计系统</h1>
+      <p class="lead">
+        完整复刻自 <code>palermo.tryprofound.com/docs/get-started</code> 的现代高对比度工具型美学体系，专为十孔布鲁斯口琴练习、实时音准检测与渐进式乐理学习打造。所有 Token 均已在 Flutter 端 <code>lib/src/theme/palermo_tokens.dart</code> 与本交互式文档中 1:1 同步实现。
+      </p>
+
+      <div id="comparison" class="grid-2">
+        <div class="card">
+          <span class="pill pill-red" style="margin-bottom: 12px;">旧版视觉痛点 (已彻底废弃)</span>
+          <h3>昏暗泛黄纸色 & 文件夹形图标</h3>
+          <ul style="padding-left: 18px; color: var(--text-secondary); font-size: 14px; display: flex; flex-direction: column; gap: 6px;">
+            <li>旧版背景采用浑浊米黄色 <code>#F6F1E9</code> / <code>#EFE7DA</code> 与暗沉藏青 <code>#3B4C75</code>，整体显得陈旧发灰。</li>
+            <li>旧版口琴图标顶部采用单侧阶梯凸起，缩小时神似文件夹 <code>📁</code> 或长角。</li>
+            <li>旧版小鸟采用深蓝黑底加顶部棕褐色呆毛，缩略图下像一颗深色炸弹 <code>💣</code>。</li>
+            <li>旧版标题混用 <code>MingjieSerif</code> 宋体，缺乏现代精密音乐工具的清爽感。</li>
+          </ul>
+        </div>
+        <div class="card">
+          <span class="pill pill-green" style="margin-bottom: 12px;">Palermo 2.0 焕新方案</span>
+          <h3>纯净 Surface 层级 & 4 阶语义色彩</h3>
+          <ul style="padding-left: 18px; color: var(--text-secondary); font-size: 14px; display: flex; flex-direction: column; gap: 6px;">
+            <li><strong>Pure Light Surface</strong>：<code>#FAFAFA</code> 画布 + <code>#FFFFFF</code> 纯白卡片 + <code>#EBEBEB</code> 1px 精密描边。</li>
+            <li><strong>4-Tier Semantic Tokens</strong>：每个色系具备 <code>base</code>、<code>border</code>、<code>muted-fill</code>、<code>emphasis</code> 4 级语义。</li>
+            <li><strong>对称双护板口琴图标</strong>：上下对称圆角金属护板 + 5 枚竖向音簧格栅 + 第 4 孔翡翠绿高亮。</li>
+            <li><strong>天蓝白腹初鸣小鸟</strong>：明亮天蓝羽色 <code>#4785FF</code> + 大面积雪白肚皮面罩 + 粉红腮红。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: Surfaces -->
+    <section id="surfaces">
+      <div class="section-eyebrow">Foundations · Surfaces</div>
+      <h2>Surface & Neutral 层级规范 (点击复制色值)</h2>
+      <p class="lead">
+        遵循 Palermo 的零噪点无色差中性灰阶（Neutral Surface Hierarchy），以明度对比和 <code>1px solid</code> 微边框取代厚重投影。
+      </p>
+
+      <div class="swatch-row">
+        <div class="swatch" onclick="copyHex('#FFFFFF')">
+          <div class="swatch-color" style="background: #FFFFFF;"></div>
+          <div class="swatch-meta">
+            <div class="swatch-name">surface</div>
+            <div class="swatch-hex mono">#FFFFFF · Dark #18181A</div>
+          </div>
+        </div>
+        <div class="swatch" onclick="copyHex('#FAFAFA')">
+          <div class="swatch-color" style="background: #FAFAFA;"></div>
+          <div class="swatch-meta">
+            <div class="swatch-name">surface-100 (Canvas)</div>
+            <div class="swatch-hex mono">#FAFAFA · Dark #1E1E20</div>
+          </div>
+        </div>
+        <div class="swatch" onclick="copyHex('#F5F5F5')">
+          <div class="swatch-color" style="background: #F5F5F5;"></div>
+          <div class="swatch-meta">
+            <div class="swatch-name">surface-200 (Muted)</div>
+            <div class="swatch-hex mono">#F5F5F5 · Dark #262629</div>
+          </div>
+        </div>
+        <div class="swatch" onclick="copyHex('#EBEBEB')">
+          <div class="swatch-color" style="background: #EBEBEB;"></div>
+          <div class="swatch-meta">
+            <div class="swatch-name">border-subtle</div>
+            <div class="swatch-hex mono">#EBEBEB · Dark #2D2D30</div>
+          </div>
+        </div>
+        <div class="swatch" onclick="copyHex('#18181A')">
+          <div class="swatch-color" style="background: #18181A;"></div>
+          <div class="swatch-meta">
+            <div class="swatch-name">text-primary</div>
+            <div class="swatch-hex mono">#18181A · Dark #FAFAFA</div>
+          </div>
+        </div>
+        <div class="swatch" onclick="copyHex('#787878')">
+          <div class="swatch-color" style="background: #787878;"></div>
+          <div class="swatch-meta">
+            <div class="swatch-name">text-secondary</div>
+            <div class="swatch-hex mono">#787878 · Dark #A0A0A6</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: 4-Tier Semantic Colors -->
+    <section id="semantic-colors">
+      <div class="section-eyebrow">Foundations · Semantic Color Architecture</div>
+      <h2>Palermo 4-Tier 语义色板系统</h2>
+      <p class="lead">
+        Palermo 组件不直接使用裸色透明度，而是为每个语义色定义 4 个精确层级：<code>base</code>（主色/图标）、<code>border</code>（徽章与高亮描边）、<code>muted-fill</code>（柔和底色）、<code>emphasis</code>（高可读性文字）。
+      </p>
+
+      <!-- Blue Family -->
+      <div class="semantic-family">
+        <div class="semantic-header">
+          <div>
+            <strong>Palermo Blue (Primary / 吹气 ↑ / 激活孔位)</strong>
+            <span class="mono" style="font-size: 12px; color: var(--text-secondary); margin-left: 8px;">PalermoTokens.blueLight / blueDark</span>
+          </div>
+          <span class="pill pill-blue">Blow ↑ · Primary Action</span>
+        </div>
+        <div class="semantic-tiers">
+          <div class="tier-box" style="background: var(--blue-base); color: #FFF;" onclick="copyHex('#376CFF')">
+            <span class="tier-label">base</span>
+            <span class="tier-code mono">#376CFF / #5E9EFF</span>
+          </div>
+          <div class="tier-box" style="background: var(--blue-border); color: #18181A;" onclick="copyHex('#ADC4FF')">
+            <span class="tier-label">border</span>
+            <span class="tier-code mono">#ADC4FF / #28467A</span>
+          </div>
+          <div class="tier-box" style="background: var(--blue-muted); color: var(--blue-emphasis); border-color: var(--blue-border);" onclick="copyHex('#EBF1FF')">
+            <span class="tier-label">muted-fill</span>
+            <span class="tier-code mono">#EBF1FF / #17233B</span>
+          </div>
+          <div class="tier-box" style="background: var(--blue-emphasis); color: #FFF;" onclick="copyHex('#1E4FD9')">
+            <span class="tier-label">emphasis</span>
+            <span class="tier-code mono">#1E4FD9 / #99C2FF</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Green Family -->
+      <div class="semantic-family">
+        <div class="semantic-header">
+          <div>
+            <strong>Palermo Emerald (Success / 音准命中 ±10¢ / 已通关)</strong>
+            <span class="mono" style="font-size: 12px; color: var(--text-secondary); margin-left: 8px;">PalermoTokens.greenLight / greenDark</span>
+          </div>
+          <span class="pill pill-green">In-Tune ±10¢ · Completed</span>
+        </div>
+        <div class="semantic-tiers">
+          <div class="tier-box" style="background: var(--green-base); color: #FFF;" onclick="copyHex('#15B462')">
+            <span class="tier-label">base</span>
+            <span class="tier-code mono">#15B462 / #60F178</span>
+          </div>
+          <div class="tier-box" style="background: var(--green-border); color: #18181A;" onclick="copyHex('#9EE4BF')">
+            <span class="tier-label">border</span>
+            <span class="tier-code mono">#9EE4BF / #1E542B</span>
+          </div>
+          <div class="tier-box" style="background: var(--green-muted); color: var(--green-emphasis); border-color: var(--green-border);" onclick="copyHex('#E8F8F0')">
+            <span class="tier-label">muted-fill</span>
+            <span class="tier-code mono">#E8F8F0 / #122B18</span>
+          </div>
+          <div class="tier-box" style="background: var(--green-emphasis); color: #FFF;" onclick="copyHex('#0E8A4A')">
+            <span class="tier-label">emphasis</span>
+            <span class="tier-code mono">#0E8A4A / #98F7A7</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Orange Family -->
+      <div class="semantic-family">
+        <div class="semantic-header">
+          <div>
+            <strong>Palermo Orange (Accent / 吸气 ↓ / 连胜火焰)</strong>
+            <span class="mono" style="font-size: 12px; color: var(--text-secondary); margin-left: 8px;">PalermoTokens.orangeLight / orangeDark</span>
+          </div>
+          <span class="pill pill-orange">Draw ↓ · Streak Badge</span>
+        </div>
+        <div class="semantic-tiers">
+          <div class="tier-box" style="background: var(--orange-base); color: #FFF;" onclick="copyHex('#FE6E00')">
+            <span class="tier-label">base</span>
+            <span class="tier-code mono">#FE6E00 / #FF8940</span>
+          </div>
+          <div class="tier-box" style="background: var(--orange-border); color: #18181A;" onclick="copyHex('#FFC299')">
+            <span class="tier-label">border</span>
+            <span class="tier-code mono">#FFC299 / #613417</span>
+          </div>
+          <div class="tier-box" style="background: var(--orange-muted); color: var(--orange-emphasis); border-color: var(--orange-border);" onclick="copyHex('#FFF1E6')">
+            <span class="tier-label">muted-fill</span>
+            <span class="tier-code mono">#FFF1E6 / #2E190B</span>
+          </div>
+          <div class="tier-box" style="background: var(--orange-emphasis); color: #FFF;" onclick="copyHex('#CC5800')">
+            <span class="tier-label">emphasis</span>
+            <span class="tier-code mono">#CC5800 / #FFB380</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Typography -->
+    <section id="typography">
+      <div class="section-eyebrow">Foundations · Typography</div>
+      <h2>现代几何无衬线与等宽数据排版</h2>
+      <p class="lead">
+        全面弃用旧版 <code>MingjieSerif</code> 衬线体，统一采用紧凑字距（<code>-0.25px ~ -0.75px</code>）的现代无衬线字体 <code>MingjieSans</code>，并在频率（Hz）、音分（Cents）、口琴孔位口谱上强制使用等宽字体与 <code>tabular-nums</code>。
+      </p>
+      <div class="card" style="display: flex; flex-direction: column; gap: 18px;">
+        <div style="display: flex; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 14px;">
+          <span class="mono" style="font-size: 12px; color: var(--text-secondary); width: 180px;">HeadlineLarge · 34px w800</span>
+          <span style="font-size: 32px; font-weight: 800; letter-spacing: -0.03em; flex: 1;">吹响第一声：第 4 孔 C4</span>
+        </div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 14px;">
+          <span class="mono" style="font-size: 12px; color: var(--text-secondary); width: 180px;">HeadlineSmall · 20px w700</span>
+          <span style="font-size: 20px; font-weight: 700; letter-spacing: -0.02em; flex: 1;">欢乐颂 · 贝多芬经典入门旋律</span>
+        </div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 14px;">
+          <span class="mono" style="font-size: 12px; color: var(--text-secondary); width: 180px;">Monospace Tab · 28px w800</span>
+          <span class="mono" style="font-size: 26px; font-weight: 800; color: var(--blue-base); flex: 1;">4↑ C4 · 261.6 Hz · -2¢</span>
+        </div>
+        <div style="display: flex; align-items: baseline; justify-content: space-between;">
+          <span class="mono" style="font-size: 12px; color: var(--text-secondary); width: 180px;">BodyMedium · 15px w400</span>
+          <span style="font-size: 15px; color: var(--text-secondary); flex: 1;">含住第 4 孔平稳呼气，当音准弧形指示器亮起翡翠绿时保持呼吸稳定。</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 5: Brand Icon & Cute Mascot -->
+    <section id="brand-assets">
+      <div class="section-eyebrow">Foundations · Brand Icon & Mascot</div>
+      <h2>对称双护板口琴图标 & 初鸣小鸟 (ChumingBird)</h2>
+      <div class="grid-2">
+        <div class="card" style="display: flex; align-items: center; gap: 22px;">
+          <div style="width: 96px; height: 96px; border-radius: 22px; background: #FFFFFF; border: 1px solid var(--border-subtle); box-shadow: var(--shadow-sm); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="78" height="78" viewBox="0 0 108 108">
+              <rect x="20" y="34" width="68" height="10" rx="5" fill="#376CFF"/>
+              <rect x="20" y="64" width="68" height="10" rx="5" fill="#376CFF"/>
+              <rect x="17" y="42" width="74" height="24" rx="6" fill="#FFFFFF" stroke="#376CFF" stroke-width="3.5"/>
+              <circle cx="23" cy="54" r="2" fill="#9BB5FF"/>
+              <circle cx="85" cy="54" r="2" fill="#9BB5FF"/>
+              <rect x="29" y="46.5" width="6.2" height="15" rx="2.4" fill="#376CFF"/>
+              <rect x="39.5" y="46.5" width="6.2" height="15" rx="2.4" fill="#376CFF"/>
+              <rect x="50" y="46.5" width="6.2" height="15" rx="2.4" fill="#376CFF"/>
+              <rect x="60.5" y="45.5" width="6.6" height="17" rx="2.6" fill="#15B462"/>
+              <rect x="71.5" y="46.5" width="6.2" height="15" rx="2.4" fill="#376CFF"/>
+            </svg>
+          </div>
+          <div>
+            <h3>HarmonicaBrandIcon (无角对称设计)</h3>
+            <p style="font-size: 13.5px; color: var(--text-secondary);">
+              彻底移除旧版阶梯凸起（避免像文件夹或长角），采用十孔口琴标志性的<strong>上下对称圆角金属护板 + 中央多孔琴格 + 两侧铆钉</strong>，第 4 孔以 Palermo Emerald <code>#15B462</code> 点亮“初鸣第一音”。
+            </p>
+          </div>
+        </div>
+
+        <div class="card" style="display: flex; align-items: center; gap: 22px;">
+          <div style="width: 96px; height: 96px; border-radius: 22px; background: var(--blue-muted); border: 1px solid var(--blue-border); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="78" height="78" viewBox="0 0 100 100">
+              <ellipse cx="50" cy="86" rx="22" ry="4" fill="#376CFF" opacity="0.12"/>
+              <path d="M46 20 Q42 12 45 11 Q49 11 50 18 Q53 10 56 12 Q58 14 53 20 Z" fill="#68A4FF"/>
+              <ellipse cx="50" cy="52" rx="31" ry="29" fill="#4785FF"/>
+              <ellipse cx="50" cy="57" rx="24" ry="22" fill="#FFFFFF"/>
+              <ellipse cx="22" cy="54" rx="7" ry="12" transform="rotate(15 22 54)" fill="#376CFF"/>
+              <ellipse cx="78" cy="54" rx="7" ry="12" transform="rotate(-15 78 54)" fill="#376CFF"/>
+              <ellipse cx="34" cy="54" rx="5" ry="3.2" fill="#FF7EB6" opacity="0.75"/>
+              <ellipse cx="66" cy="54" rx="5" ry="3.2" fill="#FF7EB6" opacity="0.75"/>
+              <circle cx="39" cy="46" r="4" fill="#18181A"/>
+              <circle cx="37.8" cy="44.6" r="1.4" fill="#FFFFFF"/>
+              <circle cx="61" cy="46" r="4" fill="#18181A"/>
+              <circle cx="59.8" cy="44.6" r="1.4" fill="#FFFFFF"/>
+              <path d="M46 49 Q50 46 54 49 Q50 56 46 49 Z" fill="#FF9F1C"/>
+            </svg>
+          </div>
+          <div>
+            <h3>初鸣小鸟吉祥物 (ChumingBird)</h3>
+            <p style="font-size: 13.5px; color: var(--text-secondary);">
+              清澈天蓝羽毛 <code>#4785FF</code> 搭配雪白圆润肚皮面罩与粉红腮红，彻底告别旧版深黑蓝“炸弹感”。支持 <code>idle</code>、<code>listening</code>、<code>celebrating</code>、<code>encouraging</code>、<code>sleeping</code> 5 种情绪。
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 6: Interactive Components -->
+    <section id="comp-buttons">
+      <div class="section-eyebrow">Components · Actions & Badges</div>
+      <h2>Buttons & Palermo Semantic Pills</h2>
+      <div class="card" style="display: flex; flex-wrap: wrap; gap: 14px; align-items: center;">
+        <button class="btn btn-primary">▶ 开始今日练习</button>
+        <button class="btn btn-success">✓ 已稳住目标音</button>
+        <button class="btn btn-secondary">C 调十孔口琴 ▾</button>
+        <span class="pill pill-blue">4↑ 吹气 Blow</span>
+        <span class="pill pill-orange">4↓ 吸气 Draw</span>
+        <span class="pill pill-green">±4¢ 音准极佳</span>
+        <span class="pill pill-red">偏高 +24¢</span>
+      </div>
+    </section>
+
+    <section id="comp-harmonica">
+      <div class="section-eyebrow">Components · Interactive Harmonica Diagram</div>
+      <h2>10-Hole 交互口琴孔位图 (点击孔位与切换吹/吸预览)</h2>
+      <p class="lead">
+        对应 Flutter 组件 <code>HarmonicaDiagram</code>（位于 <code>lib/src/widgets/shared_widgets.dart</code>）。顶部色条采用 Palermo 10 孔光谱，吹气孔激活使用 Palermo Blue，吸气孔激活使用 Palermo Orange。
+      </p>
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <span id="activeHoleBadge" class="pill pill-blue mono" style="font-size: 14px;">当前选中：第 4 孔 · 4↑ (C4)</span>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-primary" style="padding: 7px 14px; font-size: 13px;" onclick="setBreathDir('blow')">↑ 吹气 (Blow)</button>
+            <button class="btn btn-secondary" style="padding: 7px 14px; font-size: 13px;" onclick="setBreathDir('draw')">↓ 吸气 (Draw)</button>
+          </div>
+        </div>
+        <div class="harmonica-grid" id="harmonicaGrid"></div>
+      </div>
+    </section>
+
+    <section id="comp-tuner">
+      <div class="section-eyebrow">Components · Segmented Pitch Meter</div>
+      <h2>Segmented 音准分格仪表 (拖动滑块测试音分反馈)</h2>
+      <p class="lead">
+        对应调音器与自由练习页的实时音分反馈组件：<code>|cents| ≤ 10¢</code> 为 Palermo Emerald <code>#15B462</code>，偏低为 Palermo Blue <code>#376CFF</code>，偏高为 Palermo Orange <code>#FE6E00</code>。
+      </p>
+      <div class="card" style="text-align: center;">
+        <div id="tunerStatusPill" class="pill pill-green mono" style="margin-bottom: 12px;">音准锁定 · 0¢ (440.0 Hz)</div>
+        <div class="pitch-bars" id="pitchBars"></div>
+        <input type="range" id="centsSlider" min="-50" max="50" value="0" style="width: 320px; accent-color: var(--blue-base);" oninput="updateTuner(this.value)" />
+        <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px;">拖动滑块模拟 -50¢ (偏低) 至 +50¢ (偏高)</div>
+      </div>
+    </section>
+
+    <section id="comp-gestures">
+      <div class="section-eyebrow">Components · Replayable Gesture Guides</div>
+      <h2>首次自动播放 + 点击无限重播手势引导组件</h2>
+      <p class="lead">
+        对应 <code>lib/src/widgets/gesture_guide.dart</code> 中的 <code>SwipeGestureGuide</code>、<code>BreathGestureGuide</code>、<code>TapGesturePulse</code>。首次进入页面自动播放 1 次有界动效，用户随时点击胶囊可无限次重播。
+      </p>
+      <div class="card" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: center;">
+        <div class="gesture-chip" onclick="replayAnim('swipeIcon', 'anim-swipe')">
+          <span id="swipeIcon" class="anim-swipe" style="display: inline-block;">⇄</span>
+          <span>左右滑动切换口琴孔位</span>
+          <span style="opacity: 0.65;">↻ 点击重播</span>
+        </div>
+
+        <div class="gesture-chip" style="background: var(--orange-muted); border-color: var(--orange-border); color: var(--orange-emphasis);" onclick="replayAnim('breathIcon', 'anim-breath')">
+          <span id="breathIcon" class="anim-breath" style="display: inline-block;">↑</span>
+          <span>平稳吹气保持绿色音准</span>
+          <span style="opacity: 0.65;">↻ 点击重播</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast">已复制到剪贴板</div>
+
+  <script>
+    const holeColors = [
+      '#FF5F57', '#FE6E00', '#F59E0B', '#15B462', '#06B6D4',
+      '#376CFF', '#6366F1', '#8B5CF6', '#EC4899', '#14B8A6'
+    ];
+    const blowNotes = ['C4', 'E4', 'G4', 'C5', 'E5', 'G5', 'C6', 'E6', 'G6', 'C7'];
+    const drawNotes = ['D4', 'G4', 'B4', 'D5', 'F5', 'A5', 'B5', 'D6', 'F6', 'A6'];
+    let selectedHole = 4;
+    let breathDir = 'blow';
+
+    function renderHarmonica() {
+      const grid = document.getElementById('harmonicaGrid');
+      grid.innerHTML = '';
+      for (let i = 1; i <= 10; i++) {
+        const active = i === selectedHole;
+        const cell = document.createElement('div');
+        cell.className = 'hole-cell ' + (active ? (breathDir === 'blow' ? 'active-blow' : 'active-draw') : '');
+        cell.onclick = () => { selectedHole = i; renderHarmonica(); };
+        cell.innerHTML = `
+          <div class="hole-spectrum" style="background:${holeColors[i - 1]}; opacity:${active ? 1 : 0.45}"></div>
+          <div class="hole-num mono" style="color:${active ? (breathDir === 'blow' ? 'var(--blue-base)' : 'var(--orange-base)') : 'var(--text-secondary)'}">${i}</div>
+          <div class="hole-divider"></div>
+          <div class="hole-dir mono" style="color:${active ? (breathDir === 'blow' ? 'var(--blue-base)' : 'var(--orange-base)') : 'var(--text-muted)'}">
+            ${active ? (breathDir === 'blow' ? '↑ ' + blowNotes[i - 1] : '↓ ' + drawNotes[i - 1]) : (breathDir === 'blow' ? blowNotes[i - 1] : drawNotes[i - 1])}
+          </div>
+        `;
+        grid.appendChild(cell);
+      }
+      const badge = document.getElementById('activeHoleBadge');
+      const note = breathDir === 'blow' ? blowNotes[selectedHole - 1] : drawNotes[selectedHole - 1];
+      const arrow = breathDir === 'blow' ? '↑' : '↓';
+      badge.className = 'pill mono ' + (breathDir === 'blow' ? 'pill-blue' : 'pill-orange');
+      badge.textContent = `当前选中：第 ${selectedHole} 孔 · ${selectedHole}${arrow} (${note})`;
+    }
+
+    function setBreathDir(dir) {
+      breathDir = dir;
+      renderHarmonica();
+    }
+
+    function updateTuner(val) {
+      const cents = parseInt(val, 10);
+      const container = document.getElementById('pitchBars');
+      container.innerHTML = '';
+      const pill = document.getElementById('tunerStatusPill');
+      const inTune = Math.abs(cents) <= 10;
+      if (inTune) {
+        pill.className = 'pill pill-green mono';
+        pill.textContent = `音准锁定 · ${cents > 0 ? '+' + cents : cents}¢ (完美命中)`;
+      } else if (cents < 0) {
+        pill.className = 'pill pill-blue mono';
+        pill.textContent = `音高偏低 · ${cents}¢ (请收拢口腔)`;
+      } else {
+        pill.className = 'pill pill-orange mono';
+        pill.textContent = `音高偏高 · +${cents}¢ (请放松气息)`;
+      }
+
+      const activeIdx = Math.round(((cents + 50) / 100) * 14);
+      for (let i = 0; i < 15; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'pitch-bar';
+        const distFromCenter = Math.abs(i - 7);
+        const height = 64 - distFromCenter * 5;
+        bar.style.height = height + 'px';
+        if (i === activeIdx || (inTune && i >= 6 && i <= 8)) {
+          bar.style.background = inTune ? 'var(--green-base)' : (cents < 0 ? 'var(--blue-base)' : 'var(--orange-base)');
+          bar.style.transform = 'scaleY(1.08)';
+        }
+        container.appendChild(bar);
+      }
+    }
+
+    function replayAnim(id, cls) {
+      const el = document.getElementById(id);
+      el.classList.remove(cls);
+      void el.offsetWidth;
+      el.classList.add(cls);
+    }
+
+    function toggleTheme() {
+      const html = document.documentElement;
+      html.dataset.theme = html.dataset.theme === 'dark' ? 'light' : 'dark';
+    }
+
+    function copyHex(hex) {
+      if (navigator.clipboard) navigator.clipboard.writeText(hex);
+      const t = document.getElementById('toast');
+      t.textContent = `已复制 Token 色值 ${hex}`;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 1600);
+    }
+
+    renderHarmonica();
+    updateTuner(0);
+  </script>
+</body>
+</html>

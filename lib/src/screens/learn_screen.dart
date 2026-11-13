@@ -148,7 +148,7 @@ class _Header extends StatelessWidget {
           child: const HarmonicaBrandIcon(
             size: 24,
             color: Colors.white,
-            accentColor: Color(0xFFE5B869),
+            accentColor: Color(0xFF60F178),
           ),
         ),
         const SizedBox(width: 12),

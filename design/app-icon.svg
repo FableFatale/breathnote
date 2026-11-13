@@ -1,46 +1,39 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 108 108">
   <defs>
     <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#F8F4EC"/>
-      <stop offset="100%" stop-color="#ECE2D2"/>
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#F0F5FF"/>
     </linearGradient>
-    <linearGradient id="bodyGrad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#2E426B"/>
-      <stop offset="100%" stop-color="#3B5284"/>
+    <linearGradient id="plateGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#376CFF"/>
+      <stop offset="100%" stop-color="#2554D9"/>
     </linearGradient>
-    <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#E5B869"/>
-      <stop offset="100%" stop-color="#B28A43"/>
+    <linearGradient id="emeraldGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#22D172"/>
+      <stop offset="100%" stop-color="#15B462"/>
     </linearGradient>
   </defs>
 
-  <!-- 温润纸感背景 -->
+  <!-- Palermo Pure Surface Background -->
   <rect width="108" height="108" rx="24" fill="url(#bgGrad)"/>
 
-  <!-- 琴身上下护板（一体阶梯式圆润轮廓，无顶部突兀折线/角） -->
-  <path
-    d="M28 38 H50 Q53 38 55 35.5 Q57 33 61 33 H80 A8 8 0 0 1 88 41 V67 A8 8 0 0 1 80 75 H28 A8 8 0 0 1 20 67 V46 A8 8 0 0 1 28 38 Z"
-    fill="url(#bodyGrad)"/>
+  <!-- Upper Cover Plate (Symmetrical Capsule, No Horns/Folder Tab) -->
+  <rect x="20" y="34" width="68" height="10" rx="5" fill="url(#plateGrad)"/>
 
-  <!-- 护板高光内沿 -->
-  <rect x="24" y="42" width="60" height="4" rx="2" fill="#526D9E" opacity="0.45"/>
+  <!-- Lower Cover Plate (Symmetrical Capsule) -->
+  <rect x="20" y="64" width="68" height="10" rx="5" fill="url(#plateGrad)"/>
 
-  <!-- 象牙白琴格核心区 -->
-  <rect x="24" y="48" width="60" height="18" rx="4.5" fill="#FFFCF7"/>
+  <!-- Central Comb Body -->
+  <rect x="17" y="42" width="74" height="24" rx="6" fill="#FFFFFF" stroke="#376CFF" stroke-width="3.2"/>
 
-  <!-- 10 孔格栅（第 4 孔为初鸣金色主音孔，其余为深海蓝孔） -->
-  <g fill="#2E426B">
-    <rect x="27.5" y="51.5" width="3.6" height="11" rx="1.8"/>
-    <rect x="33.0" y="51.5" width="3.6" height="11" rx="1.8"/>
-    <rect x="38.5" y="51.5" width="3.6" height="11" rx="1.8"/>
-    <rect x="49.5" y="51.5" width="3.6" height="11" rx="1.8"/>
-    <rect x="55.0" y="51.5" width="3.6" height="11" rx="1.8"/>
-    <rect x="60.5" y="51.5" width="3.6" height="11" rx="1.8"/>
-    <rect x="66.0" y="51.5" width="3.6" height="11" rx="1.8"/>
-    <rect x="71.5" y="51.5" width="3.6" height="11" rx="1.8"/>
-    <rect x="77.0" y="51.5" width="3.6" height="11" rx="1.8"/>
-  </g>
+  <!-- Left & Right Mounting Studs -->
+  <circle cx="22.5" cy="54" r="1.8" fill="#9BB5FF"/>
+  <circle cx="85.5" cy="54" r="1.8" fill="#9BB5FF"/>
 
-  <!-- 第 4 孔：初鸣第一音高亮（暖金孔位） -->
-  <rect x="44.0" y="50.5" width="3.8" height="13" rx="1.9" fill="url(#goldGrad)"/>
+  <!-- 5 Symmetrical Reed Slots (4th slot is Emerald First-Breath Highlight) -->
+  <rect x="29" y="46.5" width="6.2" height="15" rx="2.4" fill="#376CFF"/>
+  <rect x="39.5" y="46.5" width="6.2" height="15" rx="2.4" fill="#376CFF"/>
+  <rect x="50" y="46.5" width="6.2" height="15" rx="2.4" fill="#376CFF"/>
+  <rect x="60.5" y="45.5" width="6.6" height="17" rx="2.6" fill="url(#emeraldGrad)"/>
+  <rect x="71.5" y="46.5" width="6.2" height="15" rx="2.4" fill="#376CFF"/>
 </svg>

@@ -1,91 +1,68 @@
-# 初鸣 (Breathnote) 设计系统规范 (Palermo-Inspired Design System)
+# Palermo × 初鸣 (Breathnote) 设计系统与组件规范 v2.0
 
-> 版本：V2.1  
-> 参考体系：[Palermo Design System (Profound)](https://palermo.tryprofound.com/docs/get-started)  
-> 风格定位：现代质感极简风（Contemporary Tactile Minimalism）+ 萌趣微插画（Cute Vector Micro-illustrations）+ 可重播手势引导（Replayable Interactive Gesture Guides）
-
----
-
-## 一、 系统架构总览 (System Architecture)
-
-借鉴 Palermo 的三层式设计规范架构，初鸣设计系统划分为：
-1. **Foundations（基础底座层）**：Brand & Craft、Semantic Color Tokens、Typography Scale、Spacing & Radii、Soft Elevation、Iconography & App Icon。
-2. **Core Components（通用核心组件层）**：Navigation、Card & Dock Containers、Buttons & Inputs、Badge/Pill/Statistic、Empty & Status Feedback。
-3. **Domain Specialized（口琴与声学专有扩展层）**：
-   - **萌趣吉祥物系统 (`ChumingBird`)**
-   - **首次引导 + 可重播手势组件 (`GestureGuides`)**
-   - **声学与乐器可视化组件 (`HarmonicaDiagram`, `PitchArc`, `DotDistribution`)**
+> **交互式设计系统参考站点**：[design/palermo-system/index.html](file:///Users/smartisan/qinyin/design/palermo-system/index.html)
+> **Flutter Token 核心实现**：[lib/src/theme/palermo_tokens.dart](file:///Users/smartisan/qinyin/lib/src/theme/palermo_tokens.dart)
+> **App 内置交互式组件馆**：[lib/src/screens/design_system_screen.dart](file:///Users/smartisan/qinyin/lib/src/screens/design_system_screen.dart)
 
 ---
 
-## 二、 Foundations（基础底座规范）
+## 1. 为什么旧版配色与图标被彻底重构？
 
-### 1. 品牌标识与 App Icon 规范（去角化一体口琴轮廓）
-- **痛点修正**：彻底移除旧版图标顶部容易被误认为“乐器上长了两个角”的突兀波浪折线，并将应用内原有的钢琴图标（`Icons.piano_rounded`）全面替换为定制矢量口琴标识（`HarmonicaBrandIcon`）。
-- **新版图标造型 (`design/app-icon.svg` & Adaptive Icon)**：
-  - **外轮廓**：采用一体式圆润阶梯护板（左侧平缓起步，中部微升形成一处柔和「鸣阶」高度差，四角 `8px` 圆角），一眼即可识别为十孔口琴。
-  - **琴格与孔位**：内嵌象牙暖白琴格（`#FFFCF7`），整齐排列 10 个圆角音孔。
-  - **点睛主音（第 4 孔）**：第 4 孔采用暖金渐变（`#E5B869` → `#B28A43`）并微幅加高，象征初学者吹响的第一声标准音 `4↑ (C5)`。
-
-### 2. 语义化色彩系统 (Semantic Color Tokens)
-
-| Token 名称 | 浅色模式 (Light) | 深色模式 (Dark) | Palermo 对应语义与应用场景 |
-| :--- | :--- | :--- | :--- |
-| `background` | `#F6F1E9` (温润手工纸白) | `#18181A` (深邃炭黑) | 应用级底层画布 (`bg-app`) |
-| `surface` | `#FFFCF7` (纯净乳白) | `#222224` (一级炭灰容器) | 卡片、列表项、输入框 (`bg-surface`) |
-| `surfaceHigh` | `#EFE7DA` (暖米抬升层) | `#2A2A2D` (二级抬升容器) | 导航栏、悬浮控制坞、次级胶囊 (`bg-raised`) |
-| `outline` | `#DDD3C5` (纸感细微边) | `rgba(255,255,255,0.08)` | 1px 精细容器描边 (`border-subtle`) |
-| `primary` | `#3B4C75` (鸣阶深靛蓝) | `#6FA8FF` (明澈天蓝) | 主操作按钮、吹气指示 `↑`、激活态 (`brand-primary`) |
-| `accent` | `#B28A43` (雅致暖金) | `#F2B272` (暖金晨晖) | 吸气指示 `↓`、连续打卡火苗、第 4 孔高亮 (`brand-accent`) |
-| `text` | `#2A2620` (温润浓墨) | `#F2F0EC` (柔和亮白) | 主标题与正文 (`fg-default`) |
-| `muted` | `#7A7064` (亚麻暖灰) | `#AAA7A3` (中性浅灰) | 辅助说明、未激活图标 (`fg-muted`) |
-| `success` | `#3B4C75` | `#6FA8FF` | 音准锁定、阶段通关 (`status-success`) |
-| `warning` | `#B28A43` | `#F2B272` | 音高偏离提示 (`status-warning`) |
-| `danger` | `#B3261E` (朱砂红) | `#F08AB8` (柔和珊瑚粉) | 权限拒绝、删除确认 (`status-destructive`) |
-
-### 3. 十孔阶梯彩孔光谱 (Chromatic Hole Spectrum)
-为口琴 1~10 孔提供柔和的阶梯色彩参考，辅助空间记忆：
-`#C96F6A` (1孔) → `#D48A62` (2孔) → `#D6B35F` (3孔) → `#A8B96B` (4孔) → `#76B58C` (5孔) → `#59AFA9` (6孔) → `#5B9BD1` (7孔) → `#6FA8FF` (8孔) → `#8A8BD1` (9孔) → `#A67BAE` (10孔)。
-
-### 4. 排版与字阶体系 (Typography Scale)
-- **`displayLarge` (60px / Bold / MingjieSerif)**：练习页与调音页核心目标大音符。
-- **`displaySmall` (30px / Bold / MingjieSerif)**：一级页面主视觉标题。
-- **`headlineSmall` / `titleMedium` (20px / Bold / MingjieSerif)**：模块标题、卡片主标题。
-- **`bodyMedium` (14px / Medium / MingjieSans)**：常规正文与课程描述。
-- **`bodySmall` (11px / Medium / MingjieSans)**：次级辅助说明与底部隐私提示。
-- **`monospace` (等宽数字规范)**：所有频率 (`Hz`)、音分 (`cents`)、分贝 (`dBFS`)、连续天数、得分均采用等宽数字渲染，防止实时刷新时发生视觉抖动。
-
-### 5. 圆角、间距与微质感层级 (Radii, Spacing & Tactile Elevation)
-- **间距阶梯**：`4px` / `8px` / `12px` / `16px` / `20px` / `24px` / `32px`。
-- **圆角阶梯**：
-  - 小徽标 (`Badge`)：`8px ~ 12px`
-  - 按钮与输入框 (`Button` / `Input`)：`16px`
-  - 内容卡片 (`Card`)：`24px`
-  - 模态弹窗与底部控制坞 (`BottomSheet` / `ControlDock`)：`28px ~ 32px`
-  - 胶囊标签 (`Pill`)：`999px` (StadiumBorder)
+| 维度 | 旧版问题 (已废弃) | Palermo 2.0 方案 (`palermo.tryprofound.com` 复刻) |
+| :--- | :--- | :--- |
+| **背景与卡片色** | 泛黄米色 `#F6F1E9` / 泥灰色 `#EFE7DA`，视觉浑浊显脏 | **纯净中性层级**：画布 `#FAFAFA` + 纯白卡片 `#FFFFFF` + 浅灰二级面板 `#F5F5F5` + `1px` `#EBEBEB` 描边 |
+| **主色与功能色** | 暗沉藏青 `#3B4C75` + 土黄 `#B28A43`，缺乏现代感 | **Palermo 4-Tier 语义色板**：Blue `#376CFF` (吹气/主操作)、Emerald `#15B462` (音准锁定)、Orange `#FE6E00` (吸气/连胜) |
+| **字体排版** | 标题使用 `MingjieSerif` 宋体，与精密调音仪表割裂 | **全栈现代无衬线**：统一使用紧凑字距 (`-0.25px ~ -0.75px`) 的 `MingjieSans` + `tabular-nums` 等宽数字 |
+| **口琴图标** | 顶部单侧阶梯凸起，24px 下像白色文件夹 `📁` 或长角 | **对称双护板口琴**：上下对称圆角金属护板 + 5 枚竖向音簧格栅 + 第 4 孔翡翠绿高亮 |
+| **初鸣小鸟** | 深蓝黑底 + 棕色呆毛，缩略图下像深色炸弹 `💣` | **天蓝白腹萌鸟**：清澈天蓝 `#4785FF` 羽毛 + 大面积纯白肚皮面罩 `#FFFFFF` + 粉红腮红 `#FF7EB6` |
 
 ---
 
-## 三、 Domain Specialized（初鸣专有组件规范）
+## 2. Foundations：Palermo Token 体系
 
-### 1. 萌趣吉祥物系统：`ChumingBird`（小鸣鸟）
-- **视觉特征**：圆润雏鸟躯干、柔和肚皮绒毛、鹅黄三角形小鸟喙、带高光的圆眼睛、粉嫩腮红，头顶一簇象征音符的呆毛羽冠。
-- **五种情绪姿态 (`ChumingMood`)**：
-  - `idle`：日常安详陪伴，轻柔呼吸起伏。
-  - `listening`：佩戴暖金色小耳机，专注倾听麦克风输入。
-  - `blowing`：鼓起腮帮向外吹出蓝色晶莹音符气泡（对应吹音 `↑`）。
-  - `drawing`：柔和吸气，暖金色气流向内聚拢（对应吸音 `↓`）。
-  - `celebrating`：头戴金色小皇冠、弯弯笑眼 `^_^`，周身闪烁星芒（对应练习通关与打卡）。
-- **交互规则**：首次进入页面执行一次问候微动效后保持安静，用户随时点击小鸟即可触发轻触反馈并重播生动动画。
+### 2.1 Surface & Neutral 层级
+- **Light Mode**:
+  - `surfaceCanvas`: `#FAFAFA`
+  - `surface`: `#FFFFFF`
+  - `surface200`: `#F5F5F5`
+  - `surface300`: `#E8E8E8`
+  - `borderSubtle`: `#EBEBEB`
+  - `textPrimary`: `#18181A`
+  - `textSecondary`: `#787878`
+- **Dark Mode**:
+  - `surfaceCanvas`: `#18181A`
+  - `surface`: `#222224`
+  - `surface200`: `#2C2C30`
+  - `borderSubtle`: `#323236`
+  - `textPrimary`: `#FAFAFA`
+  - `textSecondary`: `#A0A0A6`
 
-### 2. 手势动态引导规范（首次自动引导 + 用户可多次重播）
-遵循**“首次自动播放一次，随后静止不干扰，用户点击可随时无限次重播”**的交互准则：
-1. **`SwipeGestureGuide`（左右滑动引导胶囊）**
-   - **动效**：小手图标沿水平轨迹平滑摆动一次并停驻，右侧附带 `replay` 重播微图标。
-   - **重播**：用户点击整个引导胶囊即可触发触觉反馈并重新播放滑动演示。
-2. **`BreathGestureGuide`（吹吸垂直呼吸动势引导）**
-   - **吹气 (`isBlow: true`)**：靛蓝色上行箭头与气流轨迹向上升起，提示“向外平稳吹气”。
-   - **吸气 (`isBlow: false`)**：暖金色下行箭头与气流轨迹向内沉降，提示“向内柔和吸气”。
-   - **重播**：首次进入或切换目标音符时自动播放一次，点击胶囊可随时重播呼吸动势。
-3. **`TapGesturePulse`（首次轻触波纹引导）**
-   - **动效**：在核心开始按钮周围扩散两道柔和同心光环后自动收起，引导视线聚焦。
+### 2.2 Palermo 4-Tier 语义色彩架构 (`base` / `border` / `mutedFill` / `emphasis`)
+
+| 语义角色 | 用途映射 | `base` (Light / Dark) | `border` (Light / Dark) | `mutedFill` (Light / Dark) | `emphasis` (Light / Dark) |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Blue** | 主操作 / 吹气 `↑` / 孔位激活 | `#376CFF` / `#5E9EFF` | `#ADC4FF` / `#28467A` | `#EBF1FF` / `#17233B` | `#1E4FD9` / `#99C2FF` |
+| **Emerald** | 音准锁定 (`±10¢`) / 已完成 | `#15B462` / `#60F178` | `#9EE4BF` / `#1E542B` | `#E8F8F0` / `#122B18` | `#0E8A4A` / `#98F7A7` |
+| **Orange** | 吸气 `↓` / 连胜徽章 | `#FE6E00` / `#FF8940` | `#FFC299` / `#613417` | `#FFF1E6` / `#2E190B` | `#CC5800` / `#FFB380` |
+| **Amber** | 临近音准提示 (`10¢~25¢`) | `#F59E0B` / `#FBBF24` | `#FDE68A` / `#5E450B` | `#FEF3C7` / `#2E2105` | `#B45309` / `#FDE68A` |
+| **Red** | 音高偏差过大 (`>25¢`) | `#FF5F57` / `#FF6369` | `#FFB8B4` / `#632427` | `#FFEFEE` / `#301214` | `#D93830` / `#FFA1A4` |
+
+---
+
+## 3. 初鸣专属复刻组件库 (Palermo Adapted Components)
+
+1. **`HarmonicaBrandIcon`（无角对称双护板口琴图标）**
+   - 位置：[cute_illustrations.dart](file:///Users/smartisan/qinyin/lib/src/widgets/cute_illustrations.dart) & [app-icon.svg](file:///Users/smartisan/qinyin/design/app-icon.svg)
+   - 结构：上下对称圆角金属护板 + 中央多孔琴格 + 左右铆钉 + 5 枚竖向音簧槽（第 4 孔翡翠绿高亮）。
+2. **`ChumingBird`（天蓝白腹初鸣小鸟吉祥物）**
+   - 位置：[cute_illustrations.dart](file:///Users/smartisan/qinyin/lib/src/widgets/cute_illustrations.dart)
+   - 5 种状态：`idle`（待机）、`listening`（倾听音高）、`celebrating`（音准命中欢呼）、`encouraging`（鼓励）、`sleeping`（休眠）。
+3. **`SwipeGestureGuide` / `BreathGestureGuide` / `TapGesturePulse`（首次播放 + 点击重播手势引导）**
+   - 位置：[gesture_guide.dart](file:///Users/smartisan/qinyin/lib/src/widgets/gesture_guide.dart)
+   - 行为：组件首次挂载自动播放 1 次有界引导动效，用户点击胶囊可随时重播，并提供 `↻` 重播视觉提示。
+4. **`HarmonicaDiagram`（10 孔口琴交互孔位图）**
+   - 位置：[shared_widgets.dart](file:///Users/smartisan/qinyin/lib/src/widgets/shared_widgets.dart)
+   - 行为：顶部采用 Palermo 10 孔光谱色带，吹气孔激活显示 Palermo Blue，吸气孔激活显示 Palermo Orange。
+5. **`DesignSystemScreen`（App 内置设计系统与组件展示馆）**
+   - 位置：[design_system_screen.dart](file:///Users/smartisan/qinyin/lib/src/screens/design_system_screen.dart)
+   - 入口：「我的」页面底部 → **Palermo 设计系统与组件馆**。

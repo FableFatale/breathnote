@@ -9,6 +9,7 @@ import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/cute_illustrations.dart';
 import '../widgets/shared_widgets.dart';
+import 'design_system_screen.dart';
 import 'help_screen.dart';
 import 'local_data_screen.dart';
 
@@ -482,6 +483,28 @@ class ProfileScreen extends StatelessWidget {
                   color: palette.muted,
                 ),
                 onTap: () => showHelpScreen(context),
+              ),
+              const Divider(height: 1),
+              ListTile(
+                key: const Key('design-system-setting'),
+                leading: Icon(
+                  Icons.auto_awesome_mosaic_rounded,
+                  color: palette.primary,
+                ),
+                title: const Text('Palermo 设计系统与组件馆'),
+                subtitle: const Text('查看色板 Token、无角口琴图标、小鸟与交互组件'),
+                trailing: Icon(
+                  Icons.chevron_right_rounded,
+                  color: palette.muted,
+                ),
+                onTap: () {
+                  Navigator.of(context).push(
+                    AppPageRoute<void>(
+                      reduceMotion: AppMotion.isReduced(context),
+                      builder: (_) => const DesignSystemScreen(),
+                    ),
+                  );
+                },
               ),
             ],
           ),

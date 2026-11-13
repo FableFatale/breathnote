@@ -551,11 +551,11 @@ class _PracticeScreenState extends State<PracticeScreen>
                                     note,
                                     style: TextStyle(
                                       color: palette.primary,
-                                      fontFamily: 'MingjieSerif',
+                                      fontFamily: 'MingjieSans',
                                       fontSize: 60,
                                       height: 1,
                                       fontWeight: FontWeight.w700,
-                                      letterSpacing: 0,
+                                      letterSpacing: -1.0,
                                     ),
                                   ),
                                 ],

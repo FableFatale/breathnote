@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
-const _lightPrimary = Color(0xFF3B4C75);
-const _lightAccent = Color(0xFFB28A43);
+import 'palermo_tokens.dart';
+
+export 'palermo_tokens.dart';
+
+const _lightPrimary = Color(0xFF376CFF);
+const _lightAccent = Color(0xFFFE6E00);
 const _darkPrimary = Color(0xFF6FA8FF);
 const _darkAccent = Color(0xFFF2B272);
 
@@ -23,22 +27,24 @@ class AppPalette extends ThemeExtension<AppPalette> {
     required this.outline,
   });
 
+  /// Palermo Light Mode Palette (`palermo.tryprofound.com/docs/colors`)
   static const light = AppPalette(
-    background: Color(0xFFF6F1E9),
-    surface: Color(0xFFFFFCF7),
-    surfaceHigh: Color(0xFFEFE7DA),
-    primary: _lightPrimary,
+    background: PalermoTokens.lightBgSecondary, // #FAFAFA
+    surface: PalermoTokens.lightBgPrimary, // #FFFFFF
+    surfaceHigh: PalermoTokens.lightBgTertiary, // #F5F5F5
+    primary: _lightPrimary, // #376CFF
     onPrimary: Color(0xFFFFFFFF),
-    accent: _lightAccent,
-    accentInk: _lightPrimary,
-    text: Color(0xFF2A2620),
-    muted: Color(0xFF7A7064),
-    success: _lightPrimary,
-    warning: _lightAccent,
-    danger: Color(0xFFB3261E),
-    outline: Color(0xFFDDD3C5),
+    accent: _lightAccent, // #FE6E00
+    accentInk: Color(0xFF1B3EA7),
+    text: PalermoTokens.lightTextPrimary, // #18181A
+    muted: PalermoTokens.lightTextSecondary, // #787878
+    success: Color(0xFF15B462), // #15B462
+    warning: Color(0xFFF99C00), // #F99C00
+    danger: Color(0xFFFF5F57), // #FF5F57
+    outline: PalermoTokens.lightBorder, // #EBEBEB
   );
 
+  /// Palermo Dark Mode Palette
   static const dark = AppPalette(
     background: Color(0xFF18181A),
     surface: Color(0xFF222224),
@@ -121,18 +127,8 @@ class AppPalette extends ThemeExtension<AppPalette> {
       outline: Color.lerp(outline, other.outline, t)!,
     );
   }
-  static const List<Color> holeSpectrum = [
-    Color(0xFFC96F6A),
-    Color(0xFFD48A62),
-    Color(0xFFD6B35F),
-    Color(0xFFA8B96B),
-    Color(0xFF76B58C),
-    Color(0xFF59AFA9),
-    Color(0xFF5B9BD1),
-    Color(0xFF6FA8FF),
-    Color(0xFF8A8BD1),
-    Color(0xFFA67BAE),
-  ];
+
+  static const List<Color> holeSpectrum = PalermoTokens.holeSpectrum;
 
   static Color holeColor(int hole) {
     final index = (hole - 1).clamp(0, holeSpectrum.length - 1);
@@ -198,7 +194,7 @@ abstract final class AppTheme {
           onPrimary: palette.onPrimary,
           secondary: palette.primary,
           onSecondary: palette.onPrimary,
-          primaryContainer: palette.primary.withValues(alpha: 0.14),
+          primaryContainer: palette.primary.withValues(alpha: 0.10),
           onPrimaryContainer: textColor,
           surface: palette.surface,
           onSurface: textColor,
@@ -230,55 +226,55 @@ abstract final class AppTheme {
       textTheme: TextTheme(
         displayLarge: TextStyle(
           color: textColor,
-          fontFamily: 'MingjieSerif',
+          fontFamily: 'MingjieSans',
           fontSize: 60,
-          height: 1,
+          height: 1.0,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0,
+          letterSpacing: -1.0,
         ),
         displaySmall: TextStyle(
           color: textColor,
-          fontFamily: 'MingjieSerif',
-          fontSize: 30,
-          height: 1.22,
+          fontFamily: 'MingjieSans',
+          fontSize: 28,
+          height: 1.2,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0,
+          letterSpacing: -0.25,
         ),
         headlineSmall: TextStyle(
           color: textColor,
-          fontFamily: 'MingjieSerif',
+          fontFamily: 'MingjieSans',
           fontSize: 20,
           height: 1.3,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0,
+          letterSpacing: -0.25,
         ),
         titleLarge: TextStyle(
           color: textColor,
-          fontFamily: 'MingjieSerif',
+          fontFamily: 'MingjieSans',
           fontSize: 20,
           height: 1.3,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0,
+          letterSpacing: -0.25,
         ),
         titleMedium: TextStyle(
           color: textColor,
-          fontFamily: 'MingjieSerif',
-          fontSize: 20,
-          height: 1.3,
+          fontFamily: 'MingjieSans',
+          fontSize: 18,
+          height: 1.33,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0,
+          letterSpacing: -0.25,
         ),
         bodyMedium: TextStyle(
           color: textColor,
           fontSize: 14,
-          height: 1.55,
+          height: 1.5,
           fontWeight: FontWeight.w500,
           letterSpacing: 0,
         ),
         bodySmall: TextStyle(
           color: palette.muted,
-          fontSize: 11,
-          height: 1.45,
+          fontSize: 12,
+          height: 1.4,
           fontWeight: FontWeight.w500,
           letterSpacing: 0,
         ),
@@ -295,15 +291,17 @@ abstract final class AppTheme {
         surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(PalermoTokens.radius20),
           side: BorderSide(color: outline),
         ),
       ),
       dialogTheme: DialogThemeData(
         elevation: 8,
-        shadowColor: const Color(0x33000000),
+        shadowColor: const Color(0x1F000000),
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(PalermoTokens.radius20),
+        ),
       ),
       appBarTheme: AppBarTheme(
         backgroundColor: palette.background,
@@ -313,16 +311,17 @@ abstract final class AppTheme {
         elevation: 0,
         titleTextStyle: TextStyle(
           color: textColor,
-          fontFamily: 'MingjieSerif',
-          fontSize: 20,
+          fontFamily: 'MingjieSans',
+          fontSize: 18,
           fontWeight: FontWeight.w700,
-          letterSpacing: 0,
+          letterSpacing: -0.25,
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        height: 80,
+        height: 76,
         elevation: 0,
-        backgroundColor: palette.surfaceHigh,
+        backgroundColor: palette.surface,
+        surfaceTintColor: Colors.transparent,
         indicatorColor: palette.primary.withValues(alpha: 0.12),
         indicatorShape: const StadiumBorder(),
         iconTheme: WidgetStateProperty.resolveWith((states) {
@@ -338,10 +337,10 @@ abstract final class AppTheme {
             color: states.contains(WidgetState.selected)
                 ? palette.primary
                 : palette.muted,
-            fontSize: 10,
+            fontSize: 11,
             fontWeight: states.contains(WidgetState.selected)
                 ? FontWeight.w700
-                : FontWeight.w600,
+                : FontWeight.w500,
             letterSpacing: 0,
           );
         }),
@@ -350,7 +349,7 @@ abstract final class AppTheme {
         style: FilledButton.styleFrom(
           minimumSize: const Size(48, 48),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(PalermoTokens.radius12),
           ),
         ),
       ),
@@ -359,7 +358,7 @@ abstract final class AppTheme {
           minimumSize: const Size(48, 48),
           side: BorderSide(color: outline),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(PalermoTokens.radius12),
           ),
         ),
       ),
@@ -367,7 +366,7 @@ abstract final class AppTheme {
         style: IconButton.styleFrom(
           minimumSize: const Size(48, 48),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(PalermoTokens.radius12),
           ),
         ),
       ),
@@ -379,15 +378,15 @@ abstract final class AppTheme {
           vertical: 14,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(PalermoTokens.radius12),
           borderSide: BorderSide(color: outline),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(PalermoTokens.radius12),
           borderSide: BorderSide(color: outline),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(PalermoTokens.radius12),
           borderSide: BorderSide(color: palette.primary, width: 2),
         ),
       ),
@@ -414,16 +413,18 @@ abstract final class AppTheme {
         behavior: SnackBarBehavior.floating,
         backgroundColor: textColor,
         contentTextStyle: TextStyle(color: palette.background),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(PalermoTokens.radius12),
+        ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: palette.surface,
         surfaceTintColor: Colors.transparent,
         modalElevation: 8,
-        shadowColor: const Color(0x33000000),
+        shadowColor: const Color(0x1F000000),
         showDragHandle: true,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
       ),
     );
