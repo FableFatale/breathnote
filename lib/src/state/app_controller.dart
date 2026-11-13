@@ -33,12 +33,28 @@ class AppController extends ChangeNotifier {
   final Set<String> practiceDates = {};
   final Set<String> completedLessons = {};
   final Set<String> seenCoachTips = {};
+  final Map<String, String> songIconOverrides = {};
   final List<Song> customSongs = [];
   final List<PitchAttempt> pitchAttempts = [];
 
   static const _maxPitchAttempts = 400;
 
   List<Song> get allSongs => [...songs, ...customSongs];
+
+  String iconIdForSong(Song song) {
+    final override = songIconOverrides[song.id];
+    if (override != null &&
+        songIconPresets.any((preset) => preset.id == override)) {
+      return override;
+    }
+    return song.defaultIconId;
+  }
+
+  bool hasSongIconOverride(Song song) {
+    final current = iconIdForSong(song);
+    final defaultId = defaultIconIdForSong(song.id, isCustom: song.isCustom);
+    return current != defaultId;
+  }
 
   int get practiceMinutes => practiceSeconds ~/ 60;
 
@@ -116,6 +132,7 @@ class AppController extends ChangeNotifier {
       practiceDates.addAll(_decodeStringList(values['practiceDates']));
       completedLessons.addAll(_decodeStringList(values['completedLessons']));
       seenCoachTips.addAll(_decodeStringList(values['seenCoachTips']));
+      songIconOverrides.addAll(_decodeStringMap(values['songIconOverrides']));
       pitchAttempts.addAll(_decodePitchAttempts(values['pitchAttempts']));
       final rawSongs = values['customSongs'];
       if (rawSongs is String && rawSongs.isNotEmpty) {
@@ -277,11 +294,16 @@ class AppController extends ChangeNotifier {
   Future<Song> addCustomSong({
     required String title,
     required String notation,
+    String? iconId,
   }) async {
     final normalizedTitle = title.trim();
     if (normalizedTitle.isEmpty) {
       throw const HarmonicaTabFormatException('enterSongName');
     }
+    final validIconId =
+        (iconId != null && songIconPresets.any((preset) => preset.id == iconId))
+        ? iconId
+        : 'vinyl';
     final song = Song(
       id: 'custom_${DateTime.now().microsecondsSinceEpoch}',
       title: normalizedTitle,
@@ -289,6 +311,7 @@ class AppController extends ChangeNotifier {
       level: 'custom',
       color: const Color(0xFF506A5D),
       notes: parseHarmonicaTabs(notation),
+      iconId: validIconId,
       isCustom: true,
     );
     customSongs.add(song);
@@ -297,10 +320,54 @@ class AppController extends ChangeNotifier {
     return song;
   }
 
+  Future<void> setSongIcon(String songId, String? iconId) async {
+    final isCustom = customSongs.any((s) => s.id == songId);
+    final defaultId = defaultIconIdForSong(songId, isCustom: isCustom);
+    final validIconId =
+        (iconId != null && songIconPresets.any((preset) => preset.id == iconId))
+        ? iconId
+        : null;
+
+    if (validIconId == null || (!isCustom && validIconId == defaultId)) {
+      songIconOverrides.remove(songId);
+    } else {
+      songIconOverrides[songId] = validIconId;
+    }
+
+    var updatedCustom = false;
+    for (var i = 0; i < customSongs.length; i++) {
+      final current = customSongs[i];
+      if (current.id == songId) {
+        customSongs[i] = Song(
+          id: current.id,
+          title: current.title,
+          subtitle: current.subtitle,
+          level: current.level,
+          color: current.color,
+          notes: current.notes,
+          iconId: validIconId ?? defaultId,
+          isCustom: true,
+        );
+        updatedCustom = true;
+      }
+    }
+
+    notifyListeners();
+    await Future.wait([
+      _persist('songIconOverrides', jsonEncode(songIconOverrides)),
+      if (updatedCustom) _persistCustomSongs(),
+    ]);
+  }
+
   Future<void> removeCustomSong(String id) async {
     customSongs.removeWhere((song) => song.id == id);
+    final removedOverride = songIconOverrides.remove(id) != null;
     notifyListeners();
-    await _persistCustomSongs();
+    await Future.wait([
+      _persistCustomSongs(),
+      if (removedOverride)
+        _persist('songIconOverrides', jsonEncode(songIconOverrides)),
+    ]);
   }
 
   Future<void> reset() async {
@@ -324,6 +391,7 @@ class AppController extends ChangeNotifier {
     practiceDates.clear();
     completedLessons.clear();
     seenCoachTips.clear();
+    songIconOverrides.clear();
     customSongs.clear();
     pitchAttempts.clear();
     notifyListeners();
@@ -348,6 +416,25 @@ class AppController extends ChangeNotifier {
     if (value is! String || value.isEmpty) return {};
     try {
       return (jsonDecode(value) as List<Object?>).whereType<String>().toSet();
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static Map<String, String> _decodeStringMap(Object? value) {
+    if (value is! String || value.isEmpty) return {};
+    try {
+      final raw = jsonDecode(value);
+      if (raw is! Map) return {};
+      final result = <String, String>{};
+      for (final entry in raw.entries) {
+        final key = entry.key;
+        final val = entry.value;
+        if (key is String && val is String) {
+          result[key] = val;
+        }
+      }
+      return result;
     } catch (_) {
       return {};
     }

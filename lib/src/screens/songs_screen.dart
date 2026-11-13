@@ -79,6 +79,20 @@ class _SongsScreenState extends State<SongsScreen> {
     await AppHaptics.warning(context);
   }
 
+  Future<void> _pickSongIcon(Song song) async {
+    final appController = AppScope.of(context);
+    unawaited(AppHaptics.selection(context));
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      sheetAnimationStyle: AppMotion.sheetAnimationStyle(context),
+      builder: (_) => _SongIconPickerSheet(
+        song: song,
+        appController: appController,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
@@ -218,6 +232,8 @@ class _SongsScreenState extends State<SongsScreen> {
                 final song = visible[index];
                 return _SongTile(
                   song: song,
+                  iconId: controller.iconIdForSong(song),
+                  onPickIcon: () => _pickSongIcon(song),
                   onTap: () {
                     unawaited(AppHaptics.selection(context));
                     Navigator.of(context).push(
@@ -250,6 +266,7 @@ class _CustomSongSheetState extends State<_CustomSongSheet> {
   final _notationController = TextEditingController();
   var _titleValue = '';
   var _selectedHole = 4;
+  var _selectedIconId = 'vinyl';
   String? _titleError;
   String? _notationError;
 
@@ -296,6 +313,7 @@ class _CustomSongSheetState extends State<_CustomSongSheet> {
       final created = await widget.appController.addCustomSong(
         title: title,
         notation: _notationController.text,
+        iconId: _selectedIconId,
       );
       if (!mounted) return;
       Navigator.of(context).pop(created);
@@ -421,6 +439,34 @@ class _CustomSongSheetState extends State<_CustomSongSheet> {
                 errorText: _notationError,
               ),
             ),
+            const SizedBox(height: 14),
+            Text(
+              context.strings.t('chooseSongIcon'),
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 48,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: songIconPresets.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 10),
+                itemBuilder: (context, index) {
+                  final preset = songIconPresets[index];
+                  final selected = _selectedIconId == preset.id;
+                  return SongArtworkBadge(
+                    key: Key('custom-song-icon-${preset.id}'),
+                    iconId: preset.id,
+                    size: 46,
+                    selected: selected,
+                    onTap: () {
+                      setState(() => _selectedIconId = preset.id);
+                      unawaited(AppHaptics.selection(context));
+                    },
+                  );
+                },
+              ),
+            ),
             const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
@@ -438,11 +484,135 @@ class _CustomSongSheetState extends State<_CustomSongSheet> {
   }
 }
 
-class _SongTile extends StatelessWidget {
-  const _SongTile({required this.song, required this.onTap, this.onDelete});
+class _SongIconPickerSheet extends StatelessWidget {
+  const _SongIconPickerSheet({
+    required this.song,
+    required this.appController,
+  });
 
   final Song song;
+  final AppController appController;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.colors;
+    final title = context.strings.songTitle(song.id, song.title);
+    final currentIconId = appController.iconIdForSong(song);
+    final hasOverride = appController.hasSongIconOverride(song);
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const ChumingBird(size: 32, mood: ChumingMood.idle),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    context.strings.t('changeSongIcon'),
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              context.strings.t('changeSongIconHint', {'title': title}),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: palette.muted,
+                  ),
+            ),
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 12,
+              runSpacing: 14,
+              alignment: WrapAlignment.spaceBetween,
+              children: [
+                for (final preset in songIconPresets)
+                  SizedBox(
+                    width: 72,
+                    child: InkWell(
+                      key: Key('pick-song-icon-${preset.id}'),
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () async {
+                        unawaited(AppHaptics.reedResonance(context));
+                        await appController.setSongIcon(song.id, preset.id);
+                        if (context.mounted) {
+                          Navigator.of(context).pop();
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SongArtworkBadge(
+                              iconId: preset.id,
+                              size: 52,
+                              selected: currentIconId == preset.id,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              context.strings.t(preset.labelKey),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: currentIconId == preset.id
+                                    ? FontWeight.w800
+                                    : FontWeight.w500,
+                                color: currentIconId == preset.id
+                                    ? palette.primary
+                                    : palette.ink,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            if (hasOverride) ...[
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                key: const Key('reset-song-icon'),
+                onPressed: () async {
+                  unawaited(AppHaptics.selection(context));
+                  await appController.setSongIcon(song.id, null);
+                  if (context.mounted) {
+                    Navigator.of(context).pop();
+                  }
+                },
+                icon: const Icon(Icons.restore_rounded, size: 18),
+                label: Text(context.strings.t('resetDefaultIcon')),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SongTile extends StatelessWidget {
+  const _SongTile({
+    required this.song,
+    required this.iconId,
+    required this.onTap,
+    required this.onPickIcon,
+    this.onDelete,
+  });
+
+  final Song song;
+  final String iconId;
   final VoidCallback onTap;
+  final VoidCallback onPickIcon;
   final VoidCallback? onDelete;
 
   @override
@@ -466,19 +636,13 @@ class _SongTile extends StatelessWidget {
                   padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: palette.primary,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        alignment: Alignment.center,
-                        child: HarmonicaBrandIcon(
-                          size: 28,
-                          color: palette.onPrimary,
-                          accentColor: const Color(0xFF60F178),
-                        ),
+                      SongArtworkBadge(
+                        key: Key('song-icon-${song.id}'),
+                        iconId: iconId,
+                        songId: song.id,
+                        size: 52,
+                        showEditBadge: true,
+                        onTap: onPickIcon,
                       ),
                       const SizedBox(width: 14),
                       Expanded(

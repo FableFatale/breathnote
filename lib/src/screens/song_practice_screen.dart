@@ -372,11 +372,23 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 80,
-        title: Text(
-          context.strings.songTitle(widget.song.id, widget.song.title),
-          maxLines: 2,
-          softWrap: true,
-          overflow: TextOverflow.visible,
+        title: Row(
+          children: [
+            SongArtworkBadge(
+              iconId: controller.iconIdForSong(widget.song),
+              songId: widget.song.id,
+              size: 36,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                context.strings.songTitle(widget.song.id, widget.song.title),
+                maxLines: 2,
+                softWrap: true,
+                overflow: TextOverflow.visible,
+              ),
+            ),
+          ],
         ),
       ),
       body: ListView(

@@ -1472,4 +1472,37 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
   });
+
+  testWidgets('assigns distinct default song icons and allows customization', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await pumpBreathnote(tester, controller: controller);
+
+    expect(controller.iconIdForSong(songs[0]), 'star');
+    expect(controller.iconIdForSong(songs[1]), 'sunburst');
+    expect(controller.iconIdForSong(songs[2]), 'tiger');
+    expect(controller.iconIdForSong(songs[3]), 'flower');
+
+    await tester.tap(find.text('曲谱'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('song-icon-twinkle')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('song-icon-twinkle')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('更换曲谱图标'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('pick-song-icon-moon')));
+    await tester.pumpAndSettle();
+
+    expect(controller.iconIdForSong(songs[0]), 'moon');
+
+    await tester.tap(find.byKey(const Key('song-icon-twinkle')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('reset-song-icon')));
+    await tester.pumpAndSettle();
+
+    expect(controller.iconIdForSong(songs[0]), 'star');
+  });
 }

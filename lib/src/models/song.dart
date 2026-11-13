@@ -10,6 +10,98 @@ class HarmonicaTabFormatException extends FormatException {
   final String? token;
 }
 
+class SongIconPreset {
+  const SongIconPreset({
+    required this.id,
+    required this.labelKey,
+    required this.primaryColor,
+    required this.secondaryColor,
+  });
+
+  final String id;
+  final String labelKey;
+  final Color primaryColor;
+  final Color secondaryColor;
+}
+
+const songIconPresets = <SongIconPreset>[
+  SongIconPreset(
+    id: 'star',
+    labelKey: 'songIconStar',
+    primaryColor: Color(0xFF2554EB),
+    secondaryColor: Color(0xFF4778FF),
+  ),
+  SongIconPreset(
+    id: 'sunburst',
+    labelKey: 'songIconSunburst',
+    primaryColor: Color(0xFFE8590C),
+    secondaryColor: Color(0xFFFF8B1A),
+  ),
+  SongIconPreset(
+    id: 'tiger',
+    labelKey: 'songIconTiger',
+    primaryColor: Color(0xFF129A52),
+    secondaryColor: Color(0xFF19C66B),
+  ),
+  SongIconPreset(
+    id: 'flower',
+    labelKey: 'songIconFlower',
+    primaryColor: Color(0xFF6741D9),
+    secondaryColor: Color(0xFF8A5CF6),
+  ),
+  SongIconPreset(
+    id: 'moon',
+    labelKey: 'songIconMoon',
+    primaryColor: Color(0xFF0B7285),
+    secondaryColor: Color(0xFF1098AD),
+  ),
+  SongIconPreset(
+    id: 'campfire',
+    labelKey: 'songIconCampfire',
+    primaryColor: Color(0xFFC92A2A),
+    secondaryColor: Color(0xFFF03E3E),
+  ),
+  SongIconPreset(
+    id: 'wave',
+    labelKey: 'songIconWave',
+    primaryColor: Color(0xFF0077B6),
+    secondaryColor: Color(0xFF00B4D8),
+  ),
+  SongIconPreset(
+    id: 'vinyl',
+    labelKey: 'songIconVinyl',
+    primaryColor: Color(0xFF1E293B),
+    secondaryColor: Color(0xFF334155),
+  ),
+];
+
+String defaultIconIdForSong(String songId, {bool isCustom = false}) {
+  switch (songId) {
+    case 'twinkle':
+      return 'star';
+    case 'ode_to_joy':
+      return 'sunburst';
+    case 'two_tigers':
+      return 'tiger';
+    case 'jasmine':
+      return 'flower';
+    default:
+      if (!isCustom) return 'star';
+      return 'vinyl';
+  }
+}
+
+SongIconPreset songIconPresetById(String? iconId, {String songId = ''}) {
+  final targetId = (iconId != null &&
+          songIconPresets.any((preset) => preset.id == iconId))
+      ? iconId
+      : defaultIconIdForSong(songId, isCustom: songId.startsWith('custom'));
+  return songIconPresets.firstWhere(
+    (preset) => preset.id == targetId,
+    orElse: () => songIconPresets.first,
+  );
+}
+
 class Song {
   const Song({
     required this.id,
@@ -18,6 +110,7 @@ class Song {
     required this.level,
     required this.color,
     required this.notes,
+    this.iconId,
     this.isCustom = false,
   });
 
@@ -32,13 +125,16 @@ class Song {
     if (notes.isEmpty) {
       throw const HarmonicaTabFormatException('emptyNotation');
     }
+    final id = json['id'] as String;
+    final rawIconId = json['iconId'] as String?;
     return Song(
-      id: json['id'] as String,
+      id: id,
       title: json['title'] as String,
       subtitle: 'customSongSubtitle',
       level: 'custom',
       color: const Color(0xFF506A5D),
       notes: notes,
+      iconId: rawIconId ?? defaultIconIdForSong(id, isCustom: true),
       isCustom: true,
     );
   }
@@ -49,7 +145,11 @@ class Song {
   final String level;
   final Color color;
   final List<PracticeNote> notes;
+  final String? iconId;
   final bool isCustom;
+
+  String get defaultIconId =>
+      iconId ?? defaultIconIdForSong(id, isCustom: isCustom);
 
   String get tabPreview => notes.map((note) => note.tab).join(' ');
 
@@ -59,6 +159,7 @@ class Song {
       'title': title,
       'subtitle': subtitle,
       'level': level,
+      if (iconId != null) 'iconId': iconId!,
       'notes': notes.map((note) => note.toJson()).toList(),
     };
   }
@@ -102,6 +203,7 @@ const songs = [
     subtitle: 'song_twinkle_subtitle',
     level: 'easy',
     color: Color(0xFF344B66),
+    iconId: 'star',
     notes: [
       PracticeNote(note: 'C', octave: 5, tab: '4↑'),
       PracticeNote(note: 'C', octave: 5, tab: '4↑'),
@@ -118,6 +220,7 @@ const songs = [
     subtitle: 'song_ode_to_joy_subtitle',
     level: 'easy',
     color: Color(0xFF57432F),
+    iconId: 'sunburst',
     notes: [
       PracticeNote(note: 'E', octave: 5, tab: '5↑'),
       PracticeNote(note: 'E', octave: 5, tab: '5↑'),
@@ -135,6 +238,7 @@ const songs = [
     subtitle: 'song_two_tigers_subtitle',
     level: 'easy',
     color: Color(0xFF345045),
+    iconId: 'tiger',
     notes: [
       PracticeNote(note: 'C', octave: 5, tab: '4↑'),
       PracticeNote(note: 'D', octave: 5, tab: '4↓'),
@@ -152,6 +256,7 @@ const songs = [
     subtitle: 'song_jasmine_subtitle',
     level: 'advanced',
     color: Color(0xFF4A3D5E),
+    iconId: 'flower',
     notes: [
       PracticeNote(note: 'E', octave: 5, tab: '5↑'),
       PracticeNote(note: 'G', octave: 5, tab: '6↑'),

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../models/song.dart';
 import '../services/haptics.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
@@ -615,5 +616,522 @@ class CuteStreakBadge extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// 曲谱专属高辨识度矢量徽标（内置 8 款主题图标：星夜、朝阳、萌虎、茉莉、弯月、篝火、海浪、黑胶）
+class SongArtworkBadge extends StatelessWidget {
+  const SongArtworkBadge({
+    super.key,
+    required this.iconId,
+    this.songId = '',
+    this.size = 52,
+    this.showEditBadge = false,
+    this.selected = false,
+    this.onTap,
+  });
+
+  final String? iconId;
+  final String songId;
+  final double size;
+  final bool showEditBadge;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final preset = songIconPresetById(iconId, songId: songId);
+    final palette = context.colors;
+    final radius = size * 0.27;
+
+    Widget badge = Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [preset.primaryColor, preset.secondaryColor],
+        ),
+        borderRadius: BorderRadius.circular(radius),
+        border: selected
+            ? Border.all(color: palette.ink, width: 2.5)
+            : Border.all(
+                color: Colors.white.withValues(alpha: 0.18),
+                width: 1,
+              ),
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: CustomPaint(
+              painter: _SongArtworkPainter(iconId: preset.id),
+            ),
+          ),
+          if (showEditBadge)
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(
+                  color: palette.surface,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: palette.outline, width: 1),
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.palette_outlined,
+                  size: 11,
+                  color: palette.primary,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    if (onTap == null) return badge;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: badge,
+    );
+  }
+}
+
+class _SongArtworkPainter extends CustomPainter {
+  const _SongArtworkPainter({required this.iconId});
+
+  final String iconId;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    switch (iconId) {
+      case 'star':
+        _paintStar(canvas, w, h);
+      case 'sunburst':
+        _paintSunburst(canvas, w, h);
+      case 'tiger':
+        _paintTiger(canvas, w, h);
+      case 'flower':
+        _paintFlower(canvas, w, h);
+      case 'moon':
+        _paintMoon(canvas, w, h);
+      case 'campfire':
+        _paintCampfire(canvas, w, h);
+      case 'wave':
+        _paintWave(canvas, w, h);
+      case 'vinyl':
+      default:
+        _paintVinyl(canvas, w, h);
+    }
+  }
+
+  /// 1. 星夜闪烁（小星星默认）：饱满四角主星 + 双伴星 + 星轨弧线
+  void _paintStar(Canvas canvas, double w, double h) {
+    // 底部柔和星轨弧
+    final orbitPaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.22)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.045
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(
+      Rect.fromLTWH(w * 0.14, h * 0.42, w * 0.72, h * 0.42),
+      0.15,
+      math.pi - 0.30,
+      false,
+      orbitPaint,
+    );
+
+    // 主星（暖金黄四角星芒）
+    _drawFourPointStar(
+      canvas,
+      center: Offset(w * 0.46, h * 0.48),
+      outerRadius: w * 0.28,
+      innerRadius: w * 0.10,
+      color: const Color(0xFFFFD43B),
+    );
+    // 主星高光内核
+    canvas.drawCircle(
+      Offset(w * 0.46, h * 0.48),
+      w * 0.06,
+      Paint()..color = const Color(0xFFFFF9DB),
+    );
+
+    // 右上白亮伴星
+    _drawFourPointStar(
+      canvas,
+      center: Offset(w * 0.74, h * 0.27),
+      outerRadius: w * 0.11,
+      innerRadius: w * 0.04,
+      color: Colors.white,
+    );
+    // 左下薄荷星点
+    canvas.drawCircle(
+      Offset(w * 0.24, h * 0.30),
+      w * 0.038,
+      Paint()..color = const Color(0xFF8CE99A),
+    );
+  }
+
+  /// 2. 朝阳礼赞（欢乐颂默认）：光芒日轮 + 双层圣歌音律波纹
+  void _paintSunburst(Canvas canvas, double w, double h) {
+    final center = Offset(w * 0.50, h * 0.54);
+
+    // 放射光芒射线
+    final rayPaint = Paint()
+      ..color = const Color(0xFFFFE066)
+      ..strokeWidth = w * 0.055
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i < 7; i++) {
+      final angle = -math.pi + (i * math.pi / 6);
+      final p1 = Offset(
+        center.dx + math.cos(angle) * w * 0.22,
+        center.dy + math.sin(angle) * h * 0.22,
+      );
+      final p2 = Offset(
+        center.dx + math.cos(angle) * w * 0.33,
+        center.dy + math.sin(angle) * h * 0.33,
+      );
+      canvas.drawLine(p1, p2, rayPaint);
+    }
+
+    // 暖白朝阳核心
+    canvas.drawCircle(
+      center,
+      w * 0.16,
+      Paint()..color = const Color(0xFFFFF4E6),
+    );
+
+    // 底部欢庆礼赞双弧线
+    final wavePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.055
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(w * 0.20, h * 0.74),
+      Offset(w * 0.80, h * 0.74),
+      wavePaint,
+    );
+    canvas.drawLine(
+      Offset(w * 0.30, h * 0.84),
+      Offset(w * 0.70, h * 0.84),
+      wavePaint..color = Colors.white.withValues(alpha: 0.75),
+    );
+  }
+
+  /// 3. 萌虎童谣（两只老虎默认）：圆润小虎头 + 圆耳朵 + 额头「王」字纹
+  void _paintTiger(Canvas canvas, double w, double h) {
+    final earPaint = Paint()..color = const Color(0xFFFFAA2B);
+    final innerEarPaint = Paint()..color = const Color(0xFFFFF0D6);
+
+    // 左右圆耳朵
+    canvas.drawCircle(Offset(w * 0.28, h * 0.30), w * 0.11, earPaint);
+    canvas.drawCircle(Offset(w * 0.72, h * 0.30), w * 0.11, earPaint);
+    canvas.drawCircle(Offset(w * 0.28, h * 0.30), w * 0.055, innerEarPaint);
+    canvas.drawCircle(Offset(w * 0.72, h * 0.30), w * 0.055, innerEarPaint);
+
+    // 虎头圆脸
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(w * 0.50, h * 0.54),
+          width: w * 0.56,
+          height: h * 0.50,
+        ),
+        Radius.circular(w * 0.24),
+      ),
+      earPaint,
+    );
+
+    // 白色嘴周软萌下巴
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.50, h * 0.63),
+        width: w * 0.34,
+        height: h * 0.22,
+      ),
+      Paint()..color = Colors.white,
+    );
+
+    // 额头标志性「王」字虎纹
+    final stripePaint = Paint()
+      ..color = const Color(0xFF3B2314)
+      ..strokeWidth = w * 0.042
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(w * 0.42, h * 0.36),
+      Offset(w * 0.58, h * 0.36),
+      stripePaint,
+    );
+    canvas.drawLine(
+      Offset(w * 0.44, h * 0.43),
+      Offset(w * 0.56, h * 0.43),
+      stripePaint,
+    );
+    canvas.drawLine(
+      Offset(w * 0.50, h * 0.34),
+      Offset(w * 0.50, h * 0.45),
+      stripePaint,
+    );
+
+    // 双眼与小粉鼻
+    final eyePaint = Paint()..color = const Color(0xFF18181A);
+    canvas.drawCircle(Offset(w * 0.39, h * 0.53), w * 0.038, eyePaint);
+    canvas.drawCircle(Offset(w * 0.61, h * 0.53), w * 0.038, eyePaint);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.50, h * 0.59),
+        width: w * 0.09,
+        height: h * 0.06,
+      ),
+      Paint()..color = const Color(0xFFFF6B8B),
+    );
+  }
+
+  /// 4. 清雅茉莉（茉莉花默认）：五瓣雪白花朵 + 暖金花蕊 + 翠绿叶片
+  void _paintFlower(Canvas canvas, double w, double h) {
+    final center = Offset(w * 0.48, h * 0.48);
+
+    // 右下翠绿嫩叶
+    canvas.save();
+    canvas.translate(w * 0.66, h * 0.66);
+    canvas.rotate(0.6);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset.zero,
+        width: w * 0.22,
+        height: h * 0.12,
+      ),
+      Paint()..color = const Color(0xFF63E6BE),
+    );
+    canvas.restore();
+
+    // 五片饱满白色花瓣
+    final petalPaint = Paint()..color = Colors.white;
+    for (var i = 0; i < 5; i++) {
+      final angle = -math.pi / 2 + (i * 2 * math.pi / 5);
+      final petalCenter = Offset(
+        center.dx + math.cos(angle) * w * 0.16,
+        center.dy + math.sin(angle) * h * 0.16,
+      );
+      canvas.drawCircle(petalCenter, w * 0.125, petalPaint);
+    }
+
+    // 暖黄花蕊中心
+    canvas.drawCircle(
+      center,
+      w * 0.095,
+      Paint()..color = const Color(0xFFFCC419),
+    );
+  }
+
+  /// 5. 弯月夜曲（内置可选）：金色弯月 + 柔云 + 伴星
+  void _paintMoon(Canvas canvas, double w, double h) {
+    final moonPath = Path()
+      ..addOval(
+        Rect.fromCircle(center: Offset(w * 0.48, h * 0.46), radius: w * 0.25),
+      );
+    final cutoutPath = Path()
+      ..addOval(
+        Rect.fromCircle(center: Offset(w * 0.58, h * 0.38), radius: w * 0.21),
+      );
+    final crescent = Path.combine(
+      PathOperation.difference,
+      moonPath,
+      cutoutPath,
+    );
+    canvas.drawPath(crescent, Paint()..color = const Color(0xFFFFE066));
+
+    // 右上伴星
+    _drawFourPointStar(
+      canvas,
+      center: Offset(w * 0.68, h * 0.30),
+      outerRadius: w * 0.08,
+      innerRadius: w * 0.03,
+      color: Colors.white,
+    );
+
+    // 底部轻柔云朵
+    final cloudPaint = Paint()..color = Colors.white.withValues(alpha: 0.90);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(w * 0.36, h * 0.64, w * 0.42, h * 0.14),
+        Radius.circular(w * 0.07),
+      ),
+      cloudPaint,
+    );
+    canvas.drawCircle(Offset(w * 0.50, h * 0.63), w * 0.09, cloudPaint);
+    canvas.drawCircle(Offset(w * 0.63, h * 0.65), w * 0.07, cloudPaint);
+  }
+
+  /// 6. 篝火民谣（内置可选）：跃动双色火苗 + 交叉木柴
+  void _paintCampfire(Canvas canvas, double w, double h) {
+    // 底部交叉木柴
+    final logPaint = Paint()
+      ..color = const Color(0xFFFFD8A8)
+      ..strokeWidth = w * 0.075
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(w * 0.26, h * 0.76),
+      Offset(w * 0.74, h * 0.68),
+      logPaint,
+    );
+    canvas.drawLine(
+      Offset(w * 0.26, h * 0.68),
+      Offset(w * 0.74, h * 0.76),
+      logPaint,
+    );
+
+    // 外焰（亮琥珀橘）
+    final outerFlame = Path()
+      ..moveTo(w * 0.50, h * 0.18)
+      ..quadraticBezierTo(w * 0.76, h * 0.38, w * 0.66, h * 0.62)
+      ..quadraticBezierTo(w * 0.50, h * 0.70, w * 0.34, h * 0.62)
+      ..quadraticBezierTo(w * 0.24, h * 0.38, w * 0.50, h * 0.18)
+      ..close();
+    canvas.drawPath(outerFlame, Paint()..color = const Color(0xFFFFA94D));
+
+    // 内焰（暖白金黄）
+    final innerFlame = Path()
+      ..moveTo(w * 0.50, h * 0.34)
+      ..quadraticBezierTo(w * 0.64, h * 0.46, w * 0.58, h * 0.61)
+      ..quadraticBezierTo(w * 0.50, h * 0.66, w * 0.42, h * 0.61)
+      ..quadraticBezierTo(w * 0.36, h * 0.46, w * 0.50, h * 0.34)
+      ..close();
+    canvas.drawPath(innerFlame, Paint()..color = const Color(0xFFFFF3BF));
+  }
+
+  /// 7. 海风波浪（内置可选）：双层律动海浪 + 浪花泡沫
+  void _paintWave(Canvas canvas, double w, double h) {
+    final wave1 = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.075
+      ..strokeCap = StrokeCap.round;
+    final path1 = Path()
+      ..moveTo(w * 0.18, h * 0.50)
+      ..cubicTo(w * 0.34, h * 0.34, w * 0.46, h * 0.64, w * 0.62, h * 0.48)
+      ..quadraticBezierTo(w * 0.72, h * 0.38, w * 0.82, h * 0.48);
+    canvas.drawPath(path1, wave1);
+
+    final wave2 = Paint()
+      ..color = const Color(0xFF99E9F2)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.065
+      ..strokeCap = StrokeCap.round;
+    final path2 = Path()
+      ..moveTo(w * 0.22, h * 0.68)
+      ..cubicTo(w * 0.38, h * 0.54, w * 0.50, h * 0.80, w * 0.66, h * 0.66)
+      ..quadraticBezierTo(w * 0.74, h * 0.58, w * 0.80, h * 0.66);
+    canvas.drawPath(path2, wave2);
+
+    // 顶部跳跃水珠音符点
+    canvas.drawCircle(
+      Offset(w * 0.36, h * 0.28),
+      w * 0.045,
+      Paint()..color = Colors.white,
+    );
+    canvas.drawCircle(
+      Offset(w * 0.62, h * 0.25),
+      w * 0.032,
+      Paint()..color = const Color(0xFF99E9F2),
+    );
+  }
+
+  /// 8. 黑胶旋律（自定义默认 / 内置可选）：黑胶纹路 + 宝蓝盘心 + 亮白音符
+  void _paintVinyl(Canvas canvas, double w, double h) {
+    final center = Offset(w * 0.50, h * 0.50);
+
+    // 唱片外圈反光沟槽弧
+    final groovePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.25)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w * 0.035
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: w * 0.32),
+      -math.pi * 0.75,
+      math.pi * 0.45,
+      false,
+      groovePaint,
+    );
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: w * 0.32),
+      math.pi * 0.25,
+      math.pi * 0.45,
+      false,
+      groovePaint,
+    );
+
+    // 宝蓝中心盘标
+    canvas.drawCircle(
+      center,
+      w * 0.19,
+      Paint()..color = const Color(0xFF376CFF),
+    );
+
+    // 中心八分音符
+    final notePaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = w * 0.05
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(
+      Offset(w * 0.52, h * 0.38),
+      Offset(w * 0.52, h * 0.56),
+      notePaint,
+    );
+    canvas.drawLine(
+      Offset(w * 0.52, h * 0.38),
+      Offset(w * 0.61, h * 0.42),
+      notePaint,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(w * 0.47, h * 0.57),
+        width: w * 0.12,
+        height: h * 0.09,
+      ),
+      Paint()..color = Colors.white,
+    );
+  }
+
+  void _drawFourPointStar(
+    Canvas canvas, {
+    required Offset center,
+    required double outerRadius,
+    required double innerRadius,
+    required Color color,
+  }) {
+    final path = Path();
+    for (var i = 0; i < 8; i++) {
+      final radius = i.isEven ? outerRadius : innerRadius;
+      final angle = -math.pi / 2 + i * math.pi / 4;
+      final pt = Offset(
+        center.dx + math.cos(angle) * radius,
+        center.dy + math.sin(angle) * radius,
+      );
+      if (i == 0) {
+        path.moveTo(pt.dx, pt.dy);
+      } else {
+        path.lineTo(pt.dx, pt.dy);
+      }
+    }
+    path.close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SongArtworkPainter oldDelegate) {
+    return oldDelegate.iconId != iconId;
   }
 }
