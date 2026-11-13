@@ -351,9 +351,9 @@ class _PulseRingPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (progress <= 0.0 || progress >= 1.0) return;
 
-    final center = Offset(size.width / 2, size.height / 2);
-    final baseRadius = math.max(size.width, size.height) * 0.52;
-    final radius = baseRadius * (1.0 + 0.32 * progress);
+    final inflate = 10.0 * progress;
+    final rect = (Offset.zero & size).inflate(inflate);
+    final cornerRadius = math.min(size.width, size.height) * 0.34 + inflate;
     final alpha = (1.0 - progress) * 0.45;
 
     final paint = Paint()
@@ -361,7 +361,10 @@ class _PulseRingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
 
-    canvas.drawCircle(center, radius, paint);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, Radius.circular(cornerRadius)),
+      paint,
+    );
   }
 
   @override

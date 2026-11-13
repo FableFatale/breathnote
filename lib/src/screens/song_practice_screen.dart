@@ -10,6 +10,7 @@ import '../services/guide_tone_service.dart';
 import '../services/haptics.dart';
 import '../services/pitch_service.dart';
 import '../state/app_controller.dart';
+import '../theme/app_adaptive.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/cute_illustrations.dart';
@@ -43,6 +44,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   final _guideToneService = GuideToneService();
   StreamSubscription<PitchReading>? _subscription;
   Timer? _guideTimer;
+  Timer? _guideStepTimer;
   PitchReading _reading = const PitchReading.silent();
   _SongStatus _status = _SongStatus.idle;
   DateTime? _stableSince;
@@ -52,6 +54,8 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   DateTime? _lastSampleAt;
   String? _errorMessage;
   int _index = 0;
+  int _demoNoteIndex = 0;
+  double _holdProgress = 0;
   int _score = 0;
   double _matchedError = 0;
   bool _completed = false;
@@ -79,6 +83,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _guideTimer?.cancel();
+    _guideStepTimer?.cancel();
     _subscription?.cancel();
     _pitchService.stop();
     _guideToneService.stop();
@@ -179,6 +184,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     } else {
       _stableSince = null;
       _stableSinceMicros = null;
+      _holdProgress = 0;
     }
     setState(() => _reading = reading);
   }
@@ -186,13 +192,17 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   bool _isStableForMicros(int timestampMicros) {
     _stableSince = null;
     _stableSinceMicros ??= timestampMicros;
-    return timestampMicros - _stableSinceMicros! >= 420000;
+    final elapsed = timestampMicros - _stableSinceMicros!;
+    _holdProgress = (elapsed / 420000).clamp(0.0, 1.0).toDouble();
+    return elapsed >= 420000;
   }
 
   bool _isStableForWallClock(DateTime now) {
     _stableSinceMicros = null;
     _stableSince ??= now;
-    return now.difference(_stableSince!).inMilliseconds >= 420;
+    final elapsed = now.difference(_stableSince!).inMilliseconds;
+    _holdProgress = (elapsed / 420).clamp(0.0, 1.0).toDouble();
+    return elapsed >= 420;
   }
 
   Future<void> _advance(double error) async {
@@ -204,6 +214,8 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       if (!mounted) return;
       setState(() {
         _index++;
+        _demoNoteIndex = _index;
+        _holdProgress = 0;
         _reading = const PitchReading.silent();
         _stableSince = null;
         _stableSinceMicros = null;
@@ -214,6 +226,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     }
 
     _completed = true;
+    _holdProgress = 1;
     _pausePracticeTimer();
     _score = (100 - _matchedError / widget.song.notes.length * 1.4)
         .round()
@@ -242,12 +255,14 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
 
   Future<void> _stopAll({required bool resetStatus}) async {
     _guideTimer?.cancel();
+    _guideStepTimer?.cancel();
     _pausePracticeTimer();
     await Future.wait([_pitchService.stop(), _guideToneService.stop()]);
     if (!mounted) return;
     setState(() {
       _guidePlaying = false;
       _resumeAfterGuide = false;
+      _holdProgress = 0;
       _reading = const PitchReading.silent();
       _stableSince = null;
       _stableSinceMicros = null;
@@ -258,6 +273,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
 
   Future<void> _handleReadingError() async {
     _guideTimer?.cancel();
+    _guideStepTimer?.cancel();
     _pausePracticeTimer();
     await Future.wait([_pitchService.stop(), _guideToneService.stop()]);
     if (!mounted || _completed) return;
@@ -266,6 +282,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _finishing = false;
       _guidePlaying = false;
       _resumeAfterGuide = false;
+      _holdProgress = 0;
       _reading = const PitchReading.silent();
       _stableSince = null;
       _stableSinceMicros = null;
@@ -287,6 +304,8 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     if (!mounted) return;
     setState(() {
       _guidePlaying = true;
+      _demoNoteIndex = _index;
+      _holdProgress = 0;
       _status = _SongStatus.idle;
       _reading = const PitchReading.silent();
       _stableSince = null;
@@ -304,12 +323,31 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         speed: _guideSpeed,
         repeat: _guideLoop,
       );
-      if (!mounted || _guideLoop) return;
+      if (!mounted) return;
+      final stepMs = (duration / widget.song.notes.length)
+          .round()
+          .clamp(160, 1200);
+      _guideStepTimer?.cancel();
+      _guideStepTimer = Timer.periodic(Duration(milliseconds: stepMs), (timer) {
+        if (!mounted || !_guidePlaying) {
+          timer.cancel();
+          return;
+        }
+        setState(() {
+          if (_demoNoteIndex < widget.song.notes.length - 1) {
+            _demoNoteIndex++;
+          } else if (_guideLoop) {
+            _demoNoteIndex = 0;
+          }
+        });
+      });
+      if (_guideLoop) return;
       _guideTimer = Timer(
         Duration(milliseconds: duration + 120),
         _stopGuideAndResume,
       );
     } catch (error) {
+      _guideStepTimer?.cancel();
       if (!mounted) return;
       final unsupported = _isUnsupportedError(error);
       setState(() {
@@ -325,11 +363,13 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
 
   Future<void> _stopGuideAndResume() async {
     _guideTimer?.cancel();
+    _guideStepTimer?.cancel();
     await _guideToneService.stop();
     if (!mounted) return;
     final shouldResume = _resumeAfterGuide && !_completed;
     setState(() {
       _guidePlaying = false;
+      _demoNoteIndex = _index;
       _resumeAfterGuide = false;
     });
     if (shouldResume) await _beginListening();
@@ -340,6 +380,8 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     if (!mounted) return;
     setState(() {
       _index = 0;
+      _demoNoteIndex = 0;
+      _holdProgress = 0;
       _score = 0;
       _matchedError = 0;
       _completed = false;
@@ -361,17 +403,28 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
     final palette = context.colors;
-    final target = widget.song.notes[_index];
+    final activeNoteIndex = _guidePlaying ? _demoNoteIndex : _index;
+    final target = widget.song.notes[activeNoteIndex];
+    final nextNote = activeNoteIndex + 1 < widget.song.notes.length
+        ? widget.song.notes[activeNoteIndex + 1]
+        : null;
     final cents = _reading.detected
         ? target.centsFromFrequency(_reading.frequency, controller.harmonicaKey)
         : 0.0;
     final progress = _completed
         ? 1.0
-        : (_index / widget.song.notes.length).clamp(0.0, 1.0).toDouble();
+        : _guidePlaying
+        ? ((activeNoteIndex + 1) / widget.song.notes.length)
+              .clamp(0.0, 1.0)
+              .toDouble()
+        : ((_index + _holdProgress) / widget.song.notes.length)
+              .clamp(0.0, 1.0)
+              .toDouble();
+    final pagePadding = AppAdaptive.pagePadding(context);
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 80,
+        toolbarHeight: 68,
         title: Row(
           children: [
             SongArtworkBadge(
@@ -391,255 +444,515 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
           ],
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  _completed
-                      ? context.strings.t('songPracticeComplete')
-                      : context.strings.t('songNoteProgress', {
-                          'current': _index + 1,
-                          'total': widget.song.notes.length,
-                        }),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+      body: SafeArea(
+        top: false,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compactHeight = constraints.maxHeight < 700;
+            final sectionGap = compactHeight ? 10.0 : 12.0;
+
+            return SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(
+                pagePadding,
+                4,
+                pagePadding,
+                compactHeight ? 12 : 20,
               ),
-              Text(
-                context.strings.t('songProgress', {
-                  'percent': (progress * 100).round(),
-                }),
-                style: TextStyle(
-                  color: palette.primary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: MotionLinearProgress(
-              value: progress,
-              minHeight: 6,
-              backgroundColor: palette.surfaceHigh,
-            ),
-          ),
-          const SizedBox(height: 22),
-          AnimatedSwitcher(
-            duration: AppMotion.duration(context, AppMotion.base),
-            child: _completed
-                ? _SongCompletion(
-                    key: const ValueKey('song-complete'),
-                    score: _score,
-                  )
-                : Column(
-                    key: const ValueKey('song-active'),
-                    children: [
-                      Center(
-                        child: AnimatedSwitcher(
-                          duration: AppMotion.duration(context, AppMotion.base),
-                          child: Column(
-                            key: ValueKey(_index),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 1. 顶部动态进度卡片
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: palette.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: palette.outline),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: AnimatedSwitcher(
+                                duration: AppMotion.duration(
+                                  context,
+                                  AppMotion.fast,
+                                ),
+                                layoutBuilder: (currentChild, prevChildren) {
+                                  return Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: currentChild,
+                                  );
+                                },
+                                child: Text(
+                                  _completed
+                                      ? context.strings.t(
+                                          'songPracticeComplete',
+                                        )
+                                      : context.strings.t('songNoteProgress', {
+                                          'current': activeNoteIndex + 1,
+                                          'total': widget.song.notes.length,
+                                        }),
+                                  key: ValueKey(
+                                    'progress_${_completed}_$activeNoteIndex',
+                                  ),
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ),
+                            TweenAnimationBuilder<double>(
+                              tween: Tween<double>(end: progress),
+                              duration: AppMotion.duration(
+                                context,
+                                AppMotion.base,
+                              ),
+                              curve: AppMotion.standardCurve,
+                              builder: (context, value, _) {
+                                return Text(
+                                  context.strings.t('songProgress', {
+                                    'percent': (value * 100).round(),
+                                  }),
+                                  style: TextStyle(
+                                    color: palette.primary,
+                                    fontSize: 13,
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: MotionLinearProgress(
+                            value: progress,
+                            minHeight: 7,
+                            backgroundColor: palette.surfaceHigh,
+                            color: _completed
+                                ? palette.success
+                                : palette.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: sectionGap),
+                  AnimatedSwitcher(
+                    duration: AppMotion.duration(context, AppMotion.base),
+                    child: _completed
+                        ? _SongCompletion(
+                            key: const ValueKey('song-complete'),
+                            score: _score,
+                          )
+                        : Column(
+                            key: const ValueKey('song-active'),
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              SectionLabel(context.strings.t('currentTarget')),
-                              const SizedBox(height: 4),
-                              Text(
-                                target.labelForKey(controller.harmonicaKey),
-                                style: Theme.of(context).textTheme.displaySmall
-                                    ?.copyWith(
-                                      fontSize: 54,
-                                      color: palette.primary,
+                              // 2. 核心主舞台卡片（当前目标音 + 10孔动态口琴图 + 等宽对齐走谱条）
+                              Container(
+                                padding: EdgeInsets.all(
+                                  compactHeight ? 12 : 14,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: palette.surface,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: palette.outline),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    // 目标音横幅（左：标签与孔位，中：大音名，右：吹吸动效）
+                                    Container(
+                                      padding: EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: compactHeight ? 8 : 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: palette.surfaceHigh.withValues(
+                                          alpha: 0.65,
+                                        ),
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Align(
+                                                  alignment:
+                                                      Alignment.centerLeft,
+                                                  child: SectionLabel(
+                                                    context.strings.t(
+                                                      'currentTarget',
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              BreathGestureGuide(
+                                                isBlow: target.isBlow,
+                                                label: context.strings.t(
+                                                  target.isBlow
+                                                      ? 'blowAction'
+                                                      : 'drawAction',
+                                                ),
+                                                compact: true,
+                                              ),
+                                            ],
+                                          ),
+                                          SizedBox(
+                                            height: compactHeight ? 2 : 4,
+                                          ),
+                                          AnimatedSwitcher(
+                                            duration: AppMotion.duration(
+                                              context,
+                                              AppMotion.base,
+                                            ),
+                                            transitionBuilder:
+                                                (child, animation) {
+                                                  return ScaleTransition(
+                                                    scale: Tween<double>(
+                                                      begin: 0.92,
+                                                      end: 1.0,
+                                                    ).animate(animation),
+                                                    child: FadeTransition(
+                                                      opacity: animation,
+                                                      child: child,
+                                                    ),
+                                                  );
+                                                },
+                                            child: Row(
+                                              key: ValueKey(
+                                                'target_${activeNoteIndex}_${target.tab}',
+                                              ),
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.center,
+                                              children: [
+                                                Text(
+                                                  target.labelForKey(
+                                                    controller.harmonicaKey,
+                                                  ),
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .displaySmall
+                                                      ?.copyWith(
+                                                        fontSize: compactHeight
+                                                            ? 40
+                                                            : 46,
+                                                        height: 1.05,
+                                                        color: palette.primary,
+                                                      ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 10,
+                                                        vertical: 5,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: palette.primary
+                                                        .withValues(
+                                                          alpha: 0.12,
+                                                        ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          10,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: palette.primary
+                                                          .withValues(
+                                                            alpha: 0.30,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    target.tab,
+                                                    style: TextStyle(
+                                                      color: palette.primary,
+                                                      fontSize: 16,
+                                                      fontFamily: 'monospace',
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (nextNote != null) ...[
+                                                  const SizedBox(width: 8),
+                                                  Icon(
+                                                    Icons.arrow_forward_rounded,
+                                                    size: 14,
+                                                    color: palette.muted,
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    nextNote.tab,
+                                                    style: TextStyle(
+                                                      color: palette.muted,
+                                                      fontSize: 13,
+                                                      fontFamily: 'monospace',
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                          if (_holdProgress > 0) ...[
+                                            const SizedBox(height: 6),
+                                            ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(999),
+                                              child: LinearProgressIndicator(
+                                                value: _holdProgress,
+                                                minHeight: 4,
+                                                backgroundColor: palette.outline
+                                                    .withValues(alpha: 0.35),
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                      Color
+                                                    >(palette.success),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
                                     ),
-                              ),
-                              Text(
-                                target.tab,
-                                style: TextStyle(
-                                  color: palette.accentInk,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
+                                    SizedBox(height: compactHeight ? 10 : 12),
+                                    HarmonicaDiagram(activeTab: target.tab),
+                                    SizedBox(height: compactHeight ? 10 : 12),
+                                    _Sequence(
+                                      song: widget.song,
+                                      currentIndex: activeNoteIndex,
+                                      holdProgress: _guidePlaying
+                                          ? 1.0
+                                          : _holdProgress,
+                                      onNoteTap: (tappedIndex) {
+                                        if (_completed) return;
+                                        unawaited(
+                                          AppHaptics.selection(context),
+                                        );
+                                        setState(() {
+                                          _index = tappedIndex;
+                                          _demoNoteIndex = tappedIndex;
+                                          _holdProgress = 0;
+                                          _stableSince = null;
+                                          _stableSinceMicros = null;
+                                        });
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              BreathGestureGuide(
-                                isBlow: target.isBlow,
-                                label: context.strings.t(
-                                  target.isBlow ? 'blowAction' : 'drawAction',
+                              SizedBox(height: sectionGap),
+                              // 3. 麦克风音准状态卡片（与上方舞台卡片严格等宽对齐）
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: compactHeight ? 10 : 12,
                                 ),
-                                compact: true,
+                                decoration: BoxDecoration(
+                                  color: palette.surface,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: palette.outline),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 34,
+                                      height: 34,
+                                      decoration: BoxDecoration(
+                                        color: _status == _SongStatus.listening
+                                            ? palette.success.withValues(
+                                                alpha: 0.14,
+                                              )
+                                            : _guidePlaying
+                                            ? palette.primary.withValues(
+                                                alpha: 0.14,
+                                              )
+                                            : palette.surfaceHigh,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: AnimatedSwitcher(
+                                        duration: AppMotion.duration(
+                                          context,
+                                          AppMotion.fast,
+                                        ),
+                                        child: Icon(
+                                          _status == _SongStatus.listening
+                                              ? Icons.graphic_eq_rounded
+                                              : _guidePlaying
+                                              ? Icons.volume_up_rounded
+                                              : Icons.mic_off_rounded,
+                                          key: ValueKey(
+                                            '${_status}_$_guidePlaying',
+                                          ),
+                                          size: 18,
+                                          color:
+                                              _status == _SongStatus.listening
+                                              ? palette.success
+                                              : _guidePlaying
+                                              ? palette.primary
+                                              : palette.muted,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            _unsupported
+                                                ? context.strings.t(
+                                                    'featureUnavailable',
+                                                  )
+                                                : _guidePlaying
+                                                ? context.strings.t(
+                                                    'guidePlaying',
+                                                  )
+                                                : _reading.detected
+                                                ? _reading.noteWithOctave
+                                                : _status ==
+                                                      _SongStatus.listening
+                                                ? context.strings.t(
+                                                    'waitingStablePitch',
+                                                  )
+                                                : context.strings.t(
+                                                    'microphoneNotStarted',
+                                                  ),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium
+                                                ?.copyWith(fontSize: 15),
+                                          ),
+                                          if (_reading.detected)
+                                            Text(
+                                              '${cents >= 0 ? '+' : ''}${cents.round()} '
+                                              '${context.strings.t('cents')}',
+                                              style: Theme.of(
+                                                context,
+                                              ).textTheme.bodySmall,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (_stableSince != null ||
+                                        _stableSinceMicros != null)
+                                      Icon(
+                                        Icons.check_circle_rounded,
+                                        color: palette.success,
+                                      ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: palette.surface,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: palette.outline),
-                        ),
-                        child: Column(
-                          children: [
-                            HarmonicaDiagram(activeTab: target.tab),
-                            const SizedBox(height: 16),
-                            _Sequence(song: widget.song, currentIndex: _index),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: palette.surfaceHigh,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Row(
-                          children: [
-                            AnimatedSwitcher(
-                              duration: AppMotion.duration(
-                                context,
-                                AppMotion.fast,
-                              ),
-                              child: Icon(
-                                _status == _SongStatus.listening
-                                    ? Icons.graphic_eq_rounded
-                                    : Icons.mic_off_rounded,
-                                key: ValueKey(_status),
-                                color: _status == _SongStatus.listening
-                                    ? palette.success
-                                    : palette.muted,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _unsupported
-                                        ? context.strings.t(
-                                            'featureUnavailable',
-                                          )
-                                        : _reading.detected
-                                        ? _reading.noteWithOctave
-                                        : _status == _SongStatus.listening
-                                        ? context.strings.t(
-                                            'waitingStablePitch',
-                                          )
-                                        : context.strings.t(
-                                            'microphoneNotStarted',
-                                          ),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium,
-                                  ),
-                                  if (_reading.detected)
-                                    Text(
-                                      '${cents >= 0 ? '+' : ''}${cents.round()} '
-                                      '${context.strings.t('cents')}',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall,
-                                    ),
-                                ],
-                              ),
-                            ),
-                            if (_stableSince != null ||
-                                _stableSinceMicros != null)
-                              Icon(
-                                Icons.check_circle_rounded,
-                                color: palette.success,
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
                   ),
-          ),
-          const SizedBox(height: 16),
-          if (!_completed) ...[
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _unsupported
-                    ? () => unawaited(showHelpScreen(context))
-                    : _status == _SongStatus.requestingPermission
-                    ? null
-                    : _status == _SongStatus.listening
-                    ? () => _stopAll(resetStatus: true)
-                    : _requestAndStart,
-                icon: Icon(
-                  _status == _SongStatus.listening
-                      ? Icons.stop_rounded
-                      : _unsupported
-                      ? Icons.help_outline_rounded
-                      : Icons.mic_rounded,
-                ),
-                label: Text(_buttonLabel),
+                  SizedBox(height: sectionGap),
+                  if (!_completed) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: FilledButton.icon(
+                        onPressed: _unsupported
+                            ? () => unawaited(showHelpScreen(context))
+                            : _status == _SongStatus.requestingPermission
+                            ? null
+                            : _status == _SongStatus.listening
+                            ? () => _stopAll(resetStatus: true)
+                            : _requestAndStart,
+                        icon: Icon(
+                          _status == _SongStatus.listening
+                              ? Icons.stop_rounded
+                              : _unsupported
+                              ? Icons.help_outline_rounded
+                              : Icons.mic_rounded,
+                        ),
+                        label: Text(_buttonLabel),
+                      ),
+                    ),
+                    SizedBox(height: sectionGap),
+                    _SongGuideControls(
+                      playing: _guidePlaying,
+                      speed: _guideSpeed,
+                      loop: _guideLoop,
+                      enabled: !_unsupported,
+                      onPlay: _toggleGuide,
+                      onSpeedChanged: (value) async {
+                        if (_guidePlaying) await _stopGuideAndResume();
+                        if (!context.mounted) return;
+                        setState(() => _guideSpeed = value);
+                        await AppHaptics.selection(context);
+                      },
+                      onLoopChanged: (value) async {
+                        if (_guidePlaying) await _stopGuideAndResume();
+                        if (!context.mounted) return;
+                        setState(() => _guideLoop = value);
+                        await AppHaptics.selection(context);
+                      },
+                    ),
+                  ] else
+                    Row(
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 48,
+                            child: OutlinedButton.icon(
+                              onPressed: _restart,
+                              icon: const Icon(Icons.replay_rounded),
+                              label: Text(
+                                context.strings.t('restartPractice'),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: SizedBox(
+                            height: 48,
+                            child: FilledButton.icon(
+                              onPressed: () => Navigator.of(context).pop(),
+                              icon: const Icon(Icons.check_rounded),
+                              label: Text(context.strings.t('commonDone')),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  if (_status == _SongStatus.permanentlyDenied) ...[
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: _pitchService.openAppSettings,
+                      icon: const Icon(Icons.settings_rounded),
+                      label: Text(context.strings.t('commonOpenSettings')),
+                    ),
+                  ],
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _errorMessage!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: palette.danger),
+                    ),
+                  ],
+                ],
               ),
-            ),
-            const SizedBox(height: 16),
-            _SongGuideControls(
-              playing: _guidePlaying,
-              speed: _guideSpeed,
-              loop: _guideLoop,
-              enabled: !_unsupported,
-              onPlay: _toggleGuide,
-              onSpeedChanged: (value) async {
-                if (_guidePlaying) await _stopGuideAndResume();
-                if (!context.mounted) return;
-                setState(() => _guideSpeed = value);
-                await AppHaptics.selection(context);
-              },
-              onLoopChanged: (value) async {
-                if (_guidePlaying) await _stopGuideAndResume();
-                if (!context.mounted) return;
-                setState(() => _guideLoop = value);
-                await AppHaptics.selection(context);
-              },
-            ),
-          ] else
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _restart,
-                    icon: const Icon(Icons.replay_rounded),
-                    label: Text(context.strings.t('restartPractice')),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.check_rounded),
-                    label: Text(context.strings.t('commonDone')),
-                  ),
-                ),
-              ],
-            ),
-          if (_status == _SongStatus.permanentlyDenied) ...[
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: _pitchService.openAppSettings,
-              icon: const Icon(Icons.settings_rounded),
-              label: Text(context.strings.t('commonOpenSettings')),
-            ),
-          ],
-          if (_errorMessage != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              _errorMessage!,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: palette.danger),
-            ),
-          ],
-          const SizedBox(height: 14),
-        ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -672,49 +985,128 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
 }
 
 class _Sequence extends StatelessWidget {
-  const _Sequence({required this.song, required this.currentIndex});
+  const _Sequence({
+    required this.song,
+    required this.currentIndex,
+    this.holdProgress = 0,
+    this.onNoteTap,
+  });
 
   final Song song;
   final int currentIndex;
+  final double holdProgress;
+  final ValueChanged<int>? onNoteTap;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.colors;
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 6,
-      runSpacing: 6,
-      children: List.generate(song.notes.length, (index) {
-        final complete = index < currentIndex;
-        final active = index == currentIndex;
-        return AnimatedContainer(
+    final total = song.notes.length;
+
+    Widget buildNoteCell(int index, {required bool expanded}) {
+      final complete = index < currentIndex;
+      final active = index == currentIndex;
+      final fillFraction = complete
+          ? 1.0
+          : active
+          ? holdProgress.clamp(0.0, 1.0)
+          : 0.0;
+
+      final cell = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onNoteTap != null ? () => onNoteTap!(index) : null,
+        child: AnimatedScale(
+          scale: active ? 1.05 : 1.0,
           duration: AppMotion.duration(context, AppMotion.fast),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          decoration: BoxDecoration(
-            color: complete
-                ? palette.success.withValues(alpha: 0.12)
-                : active
-                ? palette.primary.withValues(alpha: 0.14)
-                : palette.surfaceHigh,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: active ? palette.primary : Colors.transparent,
-            ),
-          ),
-          child: Text(
-            song.notes[index].tab,
-            style: TextStyle(
+          curve: AppMotion.standardCurve,
+          child: AnimatedContainer(
+            duration: AppMotion.duration(context, AppMotion.fast),
+            height: 40,
+            constraints: BoxConstraints(minWidth: expanded ? 0 : 44),
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
               color: complete
-                  ? palette.success
+                  ? palette.success.withValues(alpha: 0.12)
                   : active
-                  ? palette.primary
-                  : palette.muted,
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.w800,
+                  ? palette.primary.withValues(alpha: 0.14)
+                  : palette.surfaceHigh,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: active
+                    ? palette.primary
+                    : complete
+                    ? palette.success.withValues(alpha: 0.45)
+                    : palette.outline,
+                width: active ? 1.6 : 1.0,
+              ),
+            ),
+            child: Stack(
+              children: [
+                if (fillFraction > 0)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 3.5,
+                    child: FractionallySizedBox(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: fillFraction,
+                      child: ColoredBox(
+                        color: complete ? palette.success : palette.primary,
+                      ),
+                    ),
+                  ),
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        song.notes[index].tab,
+                        style: TextStyle(
+                          color: complete
+                              ? palette.success
+                              : active
+                              ? palette.primary
+                              : palette.muted,
+                          fontSize: 13,
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-        );
-      }),
+        ),
+      );
+
+      if (!expanded) return cell;
+      return Expanded(child: cell);
+    }
+
+    // 8 个音及以内采用单行等分满宽对齐（与上方 10 孔口琴图左右严格对齐）
+    if (total <= 8) {
+      return Row(
+        children: [
+          for (var i = 0; i < total; i++) ...[
+            if (i > 0) const SizedBox(width: 6),
+            buildNoteCell(i, expanded: true),
+          ],
+        ],
+      );
+    }
+
+    // 超过 8 个音的自定义长曲谱采用单行横向滚动条，保持固定高度不撑破屏幕
+    return SizedBox(
+      height: 42,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: total,
+        separatorBuilder: (_, _) => const SizedBox(width: 6),
+        itemBuilder: (context, index) => buildNoteCell(index, expanded: false),
+      ),
     );
   }
 }
@@ -740,44 +1132,159 @@ class _SongGuideControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            FilledButton.tonalIcon(
-              onPressed: enabled ? onPlay : null,
-              icon: Icon(
-                playing ? Icons.stop_rounded : Icons.volume_up_rounded,
+    final palette = context.colors;
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.outline),
+      ),
+      child: Row(
+        children: [
+          // 1. 播放旋律 / 停止旋律（等高 42px）
+          Expanded(
+            flex: 5,
+            child: SizedBox(
+              height: 42,
+              child: FilledButton.tonalIcon(
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: enabled ? onPlay : null,
+                icon: Icon(
+                  playing ? Icons.stop_rounded : Icons.volume_up_rounded,
+                  size: 18,
+                ),
+                label: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    playing
+                        ? context.strings.t('stopDemo')
+                        : context.strings.t('playMelody'),
+                  ),
+                ),
               ),
-              label: Text(
-                playing
-                    ? context.strings.t('stopDemo')
-                    : context.strings.t('playMelody'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // 2. 0.5× / 1× 速度切换器（等高 42px，圆角 12px）
+          Expanded(
+            flex: 4,
+            child: Container(
+              height: 42,
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: palette.surfaceHigh,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: palette.outline),
+              ),
+              child: Row(
+                children: [
+                  for (final option in const [
+                    (0.5, '0.5×'),
+                    (1.0, '1×'),
+                  ])
+                    Expanded(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: enabled
+                            ? () => onSpeedChanged(option.$1)
+                            : null,
+                        child: AnimatedContainer(
+                          duration: AppMotion.duration(context, AppMotion.fast),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: speed == option.$1
+                                ? palette.primary.withValues(alpha: 0.16)
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(9),
+                            border: Border.all(
+                              color: speed == option.$1
+                                  ? palette.primary
+                                  : Colors.transparent,
+                            ),
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              option.$2,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontFamily: 'monospace',
+                                fontWeight: speed == option.$1
+                                    ? FontWeight.w800
+                                    : FontWeight.w600,
+                                color: speed == option.$1
+                                    ? palette.primary
+                                    : palette.muted,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-            SegmentedButton<double>(
-              segments: const [
-                ButtonSegment(value: 0.5, label: Text('0.5×')),
-                ButtonSegment(value: 1, label: Text('1×')),
-              ],
-              selected: {speed},
-              showSelectedIcon: false,
-              onSelectionChanged: enabled
-                  ? (value) => onSpeedChanged(value.first)
-                  : null,
+          ),
+          const SizedBox(width: 8),
+          // 3. 循环开关（等高 42px，圆角 12px）
+          Expanded(
+            flex: 3,
+            child: SizedBox(
+              height: 42,
+              child: Material(
+                color: loop
+                    ? palette.primary.withValues(alpha: 0.14)
+                    : palette.surfaceHigh,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  side: BorderSide(
+                    color: loop ? palette.primary : palette.outline,
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: enabled ? () => onLoopChanged(!loop) : null,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.repeat_rounded,
+                          size: 16,
+                          color: loop ? palette.primary : palette.muted,
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              context.strings.t('loop'),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: loop
+                                    ? FontWeight.w800
+                                    : FontWeight.w600,
+                                color: loop ? palette.primary : palette.muted,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
-            FilterChip(
-              selected: loop,
-              onSelected: enabled ? onLoopChanged : null,
-              avatar: const Icon(Icons.repeat_rounded, size: 18),
-              label: Text(context.strings.t('loop')),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

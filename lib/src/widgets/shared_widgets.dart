@@ -189,8 +189,24 @@ class _HarmonicaDiagramState extends State<HarmonicaDiagram>
   int? _resonatingHole;
   late final AnimationController _pulseController = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 300),
+    duration: const Duration(milliseconds: 360),
   );
+
+  @override
+  void didUpdateWidget(covariant HarmonicaDiagram oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.activeTab != widget.activeTab && widget.activeTab != null) {
+      final nextHole = int.tryParse(
+        widget.activeTab!.replaceAll(RegExp(r'[^0-9]'), ''),
+      );
+      if (nextHole != null) {
+        _resonatingHole = nextHole;
+        if (!AppMotion.isReduced(context)) {
+          _pulseController.forward(from: 0);
+        }
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -241,7 +257,7 @@ class _HarmonicaDiagramState extends State<HarmonicaDiagram>
         ConstrainedBox(
           constraints: BoxConstraints(minWidth: labelWidth),
           child: SizedBox(
-            height: compact ? 76 : 88,
+            height: compact ? 74 : 84,
             child: Padding(
               padding: const EdgeInsets.only(right: 8),
               child: Column(
@@ -257,122 +273,198 @@ class _HarmonicaDiagramState extends State<HarmonicaDiagram>
         ),
         Expanded(
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             child: SizedBox(
-              height: compact ? 76 : 88,
+              height: compact ? 74 : 84,
               child: AnimatedBuilder(
                 animation: _pulseController,
                 builder: (context, _) {
                   final pulse = _pulseController.isAnimating
                       ? (1.0 - _pulseController.value)
                       : 0.0;
-                  return Row(
-                    children: List.generate(10, (index) {
-                      final hole = index + 1;
-                      final active = activeHole == hole;
-                      final resonating =
-                          _resonatingHole == hole && pulse > 0.01;
-                      final holeAccent = AppPalette.holeColor(hole);
-                      final highlightColor = active
-                          ? (isBlow ? palette.primary : palette.accentInk)
-                          : holeAccent;
-                      return Expanded(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: () => _triggerHoleResonance(hole),
-                          child: AnimatedContainer(
-                            duration:
-                                AppMotion.duration(context, AppMotion.fast),
-                            curve: AppMotion.standardCurve,
-                            decoration: BoxDecoration(
-                              color: resonating
-                                  ? holeAccent.withValues(
-                                      alpha: 0.16 * pulse + 0.06,
-                                    )
-                                  : active
-                                  ? highlightColor.withValues(alpha: 0.08)
-                                  : palette.surface,
-                              border: Border(
-                                left: BorderSide(
-                                  color: active || resonating
-                                      ? highlightColor
-                                      : palette.outline,
-                                  width: active || resonating ? 2 : 1,
+                  final activeHighlight = activeHole != null
+                      ? (isBlow ? palette.primary : palette.accentInk)
+                      : palette.primary;
+                  final activeAccent = activeHole != null
+                      ? AppPalette.holeColor(activeHole)
+                      : palette.primary;
+                  final sliderAlignmentX = activeHole != null
+                      ? -1.0 + ((activeHole.clamp(1, 10) - 1) * (2.0 / 9.0))
+                      : 0.0;
+
+                  return Stack(
+                    children: [
+                      Row(
+                        children: List.generate(10, (index) {
+                          final hole = index + 1;
+                          final active = activeHole == hole;
+                          final resonating =
+                              _resonatingHole == hole && pulse > 0.01;
+                          final holeAccent = AppPalette.holeColor(hole);
+                          final highlightColor = active
+                              ? (isBlow ? palette.primary : palette.accentInk)
+                              : holeAccent;
+                          return Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => _triggerHoleResonance(hole),
+                              child: AnimatedContainer(
+                                duration: AppMotion.duration(
+                                  context,
+                                  AppMotion.fast,
                                 ),
-                                right: index == 9 || active || resonating
-                                    ? BorderSide(
-                                        color: active || resonating
-                                            ? highlightColor
-                                            : palette.outline,
-                                        width: active || resonating ? 2 : 1,
-                                      )
-                                    : BorderSide.none,
-                                top: BorderSide(
-                                  color: active || resonating
-                                      ? highlightColor
-                                      : palette.outline,
-                                  width: active || resonating ? 2 : 1,
-                                ),
-                                bottom: BorderSide(
-                                  color: active || resonating
-                                      ? highlightColor
-                                      : palette.outline,
-                                  width: active || resonating ? 2 : 1,
-                                ),
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                Container(
-                                  height: active || resonating ? 4.5 : 2.5,
-                                  color: holeAccent.withValues(
-                                    alpha: active || resonating ? 0.98 : 0.45,
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Center(
-                                    child: Text(
-                                      '$hole',
-                                      style: TextStyle(
-                                        color: active || resonating
-                                            ? highlightColor
-                                            : palette.muted,
-                                        fontSize: compact ? 10 : 11,
-                                        fontWeight: active || resonating
-                                            ? FontWeight.w800
-                                            : FontWeight.w500,
-                                      ),
+                                curve: AppMotion.standardCurve,
+                                decoration: BoxDecoration(
+                                  color: resonating
+                                      ? holeAccent.withValues(
+                                          alpha: 0.18 * pulse + 0.06,
+                                        )
+                                      : active
+                                      ? highlightColor.withValues(alpha: 0.09)
+                                      : palette.surface,
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: palette.outline,
+                                      width: 1,
+                                    ),
+                                    right: index == 9
+                                        ? BorderSide(
+                                            color: palette.outline,
+                                            width: 1,
+                                          )
+                                        : BorderSide.none,
+                                    top: BorderSide(
+                                      color: palette.outline,
+                                      width: 1,
+                                    ),
+                                    bottom: BorderSide(
+                                      color: palette.outline,
+                                      width: 1,
                                     ),
                                   ),
                                 ),
-                                Container(height: 1, color: palette.outline),
-                                Expanded(
-                                  child: active
-                                      ? Center(
-                                          child: Icon(
-                                            isBlow
-                                                ? Icons.arrow_upward_rounded
-                                                : Icons.arrow_downward_rounded,
-                                            color: highlightColor,
-                                            size: 14,
+                                child: Column(
+                                  children: [
+                                    AnimatedContainer(
+                                      duration: AppMotion.duration(
+                                        context,
+                                        AppMotion.fast,
+                                      ),
+                                      height: active || resonating ? 4.5 : 2.5,
+                                      color: holeAccent.withValues(
+                                        alpha:
+                                            active || resonating ? 0.98 : 0.45,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Center(
+                                        child: AnimatedScale(
+                                          scale: active
+                                              ? 1.12 + pulse * 0.08
+                                              : 1.0,
+                                          duration: AppMotion.duration(
+                                            context,
+                                            AppMotion.fast,
                                           ),
-                                        )
-                                      : resonating
-                                      ? Center(
-                                          child: Icon(
-                                            Icons.graphic_eq_rounded,
-                                            color: holeAccent,
-                                            size: 13,
+                                          child: Text(
+                                            '$hole',
+                                            style: TextStyle(
+                                              color: active || resonating
+                                                  ? highlightColor
+                                                  : palette.muted,
+                                              fontSize: compact ? 10 : 11,
+                                              fontWeight: active || resonating
+                                                  ? FontWeight.w800
+                                                  : FontWeight.w500,
+                                            ),
                                           ),
-                                        )
-                                      : const SizedBox.shrink(),
+                                        ),
+                                      ),
+                                    ),
+                                    Container(height: 1, color: palette.outline),
+                                    Expanded(
+                                      child: AnimatedSwitcher(
+                                        duration: AppMotion.duration(
+                                          context,
+                                          AppMotion.fast,
+                                        ),
+                                        transitionBuilder: (child, animation) {
+                                          return ScaleTransition(
+                                            scale: animation,
+                                            child: FadeTransition(
+                                              opacity: animation,
+                                              child: child,
+                                            ),
+                                          );
+                                        },
+                                        child: active
+                                            ? Center(
+                                                key: ValueKey(
+                                                  'arrow_${hole}_$isBlow',
+                                                ),
+                                                child: Icon(
+                                                  isBlow
+                                                      ? Icons
+                                                            .arrow_upward_rounded
+                                                      : Icons
+                                                            .arrow_downward_rounded,
+                                                  color: highlightColor,
+                                                  size: 15,
+                                                ),
+                                              )
+                                            : resonating
+                                            ? Center(
+                                                key: ValueKey('res_$hole'),
+                                                child: Icon(
+                                                  Icons.graphic_eq_rounded,
+                                                  color: holeAccent,
+                                                  size: 13,
+                                                ),
+                                              )
+                                            : const SizedBox.shrink(
+                                                key: ValueKey('idle'),
+                                              ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                      if (activeHole != null)
+                        IgnorePointer(
+                          child: AnimatedAlign(
+                            alignment: Alignment(sliderAlignmentX, 0),
+                            duration: AppMotion.duration(
+                              context,
+                              AppMotion.base,
+                            ),
+                            curve: AppMotion.sheetCurve,
+                            child: FractionallySizedBox(
+                              widthFactor: 0.1,
+                              heightFactor: 1.0,
+                              child: AnimatedContainer(
+                                duration: AppMotion.duration(
+                                  context,
+                                  AppMotion.fast,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(
+                                    color: activeHighlight,
+                                    width: 2.2,
+                                  ),
+                                  color: activeAccent.withValues(
+                                    alpha: 0.10 * pulse,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      );
-                    }),
+                    ],
                   );
                 },
               ),
