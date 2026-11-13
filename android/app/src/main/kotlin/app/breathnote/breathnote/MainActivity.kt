@@ -128,7 +128,15 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
     private fun handlePreferencesMethod(call: MethodCall, result: MethodChannel.Result) {
         val preferences = getSharedPreferences("breathnote_preferences", MODE_PRIVATE)
         when (call.method) {
-            "getAll" -> result.success(preferences.all)
+            "getAll" -> {
+                val payload = HashMap<String, Any?>(preferences.all)
+                try {
+                    val pkgInfo = packageManager.getPackageInfo(packageName, 0)
+                    payload["__runtimeAppVersion"] =
+                        "v${pkgInfo.versionName} (${pkgInfo.longVersionCode})"
+                } catch (_: Exception) {}
+                result.success(payload)
+            }
             "setValue" -> {
                 val key = call.argument<String>("key")
                 val value = call.argument<Any>("value")

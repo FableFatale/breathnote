@@ -5,7 +5,7 @@ const String kAppVersionName = String.fromEnvironment(
 
 const int kAppBuildNumber = int.fromEnvironment(
   'APP_BUILD_NUMBER',
-  defaultValue: 10,
+  defaultValue: 11,
 );
 
 String get kAppDisplayVersion => 'v$kAppVersionName ($kAppBuildNumber)';

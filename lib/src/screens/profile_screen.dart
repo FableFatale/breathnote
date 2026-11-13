@@ -8,7 +8,6 @@ import '../state/app_controller.dart';
 import '../theme/app_adaptive.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
-import '../version.dart';
 import '../widgets/cute_illustrations.dart';
 import 'help_screen.dart';
 import 'local_data_screen.dart';
@@ -486,7 +485,7 @@ class ProfileScreen extends StatelessWidget {
         const SizedBox(height: 18),
         Center(
           child: Text(
-            '${strings.t('appName')} $kAppDisplayVersion',
+            '${strings.t('appTitle')} ${controller.appVersionLabel}',
             key: const Key('profile-version-label'),
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: palette.muted,

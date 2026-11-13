@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/pitch_reading.dart';
 import '../models/song.dart';
 import '../services/preferences_service.dart';
+import '../version.dart';
 
 class AppController extends ChangeNotifier {
   AppController({PreferencesService? preferences})
@@ -30,6 +31,7 @@ class AppController extends ChangeNotifier {
   int bestScore = 0;
   bool isLoaded = false;
   bool sawHarmonicaGuide = false;
+  String appVersionLabel = kAppDisplayVersion;
   final Set<String> practiceDates = {};
   final Set<String> completedLessons = {};
   final Set<String> seenCoachTips = {};
@@ -100,6 +102,10 @@ class AppController extends ChangeNotifier {
   Future<void> load() async {
     try {
       final values = await _preferences.getAll();
+      final runtimeVersion = values['__runtimeAppVersion'] as String?;
+      if (runtimeVersion != null && runtimeVersion.isNotEmpty) {
+        appVersionLabel = runtimeVersion;
+      }
       final savedDisplayName = values['displayName'] as String?;
       displayName =
           savedDisplayName == null ||
