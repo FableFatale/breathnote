@@ -21,6 +21,8 @@ class PracticeNote {
 
   String get label => '$note$octave';
 
+  bool get isBlow => tab.contains('↑');
+
   int get midi {
     const names = [
       'C',

@@ -44,6 +44,8 @@ class AppController extends ChangeNotifier {
   double get lessonProgress =>
       (completedLessons.length / 5).clamp(0.0, 1.0).toDouble();
 
+  int get streakDays => currentStreak;
+
   int get currentStreak {
     if (practiceDates.isEmpty) return 0;
     final now = DateTime.now();
