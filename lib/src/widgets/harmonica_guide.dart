@@ -446,19 +446,43 @@ class _GuideDiagram extends StatelessWidget {
           HarmonicaDiagram(activeTab: activeTab, onHoleTap: onHoleTap),
           const SizedBox(height: 8),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                context.strings.t('zoneLowShort'),
-                style: Theme.of(context).textTheme.bodySmall,
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      context.strings.t('zoneLowShort'),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ),
               ),
-              Text(
-                context.strings.t('zoneMiddleShort'),
-                style: Theme.of(context).textTheme.bodySmall,
+              const SizedBox(width: 6),
+              Expanded(
+                child: Center(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      context.strings.t('zoneMiddleShort'),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ),
               ),
-              Text(
-                context.strings.t('zoneHighShort'),
-                style: Theme.of(context).textTheme.bodySmall,
+              const SizedBox(width: 6),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      context.strings.t('zoneHighShort'),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
