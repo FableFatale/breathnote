@@ -12,9 +12,9 @@ abstract final class AppMotion {
   static const sheetCurve = Cubic(0.32, 0.72, 0, 1);
 
   static bool isReduced(BuildContext context) {
-    final mediaQuery = MediaQuery.maybeOf(context);
-    return AppScope.of(context).reduceMotion ||
-        (mediaQuery?.disableAnimations ?? false);
+    final mediaQuery = context.getInheritedWidgetOfExactType<MediaQuery>()?.data;
+    final reduceMotion = AppScope.maybeRead(context)?.reduceMotion ?? false;
+    return reduceMotion || (mediaQuery?.disableAnimations ?? false);
   }
 
   static Duration duration(BuildContext context, Duration duration) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 
 class MotionLinearProgress extends StatelessWidget {
@@ -84,6 +85,7 @@ class _BreathingPulseState extends State<BreathingPulse>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    AppScope.of(context);
     _reduceMotion = AppMotion.isReduced(context);
     _syncAnimation();
   }
@@ -91,6 +93,7 @@ class _BreathingPulseState extends State<BreathingPulse>
   @override
   void didUpdateWidget(covariant BreathingPulse oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _reduceMotion = AppMotion.isReduced(context);
     _syncAnimation();
   }
 

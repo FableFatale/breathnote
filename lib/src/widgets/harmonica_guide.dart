@@ -28,7 +28,7 @@ const _harmonicaKeys = [
 ];
 
 Future<void> showHarmonicaKeyPicker(BuildContext context) async {
-  final controller = AppScope.of(context);
+  final controller = AppScope.read(context);
   unawaited(AppHaptics.selection(context));
   final selected = await showModalBottomSheet<String>(
     context: context,
@@ -85,7 +85,7 @@ Future<void> showHarmonicaGuide(
   required bool skipIsClose,
   required VoidCallback onComplete,
 }) async {
-  unawaited(AppScope.of(context).markHarmonicaGuideSeen());
+  unawaited(AppScope.read(context).markHarmonicaGuideSeen());
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -217,7 +217,7 @@ class _HarmonicaGuideState extends State<HarmonicaGuide> {
         AnimatedSwitcher(
           duration: AppMotion.duration(context, AppMotion.fast),
           child: Column(
-            key: ValueKey('$_step-$_selectedHole-$_selectedBlow'),
+            key: ValueKey(_step),
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (_step == 1) ...[
@@ -449,11 +449,15 @@ class _GuideDiagram extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                context.strings.t('low'),
+                context.strings.t('zoneLowShort'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               Text(
-                context.strings.t('high'),
+                context.strings.t('zoneMiddleShort'),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              Text(
+                context.strings.t('zoneHighShort'),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],

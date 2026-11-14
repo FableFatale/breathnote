@@ -524,4 +524,16 @@ class AppScope extends InheritedNotifier<AppController> {
     assert(scope != null, 'AppScope is missing above this context.');
     return scope!.notifier!;
   }
+
+  /// Non-subscribing read for imperative callbacks, timers, and stream listeners.
+  /// Never modifies `_dependents` on the `InheritedElement`.
+  static AppController read(BuildContext context) {
+    final scope = context.getInheritedWidgetOfExactType<AppScope>();
+    assert(scope != null, 'AppScope is missing above this context.');
+    return scope!.notifier!;
+  }
+
+  static AppController? maybeRead(BuildContext context) {
+    return context.getInheritedWidgetOfExactType<AppScope>()?.notifier;
+  }
 }

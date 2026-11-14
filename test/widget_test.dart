@@ -1521,4 +1521,63 @@ void main() {
 
     expect(find.byKey(const Key('chuming-launch-splash')), findsNothing);
   });
+
+  test('folds subharmonic and overtone octaves for target note cents', () {
+    const target = PracticeNote(note: 'C', octave: 5, tab: '4↑');
+    final c5 = target.frequencyForKey('C'); // ~523.25 Hz
+    final c4 = c5 / 2; // ~261.63 Hz (1 octave below)
+    final c3 = c5 / 4; // ~130.81 Hz (2 octaves below)
+    final c6 = c5 * 2; // ~1046.50 Hz (1 octave above)
+
+    expect(target.centsFromFrequency(c5, 'C'), closeTo(0, 0.01));
+    expect(target.centsFromFrequency(c4, 'C'), closeTo(0, 0.01));
+    expect(target.centsFromFrequency(c3, 'C'), closeTo(0, 0.01));
+    expect(target.centsFromFrequency(c6, 'C'), closeTo(0, 0.01));
+
+    // Wrong note (D4) still reports ~+200 cents error
+    final d4 = c4 * 1.122462;
+    expect(target.centsFromFrequency(d4, 'C'), closeTo(200, 1.0));
+  });
+
+  testWidgets(
+    'completes lesson 1, transitions to lesson 2, and pops while listening without assertion error',
+    (tester) async {
+      final harness = installPitchCompletionHarness();
+      final controller = AppController()..harmonicaKey = 'C';
+      addTearDown(controller.dispose);
+      await pumpBreathnote(tester, controller: controller);
+
+      await tester.tap(find.text('认识你的口琴').first);
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('完成本课'));
+      await tester.tap(find.text('完成本课'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('lesson-1-next')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('practice-hold-bar')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('practice-primary-control')));
+      await tester.pump(const Duration(milliseconds: 80));
+
+      // Emit a C4 subharmonic reading while listening, then immediately pop back to LearnScreen
+      final c4Freq =
+          const PracticeNote(
+            note: 'C',
+            octave: 5,
+            tab: '4↑',
+          ).frequencyForKey('C') /
+          2;
+      harness.emitPitch(c4Freq);
+      await tester.pump(const Duration(milliseconds: 40));
+
+      await tester.tap(find.byIcon(Icons.arrow_back).first);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('学习路径'), findsOneWidget);
+      expect(find.text('已完成 1/5 课'), findsOneWidget);
+    },
+  );
 }

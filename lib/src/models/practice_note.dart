@@ -52,7 +52,11 @@ class PracticeNote {
 
   double centsFromFrequency(double frequency, String key) {
     if (frequency <= 0) return 0;
-    return 1200 * math.log(frequency / frequencyForKey(key)) / math.ln2;
+    final rawCents =
+        1200 * math.log(frequency / frequencyForKey(key)) / math.ln2;
+    if (rawCents.abs() <= 600) return rawCents;
+    final octaveShift = (rawCents / 1200).round().clamp(-3, 3);
+    return rawCents - octaveShift * 1200;
   }
 
   Map<String, Object> toJson() {

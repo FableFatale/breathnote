@@ -31,7 +31,7 @@ class ProfileScreen extends StatelessWidget {
   ];
 
   Future<void> _editName(BuildContext context) async {
-    final controller = AppScope.of(context);
+    final controller = AppScope.read(context);
     final strings = context.strings;
     final fieldController = TextEditingController(
       text: controller.displayName == AppController.defaultDisplayName
@@ -76,7 +76,7 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Future<void> _chooseKey(BuildContext context) async {
-    final controller = AppScope.of(context);
+    final controller = AppScope.read(context);
     unawaited(AppHaptics.selection(context));
     final selected = await showModalBottomSheet<String>(
       context: context,

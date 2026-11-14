@@ -32,6 +32,12 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   bool _isBlow = true;
 
   @override
+  void deactivate() {
+    _toneTimer?.cancel();
+    super.deactivate();
+  }
+
+  @override
   void dispose() {
     _toneTimer?.cancel();
     unawaited(_guideToneService.stop());
@@ -55,6 +61,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   }
 
   Future<void> _playCurrentHoleTone() async {
+    if (!mounted) return;
     unawaited(AppHaptics.reedResonance(context));
     _toneTimer?.cancel();
     if (_playingHoleTone) {
@@ -64,7 +71,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       return;
     }
 
-    final key = AppScope.of(context).harmonicaKey;
+    final key = AppScope.maybeRead(context)?.harmonicaKey ?? 'C';
     final info = harmonicaHoleInfo(_selectedHole, isBlow: _isBlow);
     setState(() => _playingHoleTone = true);
     try {
@@ -85,9 +92,11 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   }
 
   Future<void> _complete(BuildContext context) async {
-    if (_completing) return;
+    if (_completing || !mounted) return;
+    final controller = AppScope.maybeRead(context);
+    if (controller == null) return;
     setState(() => _completing = true);
-    await AppScope.of(context).markLessonComplete('lesson_1');
+    await controller.markLessonComplete('lesson_1');
     if (!context.mounted) return;
     await AppHaptics.success(context);
     if (!context.mounted) return;
@@ -142,6 +151,9 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
         ],
       ),
       body: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: ClampingScrollPhysics(),
+        ),
         padding: EdgeInsets.fromLTRB(pagePadding, 8, pagePadding, 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

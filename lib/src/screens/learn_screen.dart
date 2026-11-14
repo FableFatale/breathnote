@@ -52,13 +52,9 @@ class LearnScreen extends StatelessWidget {
                   messageKey: 'coachLearn',
                   mood: ChumingMood.idle,
                 ),
-                AnimatedSwitcher(
-                  duration: AppMotion.duration(context, AppMotion.base),
-                  child: _PracticeCard(
-                    key: ValueKey(nextLesson.id),
-                    lesson: nextLesson,
-                    onStart: () => _openLesson(context, nextLesson),
-                  ),
+                _PracticeCard(
+                  lesson: nextLesson,
+                  onStart: () => _openLesson(context, nextLesson),
                 ),
                 const SizedBox(height: 24),
                 Wrap(
@@ -133,7 +129,7 @@ class LearnScreen extends StatelessWidget {
 
   static void _openLesson(BuildContext context, LessonDefinition lesson) {
     unawaited(AppHaptics.selection(context));
-    if (lesson.id == 'lesson_1' && !AppScope.of(context).sawHarmonicaGuide) {
+    if (lesson.id == 'lesson_1' && !AppScope.read(context).sawHarmonicaGuide) {
       _showBeginnerGuide(context);
       return;
     }

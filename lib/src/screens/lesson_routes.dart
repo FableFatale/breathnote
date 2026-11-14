@@ -69,33 +69,36 @@ String? nextLessonId(String id) {
 }
 
 Route<void> lessonRoute(BuildContext context, LessonDefinition lesson) {
-  final strings = context.strings;
   final reduceMotion = AppMotion.isReduced(context);
-  final Widget screen = switch (lesson.kind) {
-    LessonKind.introduction => const LessonDetailScreen(),
-    LessonKind.firstNote => PracticeScreen(
-      target: const PracticeNote(note: 'C', octave: 5, tab: '4↑'),
-      lessonId: lesson.id,
-      instruction: strings.lessonGuidance(lesson.id),
-      step: 2,
-    ),
-    LessonKind.clearNote => PracticeScreen(
-      target: const PracticeNote(note: 'E', octave: 5, tab: '5↑'),
-      lessonId: lesson.id,
-      instruction: strings.lessonGuidance(lesson.id),
-      step: 3,
-    ),
-    LessonKind.drawNote => PracticeScreen(
-      target: const PracticeNote(note: 'D', octave: 5, tab: '4↓'),
-      lessonId: lesson.id,
-      instruction: strings.lessonGuidance(lesson.id),
-      step: 4,
-    ),
-    LessonKind.firstSong => SongPracticeScreen(
-      song: songs.first,
-      lessonId: lesson.id,
-    ),
-  };
-
-  return AppPageRoute<void>(reduceMotion: reduceMotion, builder: (_) => screen);
+  return AppPageRoute<void>(
+    reduceMotion: reduceMotion,
+    builder: (routeContext) {
+      final strings = routeContext.strings;
+      return switch (lesson.kind) {
+        LessonKind.introduction => const LessonDetailScreen(),
+        LessonKind.firstNote => PracticeScreen(
+          target: const PracticeNote(note: 'C', octave: 5, tab: '4↑'),
+          lessonId: lesson.id,
+          instruction: strings.lessonGuidance(lesson.id),
+          step: 2,
+        ),
+        LessonKind.clearNote => PracticeScreen(
+          target: const PracticeNote(note: 'E', octave: 5, tab: '5↑'),
+          lessonId: lesson.id,
+          instruction: strings.lessonGuidance(lesson.id),
+          step: 3,
+        ),
+        LessonKind.drawNote => PracticeScreen(
+          target: const PracticeNote(note: 'D', octave: 5, tab: '4↓'),
+          lessonId: lesson.id,
+          instruction: strings.lessonGuidance(lesson.id),
+          step: 4,
+        ),
+        LessonKind.firstSong => SongPracticeScreen(
+          song: songs.first,
+          lessonId: lesson.id,
+        ),
+      };
+    },
+  );
 }

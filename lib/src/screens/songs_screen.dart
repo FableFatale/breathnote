@@ -33,7 +33,7 @@ class _SongsScreenState extends State<SongsScreen> {
   }
 
   Future<void> _createSong() async {
-    final appController = AppScope.of(context);
+    final appController = AppScope.read(context);
     unawaited(AppHaptics.selection(context));
 
     final createdSong = await showModalBottomSheet<Song>(
@@ -74,13 +74,13 @@ class _SongsScreenState extends State<SongsScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    await AppScope.of(context).removeCustomSong(song.id);
+    await AppScope.read(context).removeCustomSong(song.id);
     if (!mounted) return;
     await AppHaptics.warning(context);
   }
 
   Future<void> _pickSongIcon(Song song) async {
-    final appController = AppScope.of(context);
+    final appController = AppScope.read(context);
     unawaited(AppHaptics.selection(context));
     await showModalBottomSheet<void>(
       context: context,

@@ -80,6 +80,14 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   }
 
   @override
+  void deactivate() {
+    _guideTimer?.cancel();
+    _guideStepTimer?.cancel();
+    _pausePracticeTimer();
+    super.deactivate();
+  }
+
+  @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _guideTimer?.cancel();
@@ -128,13 +136,14 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   }
 
   Future<void> _beginListening() async {
+    if (!mounted) return;
+    final sensitivity =
+        AppScope.maybeRead(context)?.microphoneSensitivity ?? 0.68;
     _subscription ??= _pitchService.readings.listen(
       _onReading,
       onError: (Object _) => unawaited(_handleReadingError()),
     );
-    final started = await _pitchService.start(
-      sensitivity: AppScope.of(context).microphoneSensitivity,
-    );
+    final started = await _pitchService.start(sensitivity: sensitivity);
     if (!mounted) return;
     setState(() {
       _status = started ? _SongStatus.listening : _SongStatus.error;
@@ -153,21 +162,25 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         _finishing) {
       return;
     }
+    final controller = AppScope.maybeRead(context);
+    if (controller == null) return;
     final target = widget.song.notes[_index];
     final cents = target.centsFromFrequency(
       reading.frequency,
-      AppScope.of(context).harmonicaKey,
+      controller.harmonicaKey,
     );
-    final matches = reading.detected && cents.abs() <= 25;
+    final matches = reading.detected && cents.abs() <= 35;
     final now = DateTime.now();
     if (reading.detected &&
         (_lastSampleAt == null ||
             now.difference(_lastSampleAt!).inMilliseconds >= 500)) {
       _lastSampleAt = now;
       unawaited(
-        AppScope.of(
-          context,
-        ).recordPitchAttempt(tab: target.tab, reading: reading, cents: cents),
+        controller.recordPitchAttempt(
+          tab: target.tab,
+          reading: reading,
+          cents: cents,
+        ),
       );
     }
     if (matches) {
@@ -232,15 +245,19 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         .round()
         .clamp(0, 100)
         .toInt();
+    final controller = AppScope.maybeRead(context);
+    if (controller == null) return;
     final seconds = _activePracticeDuration.inSeconds.clamp(0, 3600).toInt();
     final futures = <Future<void>>[
       _pitchService.stop(),
       _guideToneService.stop(),
-      AppScope.of(context)
-          .recordPractice(seconds: seconds == 0 ? 1 : seconds, score: _score),
+      controller.recordPractice(
+        seconds: seconds == 0 ? 1 : seconds,
+        score: _score,
+      ),
     ];
     if (widget.lessonId != null) {
-      futures.add(AppScope.of(context).markLessonComplete(widget.lessonId!));
+      futures.add(controller.markLessonComplete(widget.lessonId!));
     }
     await Future.wait(futures);
     if (!mounted) return;
@@ -315,7 +332,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     });
 
     try {
-      final key = AppScope.of(context).harmonicaKey;
+      final key = AppScope.maybeRead(context)?.harmonicaKey ?? 'C';
       final duration = await _guideToneService.play(
         frequencies: widget.song.notes
             .map((note) => note.frequencyForKey(key))

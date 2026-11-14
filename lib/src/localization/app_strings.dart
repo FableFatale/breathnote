@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import '../state/app_controller.dart';
+
 class AppStrings {
   AppStrings(String languageCode)
     : languageCode = _supported.contains(languageCode) ? languageCode : 'zh';
@@ -980,6 +982,12 @@ class AppStrings {
 }
 
 extension AppStringsContext on BuildContext {
-  AppStrings get strings =>
-      AppStrings(Localizations.localeOf(this).languageCode);
+  AppStrings get strings {
+    final controller = AppScope.maybeRead(this);
+    if (controller != null) {
+      return AppStrings(controller.languageCode);
+    }
+    final locale = Localizations.maybeLocaleOf(this);
+    return AppStrings(locale?.languageCode ?? 'zh');
+  }
 }

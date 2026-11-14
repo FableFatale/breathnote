@@ -265,7 +265,7 @@ class PitchDetector(
         var selectedTau = -1
         var tau = minimumTau
         while (tau < maximumTau) {
-            if (normalized[tau] < 0.16) {
+            if (normalized[tau] < 0.22) {
                 while (tau + 1 < maximumTau && normalized[tau + 1] < normalized[tau]) {
                     tau++
                 }
@@ -277,6 +277,22 @@ class PitchDetector(
         if (selectedTau == -1) {
             selectedTau =
                 (minimumTau..maximumTau).minByOrNull { normalized[it] } ?: return null
+        }
+
+        // Disambiguate YIN subharmonic octave locks (e.g. C3/C4 subharmonics of a C5 harmonica reed).
+        for (divisor in intArrayOf(4, 2)) {
+            val candidateCenter = selectedTau / divisor
+            if (candidateCenter > minimumTau + 2) {
+                val searchStart = max(minimumTau, candidateCenter - 3)
+                val searchEnd = min(maximumTau, candidateCenter + 3)
+                val bestSubTau = (searchStart..searchEnd).minByOrNull { normalized[it] } ?: continue
+                if (normalized[bestSubTau] < 0.28 &&
+                    normalized[bestSubTau] <= normalized[selectedTau] + 0.10
+                ) {
+                    selectedTau = bestSubTau
+                    break
+                }
+            }
         }
 
         val confidence = (1.0 - normalized[selectedTau]).coerceIn(0.0, 1.0)

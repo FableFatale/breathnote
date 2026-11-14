@@ -169,6 +169,8 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
 
   void _onReading(PitchReading reading) {
     if (!mounted || _status != _TunerStatus.listening) return;
+    final controller = AppScope.maybeRead(context);
+    if (controller == null) return;
     final inTune = reading.detected && reading.cents.abs() <= 5;
     if (inTune && !_wasInTune) {
       AppHaptics.success(context);
@@ -181,13 +183,13 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
         _sessionCents.removeAt(0);
       }
       final now = DateTime.now();
-      final tab = _tabForReading(reading, AppScope.of(context).harmonicaKey);
+      final tab = _tabForReading(reading, controller.harmonicaKey);
       if (tab != null &&
           (_lastPersistedAt == null ||
               now.difference(_lastPersistedAt!).inMilliseconds >= 500)) {
         _lastPersistedAt = now;
         unawaited(
-          AppScope.of(context).recordPitchAttempt(
+          controller.recordPitchAttempt(
             tab: tab,
             reading: reading,
             cents: reading.cents,

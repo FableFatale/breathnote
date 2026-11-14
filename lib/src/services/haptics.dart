@@ -32,8 +32,13 @@ abstract final class AppHaptics {
     }
   }
 
+  static bool _isEnabled(BuildContext context) {
+    if (!context.mounted) return false;
+    return AppScope.maybeRead(context)?.hapticsEnabled ?? false;
+  }
+
   static Future<void> selection(BuildContext context) async {
-    if (AppScope.of(context).hapticsEnabled) {
+    if (_isEnabled(context)) {
       await _invokeNative('selection', HapticFeedback.selectionClick);
     }
   }
@@ -41,7 +46,7 @@ abstract final class AppHaptics {
   /// Simulates the tactile metallic reed resonance of a 10-hole harmonica
   /// when tapping a hole or holding an in-tune breath.
   static Future<void> reedResonance(BuildContext context) async {
-    if (AppScope.of(context).hapticsEnabled) {
+    if (_isEnabled(context)) {
       await _invokeNative('reed', () async {
         await HapticFeedback.selectionClick();
         await HapticFeedback.lightImpact();
@@ -50,19 +55,19 @@ abstract final class AppHaptics {
   }
 
   static Future<void> light(BuildContext context) async {
-    if (AppScope.of(context).hapticsEnabled) {
+    if (_isEnabled(context)) {
       await _invokeNative('light', HapticFeedback.lightImpact);
     }
   }
 
   static Future<void> success(BuildContext context) async {
-    if (AppScope.of(context).hapticsEnabled) {
+    if (_isEnabled(context)) {
       await _invokeNative('success', HapticFeedback.mediumImpact);
     }
   }
 
   static Future<void> warning(BuildContext context) async {
-    if (AppScope.of(context).hapticsEnabled) {
+    if (_isEnabled(context)) {
       await _invokeNative('warning', HapticFeedback.heavyImpact);
     }
   }
