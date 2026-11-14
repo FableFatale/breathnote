@@ -9,6 +9,7 @@ import '../services/haptics.dart';
 import '../services/pitch_service.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
+import '../widgets/chuming_launch_splash.dart';
 import 'learn_screen.dart';
 import 'profile_screen.dart';
 import 'songs_screen.dart';
@@ -176,14 +177,15 @@ class _HomeShellState extends State<HomeShell>
         ),
       ),
     );
-    if (!kIsWeb) return scaffold;
+    final wrappedScaffold = ChumingLaunchSplashOverlay(child: scaffold);
+    if (!kIsWeb) return wrappedScaffold;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth <= 760) return scaffold;
+        if (constraints.maxWidth <= 760) return wrappedScaffold;
         return ColoredBox(
           color: Theme.of(context).scaffoldBackgroundColor,
-          child: Center(child: SizedBox(width: 720, child: scaffold)),
+          child: Center(child: SizedBox(width: 720, child: wrappedScaffold)),
         );
       },
     );

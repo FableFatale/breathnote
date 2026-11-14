@@ -1505,4 +1505,20 @@ void main() {
 
     expect(controller.iconIdForSong(songs[0]), 'star');
   });
+
+  testWidgets('plays Chuming Bird launch splash transition on cold start', (
+    tester,
+  ) async {
+    final controller = AppController()..sawHarmonicaGuide = true;
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(BreathnoteApp(controller: controller));
+    await tester.pump(const Duration(milliseconds: 120));
+
+    expect(find.byKey(const Key('chuming-launch-splash')), findsOneWidget);
+
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('chuming-launch-splash')), findsNothing);
+  });
 }

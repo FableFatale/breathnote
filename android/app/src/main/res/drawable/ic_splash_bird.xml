@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+    <!-- Soft outer acoustic halo -->
+    <path
+        android:pathData="M60,60 m-40,0 a40,40 0,1 1,80 0 a40,40 0,1 1,-80 0"
+        android:fillColor="#376CFF"
+        android:fillAlpha="0.10" />
+    <!-- Ground shadow -->
+    <path
+        android:pathData="M44,88 a16,3.2 0,1 0,32 0 a16,3.2 0,1 0,-32 0"
+        android:fillColor="#376CFF"
+        android:fillAlpha="0.16" />
+    <!-- Top feather tufts -->
+    <path
+        android:pathData="M55,30 C53,24 58,23 59,29 C61,24 65,25 63,31 Z"
+        android:fillColor="#5E9BFF" />
+    <!-- Chubby sky-blue bird body -->
+    <path
+        android:pathData="M60,31 C76,31 85,41 85,57 C85,73 75,83 60,83 C45,83 35,73 35,57 C35,41 44,31 60,31 Z"
+        android:fillColor="#4785FF" />
+    <!-- Snowy white face & belly mask -->
+    <path
+        android:pathData="M60,40 C72,40 79,48 79,60 C79,72 71,80 60,80 C49,80 41,72 41,60 C41,48 48,40 60,40 Z"
+        android:fillColor="#FFFFFF" />
+    <!-- Left & right wings -->
+    <path
+        android:pathData="M36,50 C31,52 30,61 35,66 C38,68 40,63 39,56 Z M84,50 C89,52 90,61 85,66 C82,68 80,63 81,56 Z"
+        android:fillColor="#376CFF" />
+    <!-- Cute orange feet -->
+    <path
+        android:pathData="M50,82 a4.2,2.4 0,1 0,8.4 0 a4.2,2.4 0,1 0,-8.4 0 M61.6,82 a4.2,2.4 0,1 0,8.4 0 a4.2,2.4 0,1 0,-8.4 0"
+        android:fillColor="#FF8B1A" />
+    <!-- Sparkling eyes -->
+    <path
+        android:pathData="M48.5,54 a3.4,3.4 0,1 1,6.8 0 a3.4,3.4 0,1 1,-6.8 0 M64.7,54 a3.4,3.4 0,1 1,6.8 0 a3.4,3.4 0,1 1,-6.8 0"
+        android:fillColor="#141926" />
+    <!-- Eye catchlights -->
+    <path
+        android:pathData="M51.5,52.6 a1.2,1.2 0,1 1,2.4 0 a1.2,1.2 0,1 1,-2.4 0 M67.7,52.6 a1.2,1.2 0,1 1,2.4 0 a1.2,1.2 0,1 1,-2.4 0"
+        android:fillColor="#FFFFFF" />
+    <!-- Rosy cheeks -->
+    <path
+        android:pathData="M44.5,59.5 a3.2,2.1 0,1 0,6.4 0 a3.2,2.1 0,1 0,-6.4 0 M69.1,59.5 a3.2,2.1 0,1 0,6.4 0 a3.2,2.1 0,1 0,-6.4 0"
+        android:fillColor="#FF8FA3"
+        android:fillAlpha="0.65" />
+    <!-- Warm orange beak -->
+    <path
+        android:pathData="M56.5,56.5 Q60,54.5 63.5,56.5 Q60,61.5 56.5,56.5 Z"
+        android:fillColor="#FF8B1A" />
+</vector>
