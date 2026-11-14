@@ -134,9 +134,19 @@ class _SongsScreenState extends State<SongsScreen> {
                           unawaited(AppHaptics.reedResonance(context));
                           unawaited(controller.reopenCoachTip('songs'));
                         },
-                        child: const ChumingBird(
-                          size: 36,
-                          mood: ChumingMood.listening,
+                        child: Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: palette.surface,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: palette.outline),
+                          ),
+                          alignment: Alignment.center,
+                          child: const ChumingBird(
+                            size: 28,
+                            mood: ChumingMood.listening,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -148,11 +158,39 @@ class _SongsScreenState extends State<SongsScreen> {
                             ?.copyWith(fontSize: 22),
                       ),
                     ),
-                    IconButton.filled(
-                      key: const Key('add-custom-song'),
-                      tooltip: context.strings.t('addCustomSong'),
-                      onPressed: _createSong,
-                      icon: const Icon(Icons.add_rounded),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            const Color(0xFF5B93FF),
+                            palette.primary,
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: palette.primary.withValues(alpha: 0.24),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: IconButton(
+                        key: const Key('add-custom-song'),
+                        tooltip: context.strings.t('addCustomSong'),
+                        onPressed: _createSong,
+                        style: IconButton.styleFrom(
+                          foregroundColor: palette.onPrimary,
+                          minimumSize: const Size(44, 44),
+                          fixedSize: const Size(44, 44),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        icon: const Icon(Icons.add_rounded),
+                      ),
                     ),
                   ],
                 ),
@@ -655,29 +693,53 @@ class _SongTile extends StatelessWidget {
                               title,
                               style: Theme.of(context).textTheme.titleMedium,
                             ),
-                            if (song.isCustom) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                context.strings.t('customSongSubtitle'),
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                            ],
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 2),
                             Text(
-                              song.tabPreview,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: palette.primary,
-                                fontSize: 12,
-                                fontFamily: 'monospace',
-                                fontWeight: FontWeight.w700,
+                              context.strings.t(song.subtitle),
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            const SizedBox(height: 7),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: palette.primary.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                song.tabPreview,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: palette.primary,
+                                  fontSize: 12,
+                                  fontFamily: 'monospace',
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                      if (onDelete == null)
-                        Icon(Icons.chevron_right_rounded, color: palette.muted),
+                      if (onDelete == null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: palette.surfaceHigh,
+                            shape: BoxShape.circle,
+                          ),
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.chevron_right_rounded,
+                            color: palette.muted,
+                            size: 18,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

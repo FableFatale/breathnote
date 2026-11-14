@@ -298,49 +298,77 @@ class ProfileScreen extends StatelessWidget {
       key: const PageStorageKey('profile'),
       padding: EdgeInsets.fromLTRB(pagePadding, 20, pagePadding, 28),
       children: [
-        Row(
-          children: [
-            Container(
-              width: 58,
-              height: 58,
-              decoration: BoxDecoration(
-                color: palette.primary.withValues(alpha: 0.10),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: palette.outline,
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                palette.surface,
+                palette.primary.withValues(alpha: 0.045),
+              ],
+            ),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: palette.outline),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: palette.surface,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: palette.primary.withValues(alpha: 0.28),
+                      width: 1.5,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: palette.primary.withValues(alpha: 0.10),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: ChumingBird(
+                    size: 44,
+                    mood: controller.practiceDates.isNotEmpty
+                        ? ChumingMood.celebrating
+                        : ChumingMood.idle,
+                  ),
                 ),
-              ),
-              alignment: Alignment.center,
-              child: ChumingBird(
-                size: 46,
-                mood: controller.practiceDates.isNotEmpty
-                    ? ChumingMood.celebrating
-                    : ChumingMood.idle,
-              ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    displayName,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                IconButton.outlined(
+                  key: const Key('edit-profile-name'),
+                  tooltip: strings.t('editNickname'),
+                  onPressed: () => _editName(context),
+                  icon: const Icon(Icons.edit_rounded, size: 20),
+                ),
+              ],
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                displayName,
-                style: Theme.of(context).textTheme.titleMedium
-                    ?.copyWith(fontSize: 19),
-              ),
-            ),
-            IconButton.outlined(
-              key: const Key('edit-profile-name'),
-              tooltip: strings.t('editNickname'),
-              onPressed: () => _editName(context),
-              icon: const Icon(Icons.edit_rounded),
-            ),
-          ],
+          ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
         Row(
           children: [
             Expanded(
               child: _Metric(
                 value: '${controller.practiceDates.length}',
                 label: strings.t('practiceDays'),
+                accentColor: palette.primary,
               ),
             ),
             const SizedBox(width: 8),
@@ -349,6 +377,7 @@ class ProfileScreen extends StatelessWidget {
                 value: '${controller.practiceMinutes}',
                 label: strings.t('practiceMinutes'),
                 suffix: strings.t('minuteUnit'),
+                accentColor: palette.success,
               ),
             ),
             const SizedBox(width: 8),
@@ -357,6 +386,7 @@ class ProfileScreen extends StatelessWidget {
                 value: '${controller.bestScore}',
                 label: strings.t('bestScore'),
                 suffix: '/ 100',
+                accentColor: palette.accent,
               ),
             ),
           ],
@@ -500,19 +530,34 @@ class ProfileScreen extends StatelessWidget {
 }
 
 class _Metric extends StatelessWidget {
-  const _Metric({required this.value, required this.label, this.suffix});
+  const _Metric({
+    required this.value,
+    required this.label,
+    required this.accentColor,
+    this.suffix,
+  });
 
   final String value;
   final String label;
+  final Color accentColor;
   final String? suffix;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 6),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
         child: Column(
           children: [
+            Container(
+              width: 20,
+              height: 3.5,
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            const SizedBox(height: 10),
             Text.rich(
               TextSpan(
                 text: value,

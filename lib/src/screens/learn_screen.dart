@@ -87,14 +87,20 @@ class LearnScreen extends StatelessWidget {
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
                                 color: context.colors.muted,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w700,
                               ),
                         ),
                       ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
+                _ReedPathMeter(
+                  total: lessons.length,
+                  completedIds: controller.completedLessons,
+                  activeId: nextLesson.id,
+                ),
+                const SizedBox(height: 14),
               ],
             ),
           ),
@@ -152,6 +158,45 @@ class LearnScreen extends StatelessWidget {
   }
 }
 
+class _ReedPathMeter extends StatelessWidget {
+  const _ReedPathMeter({
+    required this.total,
+    required this.completedIds,
+    required this.activeId,
+  });
+
+  final int total;
+  final Set<String> completedIds;
+  final String activeId;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.colors;
+    return Row(
+      children: [
+        for (var i = 0; i < total; i++) ...[
+          if (i > 0) const SizedBox(width: 6),
+          Expanded(
+            child: AnimatedContainer(
+              duration: AppMotion.duration(context, AppMotion.base),
+              curve: AppMotion.standardCurve,
+              height: 5,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                color: completedIds.contains(lessons[i].id)
+                    ? palette.success
+                    : lessons[i].id == activeId
+                    ? palette.primary
+                    : palette.outline,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _Header extends StatelessWidget {
   const _Header({
     required this.harmonicaKey,
@@ -171,11 +216,29 @@ class _Header extends StatelessWidget {
     return Row(
       children: [
         Container(
-          width: 36,
-          height: 36,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
-            color: palette.primary,
-            borderRadius: BorderRadius.circular(10),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFF5B93FF),
+                palette.primary,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(13),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.24),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: palette.primary.withValues(alpha: 0.24),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
           ),
           alignment: Alignment.center,
           child: const HarmonicaBrandIcon(
@@ -188,23 +251,38 @@ class _Header extends StatelessWidget {
         Expanded(
           child: Text(
             context.strings.t('appTitle'),
-            style: Theme.of(context).textTheme.headlineSmall
-                ?.copyWith(fontSize: 22),
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontSize: 23,
+              letterSpacing: -0.4,
+            ),
           ),
         ),
         if (showCoachTrigger) ...[
           GestureDetector(
             onTap: onReopenCoach,
-            child: const ChumingBird(
-              size: 34,
-              mood: ChumingMood.idle,
+            child: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: palette.surface,
+                shape: BoxShape.circle,
+                border: Border.all(color: palette.outline),
+              ),
+              alignment: Alignment.center,
+              child: const ChumingBird(
+                size: 28,
+                mood: ChumingMood.idle,
+              ),
             ),
           ),
           const SizedBox(width: 8),
         ],
         Material(
-          color: palette.surfaceHigh,
-          borderRadius: BorderRadius.circular(14),
+          color: palette.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(color: palette.outline),
+          ),
           child: InkWell(
             key: const Key('learn-key-selector'),
             onTap: onChooseKey,
@@ -213,12 +291,21 @@ class _Header extends StatelessWidget {
               constraints: const BoxConstraints(minHeight: 40),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
+                  horizontal: 12,
                   vertical: 8,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: palette.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 7),
                     Text(
                       context.strings.t('keyName', {'key': harmonicaKey}),
                       style: const TextStyle(
@@ -226,7 +313,7 @@ class _Header extends StatelessWidget {
                         fontSize: 13,
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    const SizedBox(width: 3),
                     Icon(
                       Icons.chevron_right_rounded,
                       color: palette.muted,
@@ -347,9 +434,9 @@ class _TimelineLesson extends StatelessWidget {
                       color: complete
                           ? palette.success.withValues(alpha: 0.14)
                           : active
-                          ? palette.primary.withValues(alpha: 0.16)
+                          ? palette.primary.withValues(alpha: 0.14)
                           : isImmediateNext
-                          ? palette.accent.withValues(alpha: 0.12)
+                          ? palette.accent.withValues(alpha: 0.10)
                           : palette.surface,
                       shape: BoxShape.circle,
                       border: Border.all(
@@ -362,6 +449,15 @@ class _TimelineLesson extends StatelessWidget {
                             ? palette.accent.withValues(alpha: 0.65)
                             : palette.outline,
                       ),
+                      boxShadow: active
+                          ? [
+                              BoxShadow(
+                                color: palette.primary.withValues(alpha: 0.18),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : null,
                     ),
                     child: AnimatedSwitcher(
                       duration: AppMotion.duration(context, AppMotion.fast),
@@ -385,6 +481,7 @@ class _TimelineLesson extends StatelessWidget {
                                     ? FontWeight.w800
                                     : FontWeight.w700,
                                 fontSize: 13,
+                                fontFamily: 'monospace',
                               ),
                             ),
                     ),
@@ -432,129 +529,191 @@ class _TimelineLesson extends StatelessWidget {
     String detail,
     List<String> steps,
   ) {
-    return Material(
-      color: palette.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: palette.primary.withValues(alpha: 0.55),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            palette.surface,
+            palette.primary.withValues(alpha: isDark ? 0.08 : 0.035),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: palette.primary.withValues(alpha: 0.50),
           width: 1.5,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: palette.primary.withValues(alpha: isDark ? 0.16 : 0.10),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
-      child: InkWell(
-        key: Key('progressive-active-${lesson.id}'),
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: palette.primary.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      strings.t('pathCurrentStage'),
-                      style: TextStyle(
-                        color: palette.primary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                  Text(
-                    strings.t('aboutMinutes', {'count': lesson.minutes}),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: palette.muted,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: CustomPaint(
+          painter: _HarmonicaCombWatermarkPainter(
+            color: palette.primary.withValues(alpha: isDark ? 0.07 : 0.045),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              key: Key('progressive-active-${lesson.id}'),
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(22),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Text(
-                          title,
-                          style: Theme.of(context).textTheme.headlineSmall,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 3.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: palette.primary.withValues(alpha: 0.13),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: palette.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  strings.t('pathCurrentStage'),
+                                  style: TextStyle(
+                                    color: palette.primary,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        const SizedBox(height: 4),
                         Text(
-                          detail,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(color: palette.muted),
+                          strings.t('aboutMinutes', {'count': lesson.minutes}),
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: palette.muted,
+                                fontWeight: FontWeight.w600,
+                              ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  TapGesturePulse(
-                    child: FilledButton(
-                      onPressed: onTap,
-                      style: FilledButton.styleFrom(
-                        fixedSize: const Size(48, 48),
-                        padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
+                    const SizedBox(height: 11),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                style: Theme.of(context).textTheme.headlineSmall,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                detail,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: palette.muted),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      child: const Icon(Icons.play_arrow_rounded, size: 26),
+                        const SizedBox(width: 12),
+                        TapGesturePulse(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  const Color(0xFF5B93FF),
+                                  palette.primary,
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: palette.primary.withValues(
+                                    alpha: 0.30,
+                                  ),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: SizedBox(
+                              width: 48,
+                              height: 48,
+                              child: Icon(
+                                Icons.play_arrow_rounded,
+                                color: palette.onPrimary,
+                                size: 27,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (var i = 0; i < steps.length; i++)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 9,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: i == 0
-                            ? palette.primary.withValues(alpha: 0.12)
-                            : palette.surfaceHigh,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: i == 0
-                              ? palette.primary.withValues(alpha: 0.35)
-                              : palette.outline,
-                        ),
-                      ),
-                      child: Text(
-                        steps[i],
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: i == 0
-                              ? FontWeight.w700
-                              : FontWeight.w600,
-                          color: i == 0 ? palette.primary : palette.muted,
-                        ),
-                      ),
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (var i = 0; i < steps.length; i++)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: i == 0
+                                  ? palette.primary.withValues(alpha: 0.11)
+                                  : palette.surfaceHigh.withValues(alpha: 0.85),
+                              borderRadius: BorderRadius.circular(9),
+                              border: Border.all(
+                                color: i == 0
+                                    ? palette.primary.withValues(alpha: 0.32)
+                                    : palette.outline,
+                              ),
+                            ),
+                            child: Text(
+                              steps[i],
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: i == 0
+                                    ? FontWeight.w700
+                                    : FontWeight.w600,
+                                color: i == 0 ? palette.primary : palette.muted,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                ],
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -567,17 +726,17 @@ class _TimelineLesson extends StatelessWidget {
     String title,
   ) {
     return Material(
-      color: palette.surface.withValues(alpha: 0.72),
+      color: palette.surface.withValues(alpha: 0.82),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: palette.success.withValues(alpha: 0.32)),
       ),
       child: InkWell(
         key: Key('progressive-completed-${lesson.id}'),
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           child: Row(
             children: [
               Expanded(
@@ -586,10 +745,20 @@ class _TimelineLesson extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
-              Icon(
-                Icons.replay_rounded,
-                color: palette.success,
-                size: 18,
+              const SizedBox(width: 8),
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: palette.success.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.replay_rounded,
+                  color: palette.success,
+                  size: 16,
+                ),
               ),
             ],
           ),
@@ -606,15 +775,15 @@ class _TimelineLesson extends StatelessWidget {
     String detail,
   ) {
     return Material(
-      color: palette.surface.withValues(alpha: 0.88),
+      color: palette.surface.withValues(alpha: 0.90),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: palette.outline),
       ),
       child: InkWell(
         key: Key('progressive-upcoming-${lesson.id}'),
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
@@ -640,12 +809,15 @@ class _TimelineLesson extends StatelessWidget {
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 3,
+                  horizontal: 9,
+                  vertical: 3.5,
                 ),
                 decoration: BoxDecoration(
-                  color: palette.accent.withValues(alpha: 0.14),
+                  color: palette.accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: palette.accent.withValues(alpha: 0.28),
+                  ),
                 ),
                 child: Text(
                   strings.t('pathUpcomingStage'),
@@ -669,17 +841,17 @@ class _TimelineLesson extends StatelessWidget {
     String title,
   ) {
     return Material(
-      color: palette.surface.withValues(alpha: 0.50),
+      color: palette.surface.withValues(alpha: 0.52),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         side: BorderSide(color: palette.outline),
       ),
       child: InkWell(
         key: Key('progressive-upcoming-${lesson.id}'),
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
           child: Row(
             children: [
               Expanded(
@@ -691,15 +863,53 @@ class _TimelineLesson extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(
-                Icons.lock_outline_rounded,
-                color: palette.muted,
-                size: 18,
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: palette.surfaceHigh,
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.lock_outline_rounded,
+                  color: palette.muted,
+                  size: 15,
+                ),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+class _HarmonicaCombWatermarkPainter extends CustomPainter {
+  const _HarmonicaCombWatermarkPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4;
+
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(size.width - 108, -10, 96, 36),
+      const Radius.circular(8),
+    );
+    canvas.drawRRect(rect, paint);
+    for (var i = 1; i <= 4; i++) {
+      final x = size.width - 108 + i * 19.2;
+      canvas.drawLine(Offset(x, -10), Offset(x, 26), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _HarmonicaCombWatermarkPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
