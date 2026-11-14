@@ -770,7 +770,7 @@ class _TimelineLessonState extends State<_TimelineLesson> {
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 color: isImmediateNext
-                                    ? palette.ink
+                                    ? palette.text
                                     : palette.muted,
                               ),
                         ),
