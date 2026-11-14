@@ -212,7 +212,7 @@ class _Header extends StatelessWidget {
 }
 
 class _PracticeCard extends StatelessWidget {
-  const _PracticeCard({required this.lesson, required this.onStart, super.key});
+  const _PracticeCard({required this.lesson, required this.onStart});
 
   final LessonDefinition lesson;
   final VoidCallback onStart;
