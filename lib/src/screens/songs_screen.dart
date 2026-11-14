@@ -128,17 +128,19 @@ class _SongsScreenState extends State<SongsScreen> {
               children: [
                 Row(
                   children: [
-                    GestureDetector(
-                      onTap: () {
-                        unawaited(AppHaptics.reedResonance(context));
-                        unawaited(controller.reopenCoachTip('songs'));
-                      },
-                      child: const ChumingBird(
-                        size: 36,
-                        mood: ChumingMood.listening,
+                    if (controller.seenCoachTips.contains('songs')) ...[
+                      GestureDetector(
+                        onTap: () {
+                          unawaited(AppHaptics.reedResonance(context));
+                          unawaited(controller.reopenCoachTip('songs'));
+                        },
+                        child: const ChumingBird(
+                          size: 36,
+                          mood: ChumingMood.listening,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
+                      const SizedBox(width: 12),
+                    ],
                     Expanded(
                       child: Text(
                         context.strings.t('songsLibrary'),
@@ -649,25 +651,9 @@ class _SongTile extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    title,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium,
-                                  ),
-                                ),
-                                if (song.isCustom)
-                                  Pill(
-                                    label: context.strings.t('custom'),
-                                    color: palette.primary.withValues(
-                                      alpha: 0.10,
-                                    ),
-                                    foreground: palette.primary,
-                                  ),
-                              ],
+                            Text(
+                              title,
+                              style: Theme.of(context).textTheme.titleMedium,
                             ),
                             if (song.isCustom) ...[
                               const SizedBox(height: 2),

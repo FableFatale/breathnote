@@ -329,19 +329,22 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
         children: [
           Row(
             children: [
-              GestureDetector(
-                onTap: () {
-                  unawaited(AppHaptics.reedResonance(context));
-                  unawaited(AppScope.of(context).reopenCoachTip('tuner'));
-                },
-                child: ChumingBird(
-                  size: 36,
-                  mood: detected
-                      ? ChumingMood.celebrating
-                      : ChumingMood.listening,
+              if (shortViewport ||
+                  AppScope.of(context).seenCoachTips.contains('tuner')) ...[
+                GestureDetector(
+                  onTap: () {
+                    unawaited(AppHaptics.reedResonance(context));
+                    unawaited(AppScope.of(context).reopenCoachTip('tuner'));
+                  },
+                  child: ChumingBird(
+                    size: 36,
+                    mood: detected
+                        ? ChumingMood.celebrating
+                        : ChumingMood.listening,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: Text(
                   context.strings.t('tuner'),

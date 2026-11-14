@@ -1578,6 +1578,36 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text('学习路径'), findsOneWidget);
       expect(find.text('已完成 1/5 课'), findsOneWidget);
+      expect(find.text('吹响第一个音'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'avoids duplicate lesson cards and duplicate coach birds on Learn and Songs tabs',
+    (tester) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      await pumpBreathnote(tester, controller: controller);
+
+      // Active lesson title appears only once on LearnScreen (no duplicate hero card)
+      expect(find.text('认识你的口琴'), findsOneWidget);
+      expect(find.byType(ChumingBird), findsOneWidget);
+
+      await controller.markLessonComplete('lesson_1');
+      await tester.pumpAndSettle();
+
+      expect(find.text('吹响第一个音'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      // Songs tab renders only one ChumingBird when coach banner is visible or dismissed
+      await tester.tap(find.text('曲谱'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ChumingBird), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('coach-dismiss-songs')));
+      await tester.pumpAndSettle();
+      expect(find.byType(ChumingBird), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
   );
 }

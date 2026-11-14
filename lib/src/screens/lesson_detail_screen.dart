@@ -135,19 +135,20 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       appBar: AppBar(
         title: Text(strings.lessonTitle('lesson_1')),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: GestureDetector(
-              onTap: () {
-                unawaited(AppHaptics.reedResonance(context));
-                unawaited(controller.reopenCoachTip('lesson_1'));
-              },
-              child: ChumingBird(
-                size: 32,
-                mood: _isBlow ? ChumingMood.blowing : ChumingMood.drawing,
+          if (controller.seenCoachTips.contains('lesson_1'))
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: GestureDetector(
+                onTap: () {
+                  unawaited(AppHaptics.reedResonance(context));
+                  unawaited(controller.reopenCoachTip('lesson_1'));
+                },
+                child: ChumingBird(
+                  size: 32,
+                  mood: _isBlow ? ChumingMood.blowing : ChumingMood.drawing,
+                ),
               ),
             ),
-          ),
         ],
       ),
       body: SingleChildScrollView(

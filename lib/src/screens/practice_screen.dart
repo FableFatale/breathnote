@@ -609,13 +609,29 @@ class _PracticeScreenState extends State<PracticeScreen>
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      ChumingBird(
-                                        size: compactHeight ? 40 : 46,
-                                        mood: widget.target.isBlow
-                                            ? ChumingMood.blowing
-                                            : ChumingMood.drawing,
-                                      ),
-                                      const SizedBox(width: 12),
+                                      if (controller.seenCoachTips.contains(
+                                        'practice',
+                                      )) ...[
+                                        GestureDetector(
+                                          onTap: () {
+                                            unawaited(
+                                              AppHaptics.reedResonance(context),
+                                            );
+                                            unawaited(
+                                              controller.reopenCoachTip(
+                                                'practice',
+                                              ),
+                                            );
+                                          },
+                                          child: ChumingBird(
+                                            size: compactHeight ? 40 : 46,
+                                            mood: widget.target.isBlow
+                                                ? ChumingMood.blowing
+                                                : ChumingMood.drawing,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                      ],
                                       Text(
                                         note,
                                         style: TextStyle(
