@@ -725,7 +725,10 @@ class _TimelineLessonState extends State<_TimelineLesson> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -751,7 +754,6 @@ class _TimelineLessonState extends State<_TimelineLesson> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 6),
                             Text(
                               strings.t('lessonLabel', {
                                 'number': widget.lesson.number,
