@@ -556,7 +556,7 @@ Future<void> showAchievementCardSheet(
     builder: (sheetContext) {
       final palette = sheetContext.colors;
       final strings = sheetContext.strings;
-      final days = controller.practiceDays == 0 ? 1 : controller.practiceDays;
+      final days = controller.streakDays == 0 ? 1 : controller.streakDays;
       final shareText = strings.t('achievementShareTemplate', {
         'title': title,
         'score': score,
