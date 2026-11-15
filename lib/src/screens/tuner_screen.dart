@@ -841,7 +841,7 @@ class _SegmentedArcPainter extends CustomPainter {
   }
 }
 
-class _SensitivitySlider extends StatelessWidget {
+class _SensitivitySlider extends StatefulWidget {
   const _SensitivitySlider({
     required this.value,
     required this.onChanged,
@@ -852,6 +852,13 @@ class _SensitivitySlider extends StatelessWidget {
   final double value;
   final ValueChanged<double> onChanged;
   final ValueChanged<double> onChangeEnd;
+
+  @override
+  State<_SensitivitySlider> createState() => _SensitivitySliderState();
+}
+
+class _SensitivitySliderState extends State<_SensitivitySlider> {
+  double? _dragValue;
 
   double _quantize(double raw) {
     return (raw.clamp(0.0, 1.0) * 100).round() / 100.0;
@@ -864,10 +871,16 @@ class _SensitivitySlider extends StatelessWidget {
     return _quantize(ratio);
   }
 
+  void _commitDragEnd(double fallback) {
+    final finalValue = _dragValue ?? fallback;
+    _dragValue = null;
+    widget.onChangeEnd(finalValue);
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.colors;
-    final clamped = value.clamp(0.0, 1.0);
+    final clamped = (_dragValue ?? widget.value).clamp(0.0, 1.0);
     final percent = (clamped * 100).round();
 
     return Semantics(
@@ -888,21 +901,22 @@ class _SensitivitySlider extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             onTapDown: (details) {
               final next = _valueFromDx(details.localPosition.dx, width);
-              onChanged(next);
-              onChangeEnd(next);
+              _dragValue = null;
+              widget.onChanged(next);
+              widget.onChangeEnd(next);
             },
             onHorizontalDragStart: (details) {
-              onChanged(_valueFromDx(details.localPosition.dx, width));
+              final next = _valueFromDx(details.localPosition.dx, width);
+              _dragValue = next;
+              widget.onChanged(next);
             },
             onHorizontalDragUpdate: (details) {
-              onChanged(_valueFromDx(details.localPosition.dx, width));
+              final next = _valueFromDx(details.localPosition.dx, width);
+              _dragValue = next;
+              widget.onChanged(next);
             },
-            onHorizontalDragEnd: (_) {
-              onChangeEnd(_quantize(clamped));
-            },
-            onHorizontalDragCancel: () {
-              onChangeEnd(_quantize(clamped));
-            },
+            onHorizontalDragEnd: (_) => _commitDragEnd(_quantize(clamped)),
+            onHorizontalDragCancel: () => _commitDragEnd(_quantize(clamped)),
             child: SizedBox(
               height: 44,
               width: double.infinity,
