@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../localization/app_strings.dart';
 import '../services/haptics.dart';
+import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_adaptive.dart';
@@ -474,4 +476,308 @@ class _HarmonicaDiagramState extends State<HarmonicaDiagram>
       ],
     );
   }
+}
+
+class BeatPulseBadge extends StatelessWidget {
+  const BeatPulseBadge({
+    required this.speed,
+    required this.listening,
+    this.beatStep = 0,
+    super.key,
+  });
+
+  final double speed;
+  final bool listening;
+  final int beatStep;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.colors;
+    final bpm = (speed * 76).round();
+    final isDownbeat = beatStep.isEven;
+    final activeColor = listening ? palette.success : palette.primary;
+
+    return Container(
+      key: const Key('bpm-pulse-badge'),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: activeColor.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: activeColor.withValues(alpha: isDownbeat ? 0.36 : 0.20),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: AppMotion.duration(context, AppMotion.fast),
+            width: isDownbeat ? 8 : 6,
+            height: isDownbeat ? 8 : 6,
+            decoration: BoxDecoration(
+              color: activeColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              context.strings.t('bpmPulseLabel', {'bpm': bpm}),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: activeColor,
+                fontSize: 11,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Future<void> showAchievementCardSheet(
+  BuildContext context, {
+  required String title,
+  required int score,
+  String? iconId,
+  String? songId,
+  String? tabPreview,
+}) async {
+  final controller = AppScope.read(context);
+  unawaited(AppHaptics.reedResonance(context));
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    sheetAnimationStyle: AppMotion.sheetAnimationStyle(context),
+    builder: (sheetContext) {
+      final palette = sheetContext.colors;
+      final strings = sheetContext.strings;
+      final days = controller.practiceDays == 0 ? 1 : controller.practiceDays;
+      final shareText = strings.t('achievementShareTemplate', {
+        'title': title,
+        'score': score,
+        'key': controller.harmonicaKey,
+        'days': days,
+      });
+
+      return SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                key: const Key('achievement-poster-card'),
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      palette.primary.withValues(alpha: 0.14),
+                      palette.surface,
+                      palette.accent.withValues(alpha: 0.10),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: palette.primary.withValues(alpha: 0.30),
+                    width: 1.4,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        const HarmonicaBrandIcon(size: 22),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                strings.t('achievementCardTitle'),
+                                style: Theme.of(sheetContext)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w800),
+                              ),
+                              Text(
+                                strings.t('achievementCardSubtitle'),
+                                style: Theme.of(sheetContext)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: palette.primary.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            strings.t('keyName', {
+                              'key': controller.harmonicaKey,
+                            }),
+                            style: TextStyle(
+                              color: palette.primary,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const ChumingBird(
+                          size: 68,
+                          mood: ChumingMood.celebrating,
+                        ),
+                        if (iconId != null) ...[
+                          const SizedBox(width: 14),
+                          SongArtworkBadge(
+                            iconId: iconId,
+                            songId: songId ?? '',
+                            size: 56,
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(sheetContext).textTheme.headlineSmall,
+                    ),
+                    if (tabPreview != null && tabPreview.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: palette.surfaceHigh,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          tabPreview,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: palette.primary,
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: palette.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: palette.outline),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          Flexible(
+                            child: Column(
+                              children: [
+                                Text(
+                                  '$score',
+                                  style: TextStyle(
+                                    color: palette.primary,
+                                    fontFamily: 'monospace',
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                Text(
+                                  strings.t('bestScore'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(sheetContext)
+                                      .textTheme
+                                      .bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            width: 1,
+                            height: 28,
+                            color: palette.outline,
+                          ),
+                          Flexible(
+                            child: Column(
+                              children: [
+                                Text(
+                                  strings.t('commonDays', {'count': days}),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: palette.text,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                Text(
+                                  strings.t('practiceDays'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(sheetContext)
+                                      .textTheme
+                                      .bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                key: const Key('copy-achievement-text'),
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: shareText));
+                  if (!sheetContext.mounted) return;
+                  unawaited(AppHaptics.success(sheetContext));
+                  Navigator.of(sheetContext).pop();
+                  ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                    SnackBar(content: Text(strings.t('achievementCopied'))),
+                  );
+                },
+                icon: const Icon(Icons.copy_rounded, size: 18),
+                label: Text(strings.t('copyAchievementText')),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }

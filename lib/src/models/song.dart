@@ -85,6 +85,14 @@ String defaultIconIdForSong(String songId, {bool isCustom = false}) {
       return 'tiger';
     case 'jasmine':
       return 'flower';
+    case 'sky_castle':
+      return 'moon';
+    case 'happy_birthday':
+      return 'campfire';
+    case 'auld_lang_syne':
+      return 'wave';
+    case 'always_with_me':
+      return 'vinyl';
     default:
       if (!isCustom) return 'star';
       return 'vinyl';
@@ -196,6 +204,112 @@ List<PracticeNote> parseHarmonicaTabs(String input) {
   return notes;
 }
 
+const jianpuQuickNotes = <({String jianpu, String solfege, String tab})>[
+  (jianpu: '1', solfege: 'Do', tab: '4↑'),
+  (jianpu: '2', solfege: 'Re', tab: '4↓'),
+  (jianpu: '3', solfege: 'Mi', tab: '5↑'),
+  (jianpu: '4', solfege: 'Fa', tab: '5↓'),
+  (jianpu: '5', solfege: 'Sol', tab: '6↑'),
+  (jianpu: '6', solfege: 'La', tab: '6↓'),
+  (jianpu: '7', solfege: 'Si', tab: '7↓'),
+  (jianpu: "1'", solfege: 'Do⁺', tab: '7↑'),
+];
+
+/// Converts numbered musical notation (Jianpu 1–7, low `.1`/`1.`, high `1'`/`1+`)
+/// or mixed tab input into space-separated 10-hole harmonica tabs.
+String convertJianpuToTabs(String input) {
+  const middleMap = <String, String>{
+    '1': '4↑',
+    '2': '4↓',
+    '3': '5↑',
+    '4': '5↓',
+    '5': '6↑',
+    '6': '6↓',
+    '7': '7↓',
+  };
+  const highMap = <String, String>{
+    '1': '7↑',
+    '2': '8↓',
+    '3': '8↑',
+    '4': '9↓',
+    '5': '9↑',
+    '6': '10↓',
+    '7': '10↑',
+  };
+  const lowMap = <String, String>{
+    '1': '1↑',
+    '2': '1↓',
+    '3': '2↑',
+    '4': '2↓',
+    '5': '3↑',
+    '6': '3↓',
+    '7': '3↓',
+  };
+
+  final rawTokens = input
+      .replaceAll(RegExp(r'[|｜,，;；/]+'), ' ')
+      .split(RegExp(r'\s+'))
+      .where((token) => token.isNotEmpty && token != '-' && token != '—' && token != '0');
+
+  final converted = <String>[];
+  for (final token in rawTokens) {
+    if (RegExp(r'^(10|[1-9])([↑↓])$').hasMatch(token)) {
+      converted.add(token);
+      continue;
+    }
+    final highMatch = RegExp(r"^([1-7])['’⁺\^]$|^\+([1-7])$").firstMatch(token);
+    if (highMatch != null) {
+      final digit = highMatch.group(1) ?? highMatch.group(2)!;
+      converted.add(highMap[digit]!);
+      continue;
+    }
+    final lowMatch = RegExp(r'^\.([1-7])$|^([1-7])\.$|^_([1-7])$').firstMatch(token);
+    if (lowMatch != null) {
+      final digit = lowMatch.group(1) ?? lowMatch.group(2) ?? lowMatch.group(3)!;
+      converted.add(lowMap[digit]!);
+      continue;
+    }
+    if (RegExp(r'^[1-7]+$').hasMatch(token)) {
+      for (final rune in token.runes) {
+        final char = String.fromCharCode(rune);
+        if (middleMap.containsKey(char)) {
+          converted.add(middleMap[char]!);
+        }
+      }
+      continue;
+    }
+    throw HarmonicaTabFormatException('invalidNotation', token: token);
+  }
+
+  if (converted.isEmpty) {
+    throw const HarmonicaTabFormatException('emptyNotation');
+  }
+  return converted.join(' ');
+}
+
+String formatSongShareCode({required String title, required String tabs}) {
+  return '【初鸣曲谱】${title.trim()}｜${tabs.trim()}';
+}
+
+({String? title, String tabs}) parseSongShareOrJianpu(String rawInput) {
+  final trimmed = rawInput.trim();
+  if (trimmed.isEmpty) {
+    throw const HarmonicaTabFormatException('emptyNotation');
+  }
+  final shareMatch = RegExp(
+    r'^(?:【[^】]+】)?\s*([^|｜\n]{1,32})\s*[|｜]\s*(.+)$',
+    dotAll: true,
+  ).firstMatch(trimmed);
+  if (shareMatch != null) {
+    final extractedTitle = shareMatch.group(1)!.trim();
+    final rawBody = shareMatch.group(2)!.trim();
+    final tabs = convertJianpuToTabs(rawBody);
+    return (title: extractedTitle.isEmpty ? null : extractedTitle, tabs: tabs);
+  }
+  final tabs = convertJianpuToTabs(trimmed);
+  return (title: null, tabs: tabs);
+}
+
 const songs = [
   Song(
     id: 'twinkle',
@@ -264,6 +378,74 @@ const songs = [
       PracticeNote(note: 'G', octave: 5, tab: '6↑'),
       PracticeNote(note: 'C', octave: 6, tab: '7↑'),
       PracticeNote(note: 'G', octave: 5, tab: '6↑'),
+    ],
+  ),
+  Song(
+    id: 'sky_castle',
+    title: '天空之城',
+    subtitle: 'song_sky_castle_subtitle',
+    level: 'advanced',
+    color: Color(0xFF0B7285),
+    iconId: 'moon',
+    notes: [
+      PracticeNote(note: 'A', octave: 5, tab: '6↓'),
+      PracticeNote(note: 'B', octave: 5, tab: '7↓'),
+      PracticeNote(note: 'C', octave: 6, tab: '7↑'),
+      PracticeNote(note: 'B', octave: 5, tab: '7↓'),
+      PracticeNote(note: 'C', octave: 6, tab: '7↑'),
+      PracticeNote(note: 'E', octave: 6, tab: '8↑'),
+      PracticeNote(note: 'B', octave: 5, tab: '7↓'),
+    ],
+  ),
+  Song(
+    id: 'happy_birthday',
+    title: '生日快乐',
+    subtitle: 'song_happy_birthday_subtitle',
+    level: 'easy',
+    color: Color(0xFFC92A2A),
+    iconId: 'campfire',
+    notes: [
+      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
+      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
+      PracticeNote(note: 'A', octave: 5, tab: '6↓'),
+      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
+      PracticeNote(note: 'C', octave: 6, tab: '7↑'),
+      PracticeNote(note: 'B', octave: 5, tab: '7↓'),
+    ],
+  ),
+  Song(
+    id: 'auld_lang_syne',
+    title: '送别',
+    subtitle: 'song_auld_lang_syne_subtitle',
+    level: 'easy',
+    color: Color(0xFF0077B6),
+    iconId: 'wave',
+    notes: [
+      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
+      PracticeNote(note: 'E', octave: 5, tab: '5↑'),
+      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
+      PracticeNote(note: 'C', octave: 6, tab: '7↑'),
+      PracticeNote(note: 'A', octave: 5, tab: '6↓'),
+      PracticeNote(note: 'C', octave: 6, tab: '7↑'),
+      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
+    ],
+  ),
+  Song(
+    id: 'always_with_me',
+    title: '千与千寻',
+    subtitle: 'song_always_with_me_subtitle',
+    level: 'advanced',
+    color: Color(0xFF1E293B),
+    iconId: 'vinyl',
+    notes: [
+      PracticeNote(note: 'E', octave: 5, tab: '5↑'),
+      PracticeNote(note: 'F', octave: 5, tab: '5↓'),
+      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
+      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
+      PracticeNote(note: 'C', octave: 6, tab: '7↑'),
+      PracticeNote(note: 'A', octave: 5, tab: '6↓'),
+      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
+      PracticeNote(note: 'E', octave: 5, tab: '5↑'),
     ],
   ),
 ];

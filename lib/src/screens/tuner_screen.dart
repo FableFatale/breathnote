@@ -50,6 +50,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
   bool _unsupported = false;
   String? _errorMessage;
   final List<double> _sessionCents = [];
+  final Set<int> _verifiedHoles = <int>{};
   double _levelDb = -120;
   DateTime? _lastPersistedAt;
 
@@ -183,6 +184,12 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
         _sessionCents.removeAt(0);
       }
       final now = DateTime.now();
+      final detectedTab = tabForReading(reading, controller.harmonicaKey);
+      if (detectedTab != null && reading.cents.abs() <= 25) {
+        if (_verifiedHoles.add(detectedTab.hole)) {
+          unawaited(AppHaptics.reedResonance(context));
+        }
+      }
       final tab = _tabForReading(reading, controller.harmonicaKey);
       if (tab != null &&
           (_lastPersistedAt == null ||
@@ -590,6 +597,24 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
               ),
             ),
           ),
+          const SizedBox(height: 16),
+          _TenHoleCheckupCard(
+            key: const Key('tuner-hole-checkup'),
+            verifiedHoles: _verifiedHoles,
+            activeHole: tab?.hole,
+            onToggleHole: (hole) {
+              unawaited(AppHaptics.selection(context));
+              setState(() {
+                if (!_verifiedHoles.remove(hole)) {
+                  _verifiedHoles.add(hole);
+                }
+              });
+            },
+            onReset: () {
+              unawaited(AppHaptics.selection(context));
+              setState(_verifiedHoles.clear);
+            },
+          ),
           if (listening || _sessionCents.isNotEmpty) ...[
             const SizedBox(height: 16),
             _SessionDistribution(
@@ -811,6 +836,168 @@ class _SegmentedArcPainter extends CustomPainter {
         old.primary != primary ||
         old.accent != accent ||
         old.outline != outline;
+  }
+}
+
+class _TenHoleCheckupCard extends StatelessWidget {
+  const _TenHoleCheckupCard({
+    required this.verifiedHoles,
+    required this.activeHole,
+    required this.onToggleHole,
+    required this.onReset,
+    super.key,
+  });
+
+  final Set<int> verifiedHoles;
+  final int? activeHole;
+  final ValueChanged<int> onToggleHole;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.colors;
+    final strings = context.strings;
+    final allClear = verifiedHoles.length == 10;
+
+    return _ChartFrame(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  strings.t('tenHoleCheckupTitle'),
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: (allClear ? palette.success : palette.primary)
+                        .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    strings.t('tenHoleCheckupProgress', {
+                      'count': verifiedHoles.length,
+                    }),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: allClear ? palette.success : palette.primary,
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+              if (verifiedHoles.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  key: const Key('reset-hole-checkup'),
+                  tooltip: strings.t('tenHoleCheckupReset'),
+                  onPressed: onReset,
+                  visualDensity: VisualDensity.compact,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 32,
+                    height: 32,
+                  ),
+                  padding: EdgeInsets.zero,
+                  icon: Icon(
+                    Icons.refresh_rounded,
+                    size: 17,
+                    color: palette.muted,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: List.generate(10, (index) {
+              final hole = index + 1;
+              final verified = verifiedHoles.contains(hole);
+              final active = activeHole == hole;
+              final cellColor = verified
+                  ? palette.success
+                  : active
+                  ? palette.primary
+                  : palette.muted;
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(left: index == 0 ? 0 : 3),
+                  child: GestureDetector(
+                    key: Key('checkup-hole-$hole'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onToggleHole(hole),
+                    child: AnimatedContainer(
+                      duration: AppMotion.duration(context, AppMotion.fast),
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: verified
+                            ? palette.success.withValues(alpha: 0.14)
+                            : active
+                            ? palette.primary.withValues(alpha: 0.14)
+                            : palette.surfaceHigh,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: verified
+                              ? palette.success
+                              : active
+                              ? palette.primary
+                              : palette.outline,
+                          width: verified || active ? 1.5 : 1.0,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              '$hole',
+                              style: TextStyle(
+                                color: cellColor,
+                                fontSize: 11,
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          if (verified)
+                            Icon(
+                              Icons.check_rounded,
+                              size: 11,
+                              color: palette.success,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            allClear
+                ? strings.t('tenHoleCheckupAllClear')
+                : strings.t('tenHoleCheckupHint'),
+            style: TextStyle(
+              color: allClear ? palette.success : palette.muted,
+              fontSize: 12,
+              fontWeight: allClear ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

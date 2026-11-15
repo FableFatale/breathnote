@@ -1610,4 +1610,86 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  test(
+    'converts Jianpu 1-7 and share codes into harmonica tabs and provides 8 built-in songs',
+    () {
+      expect(songs, hasLength(8));
+      expect(defaultIconIdForSong('sky_castle'), 'moon');
+      expect(defaultIconIdForSong('happy_birthday'), 'campfire');
+      expect(defaultIconIdForSong('auld_lang_syne'), 'wave');
+      expect(defaultIconIdForSong('always_with_me'), 'vinyl');
+
+      expect(
+        convertJianpuToTabs('1 1 5 5 6 6 5'),
+        '4↑ 4↑ 6↑ 6↑ 6↓ 6↓ 6↑',
+      );
+      expect(convertJianpuToTabs("6 7 1' 7 1' 3' 7"), '6↓ 7↓ 7↑ 7↓ 7↑ 8↑ 7↓');
+
+      final code = formatSongShareCode(title: '小星星', tabs: '4↑ 4↑ 6↑');
+      expect(code, '【初鸣曲谱】小星星｜4↑ 4↑ 6↑');
+
+      final parsed = parseSongShareOrJianpu('【初鸣曲谱】生日歌｜5 5 6 5 1\' 7');
+      expect(parsed.title, '生日歌');
+      expect(parsed.tabs, '6↑ 6↑ 6↓ 6↑ 7↑ 7↓');
+    },
+  );
+
+  testWidgets(
+    'supports Jianpu quick-tap chips, share-code conversion, and 10-hole checkup in Tuner',
+    (tester) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      await pumpBreathnote(tester, controller: controller);
+
+      await tester.tap(find.text('曲谱'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('add-custom-song')));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.byKey(const Key('jianpu-chip-1')));
+      await tester.tap(find.byKey(const Key('jianpu-chip-1')));
+      await tester.tap(find.byKey(const Key('jianpu-chip-5')));
+      await tester.pump();
+
+      final notationField = tester.widget<TextField>(
+        find.byKey(const Key('custom-song-notation')),
+      );
+      expect(notationField.controller?.text, '4↑ 6↑');
+
+      await tester.enterText(
+        find.byKey(const Key('custom-song-notation')),
+        '【初鸣曲谱】晴天｜1 2 3 5',
+      );
+      await tester.ensureVisible(
+        find.byKey(const Key('convert-jianpu-button')),
+      );
+      await tester.tap(find.byKey(const Key('convert-jianpu-button')));
+      await tester.pump();
+
+      expect(notationField.controller?.text, '4↑ 4↓ 5↑ 6↑');
+      final titleField = tester.widget<TextField>(
+        find.byKey(const Key('custom-song-title')),
+      );
+      expect(titleField.controller?.text, '晴天');
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('调音'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('tuner-hole-checkup')), findsOneWidget);
+      expect(find.text('已点亮 0/10 孔'), findsOneWidget);
+
+      await tester.ensureVisible(find.byKey(const Key('checkup-hole-4')));
+      await tester.tap(find.byKey(const Key('checkup-hole-4')));
+      await tester.pumpAndSettle();
+      expect(find.text('已点亮 1/10 孔'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('reset-hole-checkup')));
+      await tester.pumpAndSettle();
+      expect(find.text('已点亮 0/10 孔'), findsOneWidget);
+    },
+  );
 }

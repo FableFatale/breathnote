@@ -601,6 +601,9 @@ class _PracticeScreenState extends State<PracticeScreen>
                                 key: const ValueKey('practice-completion'),
                                 score: _score,
                                 visible: _completionVisible,
+                                title: strings.lessonTitle(widget.lessonId),
+                                tabPreview:
+                                    '${widget.target.tab} · $noteWithOctave',
                               )
                             : Column(
                                 key: const ValueKey('target-note'),
@@ -798,6 +801,19 @@ class _PracticeScreenState extends State<PracticeScreen>
       if (_reading.detected &&
           (_stableSince != null || _stableSinceMicros != null)) {
         return strings.t('keepThisPitch');
+      }
+      if (_reading.detected) {
+        final key = AppScope.maybeRead(context)?.harmonicaKey ?? 'C';
+        final detectedTab = tabForReading(_reading, key);
+        final targetHole =
+            int.tryParse(widget.target.tab.replaceAll(RegExp(r'[^0-9]'), '')) ??
+            4;
+        if (detectedTab != null && (detectedTab.hole - targetHole).abs() == 1) {
+          return strings.t('adjacentHoleHint', {
+            'hole': detectedTab.hole,
+            'target': targetHole,
+          });
+        }
       }
       return strings.t('waitingStablePitch');
     }
@@ -1365,11 +1381,15 @@ class _CompletionDisplay extends StatelessWidget {
   const _CompletionDisplay({
     required this.score,
     required this.visible,
+    required this.title,
+    required this.tabPreview,
     super.key,
   });
 
   final int score;
   final bool visible;
+  final String title;
+  final String tabPreview;
 
   @override
   Widget build(BuildContext context) {
@@ -1417,6 +1437,18 @@ class _CompletionDisplay extends StatelessWidget {
         Text(
           context.strings.t('pitchScore', {'score': score}),
           style: TextStyle(color: palette.primary, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton.icon(
+          key: const Key('share-achievement-card'),
+          onPressed: () => showAchievementCardSheet(
+            context,
+            title: title,
+            score: score,
+            tabPreview: tabPreview,
+          ),
+          icon: const Icon(Icons.workspace_premium_rounded, size: 17),
+          label: Text(context.strings.t('shareAchievementBtn')),
         ),
       ],
     );

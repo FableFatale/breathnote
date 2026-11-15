@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../localization/app_strings.dart';
+import '../models/harmonica_layout.dart';
 import '../models/pitch_reading.dart';
 import '../models/song.dart';
 import '../services/guide_tone_service.dart';
@@ -438,6 +439,19 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
               .clamp(0.0, 1.0)
               .toDouble();
     final pagePadding = AppAdaptive.pagePadding(context);
+    final localizedSongTitle = context.strings.songTitle(
+      widget.song.id,
+      widget.song.title,
+    );
+    final targetHole =
+        int.tryParse(target.tab.replaceAll(RegExp(r'[^0-9]'), '')) ?? 4;
+    final detectedTab = _reading.detected
+        ? tabForReading(_reading, controller.harmonicaKey)
+        : null;
+    final isAdjacentBleed =
+        detectedTab != null &&
+        cents.abs() > 35 &&
+        (detectedTab.hole - targetHole).abs() == 1;
 
     return Scaffold(
       appBar: AppBar(
@@ -452,7 +466,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                context.strings.songTitle(widget.song.id, widget.song.title),
+                localizedSongTitle,
                 maxLines: 2,
                 softWrap: true,
                 overflow: TextOverflow.visible,
@@ -460,6 +474,28 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            key: const Key('share-song-code'),
+            tooltip: context.strings.t('copySongShareCode'),
+            onPressed: () async {
+              final shareCode = formatSongShareCode(
+                title: localizedSongTitle,
+                tabs: widget.song.tabPreview,
+              );
+              await Clipboard.setData(ClipboardData(text: shareCode));
+              if (!context.mounted) return;
+              unawaited(AppHaptics.success(context));
+              ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                SnackBar(
+                  content: Text(context.strings.t('songShareCopied')),
+                ),
+              );
+            },
+            icon: const Icon(Icons.share_outlined, size: 20),
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: SafeArea(
         top: false,
@@ -567,6 +603,9 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                         ? _SongCompletion(
                             key: const ValueKey('song-complete'),
                             score: _score,
+                            song: widget.song,
+                            title: localizedSongTitle,
+                            iconId: controller.iconIdForSong(widget.song),
                           )
                         : Column(
                             key: const ValueKey('song-active'),
@@ -613,6 +652,20 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                                   ),
                                                 ),
                                               ),
+                                              if (_guidePlaying ||
+                                                  _status ==
+                                                      _SongStatus.listening) ...[
+                                                Flexible(
+                                                  child: BeatPulseBadge(
+                                                    speed: _guideSpeed,
+                                                    listening:
+                                                        _status ==
+                                                        _SongStatus.listening,
+                                                    beatStep: activeNoteIndex,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                              ],
                                               BreathGestureGuide(
                                                 isBlow: target.isBlow,
                                                 label: context.strings.t(
@@ -857,8 +910,17 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                           ),
                                           if (_reading.detected)
                                             Text(
-                                              '${cents >= 0 ? '+' : ''}${cents.round()} '
-                                              '${context.strings.t('cents')}',
+                                              isAdjacentBleed
+                                                  ? context.strings.t(
+                                                      'adjacentHoleHint',
+                                                      {
+                                                        'hole':
+                                                            detectedTab.hole,
+                                                        'target': targetHole,
+                                                      },
+                                                    )
+                                                  : '${cents >= 0 ? '+' : ''}${cents.round()} '
+                                                        '${context.strings.t('cents')}',
                                               style: Theme.of(
                                                 context,
                                               ).textTheme.bodySmall,
@@ -1308,9 +1370,18 @@ class _SongGuideControls extends StatelessWidget {
 }
 
 class _SongCompletion extends StatelessWidget {
-  const _SongCompletion({required this.score, super.key});
+  const _SongCompletion({
+    required this.score,
+    required this.song,
+    required this.title,
+    required this.iconId,
+    super.key,
+  });
 
   final int score;
+  final Song song;
+  final String title;
+  final String iconId;
 
   @override
   Widget build(BuildContext context) {
@@ -1337,6 +1408,20 @@ class _SongCompletion extends StatelessWidget {
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
               ),
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton.icon(
+              key: const Key('share-achievement-card'),
+              onPressed: () => showAchievementCardSheet(
+                context,
+                title: title,
+                score: score,
+                iconId: iconId,
+                songId: song.id,
+                tabPreview: song.tabPreview,
+              ),
+              icon: const Icon(Icons.workspace_premium_rounded, size: 18),
+              label: Text(context.strings.t('shareAchievementBtn')),
             ),
           ],
         ),

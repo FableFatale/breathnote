@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../localization/app_strings.dart';
 import '../models/song.dart';
@@ -303,6 +304,7 @@ class _CustomSongSheet extends StatefulWidget {
 }
 
 class _CustomSongSheetState extends State<_CustomSongSheet> {
+  final _titleController = TextEditingController();
   final _notationController = TextEditingController();
   var _titleValue = '';
   var _selectedHole = 4;
@@ -312,8 +314,18 @@ class _CustomSongSheetState extends State<_CustomSongSheet> {
 
   @override
   void dispose() {
+    _titleController.dispose();
     _notationController.dispose();
     super.dispose();
+  }
+
+  void _updateTitle(String value) {
+    _titleValue = value;
+    _titleController.value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+    );
+    setState(() => _titleError = null);
   }
 
   void _updateNotation(String value) {
@@ -324,11 +336,45 @@ class _CustomSongSheetState extends State<_CustomSongSheet> {
     setState(() => _notationError = null);
   }
 
-  void _addNote(String direction) {
+  void _addTabToken(String tab) {
     final existing = _notationController.text.trim();
-    final note = '$_selectedHole$direction';
-    _updateNotation(existing.isEmpty ? note : '$existing $note');
+    _updateNotation(existing.isEmpty ? tab : '$existing $tab');
     unawaited(AppHaptics.selection(context));
+  }
+
+  void _addNote(String direction) {
+    _addTabToken('$_selectedHole$direction');
+  }
+
+  void _convertInputText(String rawInput) {
+    try {
+      final parsed = parseSongShareOrJianpu(rawInput);
+      if (parsed.title != null && _titleValue.trim().isEmpty) {
+        _updateTitle(parsed.title!);
+      }
+      _updateNotation(parsed.tabs);
+      unawaited(AppHaptics.success(context));
+    } on HarmonicaTabFormatException catch (error) {
+      unawaited(AppHaptics.warning(context));
+      setState(() {
+        _notationError = context.strings.t(error.code, {
+          if (error.token != null) 'token': error.token!,
+        });
+      });
+    }
+  }
+
+  Future<void> _pasteShareCode() async {
+    final data = await Clipboard.getData('text/plain');
+    if (!mounted) return;
+    final text = data?.text?.trim() ?? '';
+    if (text.isEmpty) {
+      setState(() {
+        _notationError = context.strings.t('shareCodeEmptyClipboard');
+      });
+      return;
+    }
+    _convertInputText(text);
   }
 
   void _removeLastNote() {
@@ -387,6 +433,7 @@ class _CustomSongSheetState extends State<_CustomSongSheet> {
             ),
             const SizedBox(height: 14),
             TextField(
+              controller: _titleController,
               key: const Key('custom-song-title'),
               textInputAction: TextInputAction.next,
               onChanged: (value) {
@@ -475,9 +522,53 @@ class _CustomSongSheetState extends State<_CustomSongSheet> {
               },
               decoration: InputDecoration(
                 labelText: context.strings.t('numberNotation'),
-                hintText: '4↑ 4↑ 6↑ 6↑ 6↓ 6↓ 6↑',
+                hintText: '4↑ 4↑ 6↑ 6↑ 6↓ 6↓ 6↑ / 1 1 5 5 6 6 5',
                 errorText: _notationError,
               ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              context.strings.t('jianpuQuickTitle'),
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final item in jianpuQuickNotes)
+                  ActionChip(
+                    key: Key('jianpu-chip-${item.jianpu}'),
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _addTabToken(item.tab),
+                    label: Text(
+                      '${item.jianpu} ${item.solfege} (${item.tab})',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                ActionChip(
+                  key: const Key('convert-jianpu-button'),
+                  avatar: const Icon(Icons.auto_fix_high_rounded, size: 16),
+                  label: Text(context.strings.t('jianpuConvertAction')),
+                  onPressed: () => _convertInputText(_notationController.text),
+                ),
+                ActionChip(
+                  key: const Key('paste-share-code-button'),
+                  avatar: const Icon(Icons.content_paste_rounded, size: 16),
+                  label: Text(context.strings.t('pasteShareCodeAction')),
+                  onPressed: _pasteShareCode,
+                ),
+              ],
             ),
             const SizedBox(height: 14),
             Text(
