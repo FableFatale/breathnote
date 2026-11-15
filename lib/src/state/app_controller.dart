@@ -41,7 +41,7 @@ class AppController extends ChangeNotifier {
 
   static const _maxPitchAttempts = 400;
 
-  List<Song> get allSongs => [...songs, ...customSongs];
+  List<Song> get allSongs => [...customSongs, ...songs];
 
   String iconIdForSong(Song song) {
     final override = songIconOverrides[song.id];
