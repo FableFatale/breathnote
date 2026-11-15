@@ -973,8 +973,9 @@ void main() {
 
     await tester.tap(find.text('调音'));
     await tester.pumpAndSettle();
-    final slider = tester.widget<Slider>(find.byType(Slider));
-    expect(slider.value, closeTo(0.82, 0.001));
+    final sliderFinder = find.byKey(const Key('tuner-sensitivity-slider'));
+    expect(sliderFinder, findsOneWidget);
+    expect(tester.getSemantics(sliderFinder).value, '82%');
     expect(find.text('82%'), findsOneWidget);
   });
 
@@ -988,20 +989,16 @@ void main() {
 
     await tester.tap(find.text('调音'));
     await tester.pumpAndSettle();
-    expect(
-      tester.widget<Slider>(find.byType(Slider)).value,
-      closeTo(0.68, 0.001),
-    );
+    final sliderFinder = find.byKey(const Key('tuner-sensitivity-slider'));
+    expect(sliderFinder, findsOneWidget);
+    expect(tester.getSemantics(sliderFinder).value, '68%');
 
     preferences.values.complete({'microphoneSensitivity': 0.9});
     await tester.pumpAndSettle();
-    expect(
-      tester.widget<Slider>(find.byType(Slider)).value,
-      closeTo(0.9, 0.001),
-    );
+    expect(tester.getSemantics(sliderFinder).value, '90%');
     expect(find.text('90%'), findsOneWidget);
 
-    await tester.drag(find.byType(Slider), const Offset(-120, 0));
+    await tester.drag(sliderFinder, const Offset(-120, 0));
     await tester.pumpAndSettle();
     expect(preferences.savedValues['microphoneSensitivity'], isA<double>());
     expect(find.text('检测灵敏度'), findsOneWidget);

@@ -38,7 +38,10 @@ enum _TunerStatus {
   error,
 }
 
-class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
+class _TunerScreenState extends State<TunerScreen>
+    with WidgetsBindingObserver, AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   final _pitchService = PitchService();
   StreamSubscription<PitchReading>? _subscription;
   PitchReading _reading = const PitchReading.silent();
@@ -308,6 +311,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final key = AppScope.of(context).harmonicaKey;
     final palette = context.colors;
     final listening = _status == _TunerStatus.listening;
@@ -536,11 +540,9 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
                       ),
                     ],
                   ),
-                  Slider(
+                  _SensitivitySlider(
+                    key: const Key('tuner-sensitivity-slider'),
                     value: _sensitivity,
-                    min: 0,
-                    max: 1,
-                    divisions: 100,
                     onChanged: (value) {
                       _changingSensitivity = true;
                       final step = (value * 100).round();
@@ -836,6 +838,132 @@ class _SegmentedArcPainter extends CustomPainter {
         old.primary != primary ||
         old.accent != accent ||
         old.outline != outline;
+  }
+}
+
+class _SensitivitySlider extends StatelessWidget {
+  const _SensitivitySlider({
+    required this.value,
+    required this.onChanged,
+    required this.onChangeEnd,
+    super.key,
+  });
+
+  final double value;
+  final ValueChanged<double> onChanged;
+  final ValueChanged<double> onChangeEnd;
+
+  double _quantize(double raw) {
+    return (raw.clamp(0.0, 1.0) * 100).round() / 100.0;
+  }
+
+  double _valueFromDx(double dx, double width) {
+    const horizontalInset = 12.0;
+    final usableWidth = (width - horizontalInset * 2).clamp(1.0, double.infinity);
+    final ratio = (dx - horizontalInset) / usableWidth;
+    return _quantize(ratio);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.colors;
+    final clamped = value.clamp(0.0, 1.0);
+    final percent = (clamped * 100).round();
+
+    return Semantics(
+      slider: true,
+      value: '$percent%',
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : 240.0;
+          const horizontalInset = 12.0;
+          const thumbSize = 22.0;
+          final usableWidth =
+              (width - horizontalInset * 2).clamp(1.0, double.infinity);
+          final thumbCenterX = horizontalInset + usableWidth * clamped;
+
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (details) {
+              final next = _valueFromDx(details.localPosition.dx, width);
+              onChanged(next);
+              onChangeEnd(next);
+            },
+            onHorizontalDragStart: (details) {
+              onChanged(_valueFromDx(details.localPosition.dx, width));
+            },
+            onHorizontalDragUpdate: (details) {
+              onChanged(_valueFromDx(details.localPosition.dx, width));
+            },
+            onHorizontalDragEnd: (_) {
+              onChangeEnd(_quantize(clamped));
+            },
+            onHorizontalDragCancel: () {
+              onChangeEnd(_quantize(clamped));
+            },
+            child: SizedBox(
+              height: 44,
+              width: double.infinity,
+              child: Stack(
+                alignment: Alignment.centerLeft,
+                children: [
+                  Positioned(
+                    left: horizontalInset,
+                    right: horizontalInset,
+                    child: Container(
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: palette.surfaceHigh,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: palette.outline.withValues(alpha: 0.7),
+                          width: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: horizontalInset,
+                    width: (usableWidth * clamped).clamp(0.0, usableWidth),
+                    child: Container(
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: palette.primary,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: (thumbCenterX - thumbSize / 2).clamp(
+                      0.0,
+                      (width - thumbSize).clamp(0.0, double.infinity),
+                    ),
+                    child: Container(
+                      width: thumbSize,
+                      height: thumbSize,
+                      decoration: BoxDecoration(
+                        color: palette.surface,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: palette.primary, width: 3),
+                        boxShadow: [
+                          BoxShadow(
+                            color: palette.primary.withValues(alpha: 0.22),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 
