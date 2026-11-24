@@ -115,8 +115,10 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
 
   void _openNextLesson(BuildContext context) {
     unawaited(AppHaptics.selection(context));
+    final nextId = nextLessonId('lesson_1');
+    if (nextId == null) return;
     Navigator.of(context)
-        .pushReplacement(lessonRoute(context, lessonById('lesson_2')));
+        .pushReplacement(lessonRoute(context, lessonById(nextId)));
   }
 
   @override

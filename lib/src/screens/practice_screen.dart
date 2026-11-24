@@ -18,6 +18,7 @@ import '../widgets/chuming_coach.dart';
 import '../widgets/cute_illustrations.dart';
 import '../widgets/gesture_guide.dart';
 import '../widgets/motion_widgets.dart';
+import '../widgets/pro_paywall_sheet.dart';
 import '../widgets/shared_widgets.dart';
 import 'help_screen.dart';
 import 'lesson_routes.dart';
@@ -459,8 +460,14 @@ class _PracticeScreenState extends State<PracticeScreen>
       if (mounted) Navigator.of(context).pop();
       return;
     }
+    final nextLesson = lessonById(nextId);
+    final controller = AppScope.read(context);
+    if (nextLesson.isPro && !controller.isProUnlocked) {
+      final unlocked = await showProPaywallSheet(context);
+      if (!unlocked || !mounted) return;
+    }
     await Navigator.of(context)
-        .pushReplacement(lessonRoute(context, lessonById(nextId)));
+        .pushReplacement(lessonRoute(context, nextLesson));
   }
 
   String _messageForError(Object error, String fallbackKey) {

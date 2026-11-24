@@ -6,20 +6,28 @@ import 'package:flutter/material.dart';
 import '../models/pitch_reading.dart';
 import '../models/song.dart';
 import '../services/preferences_service.dart';
+import '../services/purchase_service.dart';
 import '../version.dart';
 
 class AppController extends ChangeNotifier {
-  AppController({PreferencesService? preferences})
-    : _preferences = preferences ?? const PreferencesService();
+  AppController({
+    PreferencesService? preferences,
+    PurchaseService? purchaseService,
+  }) : _preferences = preferences ?? const PreferencesService(),
+       _purchaseService = purchaseService ?? const PurchaseService();
 
   final PreferencesService _preferences;
+  final PurchaseService _purchaseService;
 
   static const defaultDisplayName = '__default__';
   static const legacyDefaultDisplayName = '口琴练习者';
   static const sawHarmonicaGuideKey = 'sawHarmonicaGuide';
+  static const hasRegisteredHarmonicaKey = 'hasRegisteredHarmonica';
+  static const isProUnlockedKey = 'isProUnlocked';
+  static const totalLessonCount = 7;
 
   String displayName = defaultDisplayName;
-  String harmonicaKey = 'F';
+  String harmonicaKey = 'C';
   bool hapticsEnabled = true;
   bool highContrast = false;
   bool reduceMotion = false;
@@ -31,17 +39,31 @@ class AppController extends ChangeNotifier {
   int bestScore = 0;
   bool isLoaded = false;
   bool sawHarmonicaGuide = false;
+  bool hasRegisteredHarmonica = false;
+  bool isProUnlocked = false;
   String appVersionLabel = kAppDisplayVersion;
   final Set<String> practiceDates = {};
   final Set<String> completedLessons = {};
   final Set<String> seenCoachTips = {};
+  final Set<String> favoriteSongs = {};
   final Map<String, String> songIconOverrides = {};
+  final Map<String, int> songBestScores = {};
+  final Map<String, int> songBestStars = {};
   final List<Song> customSongs = [];
   final List<PitchAttempt> pitchAttempts = [];
 
   static const _maxPitchAttempts = 400;
 
   List<Song> get allSongs => [...customSongs, ...songs];
+
+  int bestScoreForSong(String songId) => songBestScores[songId] ?? 0;
+
+  int bestStarsForSong(String songId) => songBestStars[songId] ?? 0;
+
+  bool isSongCompleted(String songId) =>
+      bestStarsForSong(songId) > 0 || bestScoreForSong(songId) > 0;
+
+  bool isSongFavorite(String songId) => favoriteSongs.contains(songId);
 
   String iconIdForSong(Song song) {
     final override = songIconOverrides[song.id];
@@ -61,7 +83,7 @@ class AppController extends ChangeNotifier {
   int get practiceMinutes => practiceSeconds ~/ 60;
 
   double get lessonProgress =>
-      (completedLessons.length / 5).clamp(0.0, 1.0).toDouble();
+      (completedLessons.length / totalLessonCount).clamp(0.0, 1.0).toDouble();
 
   int get streakDays => currentStreak;
 
@@ -138,7 +160,10 @@ class AppController extends ChangeNotifier {
       practiceDates.addAll(_decodeStringList(values['practiceDates']));
       completedLessons.addAll(_decodeStringList(values['completedLessons']));
       seenCoachTips.addAll(_decodeStringList(values['seenCoachTips']));
+      favoriteSongs.addAll(_decodeStringList(values['favoriteSongs']));
       songIconOverrides.addAll(_decodeStringMap(values['songIconOverrides']));
+      songBestScores.addAll(_decodeIntMap(values['songBestScores']));
+      songBestStars.addAll(_decodeIntMap(values['songBestStars']));
       pitchAttempts.addAll(_decodePitchAttempts(values['pitchAttempts']));
       final rawSongs = values['customSongs'];
       if (rawSongs is String && rawSongs.isNotEmpty) {
@@ -155,6 +180,20 @@ class AppController extends ChangeNotifier {
           }
         }
         if (shouldRewriteSongs) await _persistCustomSongs();
+      }
+      final savedPro = values[isProUnlockedKey] as bool?;
+      if (savedPro != null) {
+        isProUnlocked = savedPro;
+      }
+      final savedRegistered = values[hasRegisteredHarmonicaKey] as bool?;
+      if (savedRegistered != null) {
+        hasRegisteredHarmonica = savedRegistered;
+      } else if (values['harmonicaKey'] != null ||
+          completedLessons.isNotEmpty ||
+          practiceSeconds > 0 ||
+          customSongs.isNotEmpty ||
+          values[sawHarmonicaGuideKey] == true) {
+        hasRegisteredHarmonica = true;
       }
     } catch (_) {
       // Widget tests and unsupported platforms keep the in-memory defaults.
@@ -177,6 +216,38 @@ class AppController extends ChangeNotifier {
     harmonicaKey = value;
     notifyListeners();
     await _persist('harmonicaKey', value);
+  }
+
+  Future<void> completeHarmonicaRegistration({String? key}) async {
+    final targetKey = key ?? harmonicaKey;
+    final keyChanged = targetKey != harmonicaKey;
+    harmonicaKey = targetKey;
+    hasRegisteredHarmonica = true;
+    notifyListeners();
+    await Future.wait([
+      _persist(hasRegisteredHarmonicaKey, true),
+      if (keyChanged || key != null) _persist('harmonicaKey', targetKey),
+    ]);
+  }
+
+  Future<PurchaseResult> purchasePro() async {
+    final result = await _purchaseService.purchaseProLifetime();
+    if (result.unlocked && !isProUnlocked) {
+      isProUnlocked = true;
+      notifyListeners();
+      await _persist(isProUnlockedKey, true);
+    }
+    return result;
+  }
+
+  Future<PurchaseResult> restorePro() async {
+    final result = await _purchaseService.restorePurchases();
+    if (result.unlocked && !isProUnlocked) {
+      isProUnlocked = true;
+      notifyListeners();
+      await _persist(isProUnlockedKey, true);
+    }
+    return result;
   }
 
   Future<void> setHapticsEnabled(bool value) async {
@@ -365,14 +436,55 @@ class AppController extends ChangeNotifier {
     ]);
   }
 
+  Future<void> toggleFavoriteSong(String songId) async {
+    if (!favoriteSongs.add(songId)) {
+      favoriteSongs.remove(songId);
+    }
+    notifyListeners();
+    await _persist('favoriteSongs', jsonEncode(favoriteSongs.toList()));
+  }
+
+  Future<void> recordSongResult({
+    required String songId,
+    required int score,
+    required int stars,
+  }) async {
+    final safeScore = score.clamp(0, 100);
+    final safeStars = stars.clamp(0, 3);
+    var changed = false;
+    if (safeScore > (songBestScores[songId] ?? 0)) {
+      songBestScores[songId] = safeScore;
+      changed = true;
+    }
+    if (safeStars > (songBestStars[songId] ?? 0)) {
+      songBestStars[songId] = safeStars;
+      changed = true;
+    }
+    if (!changed) return;
+    notifyListeners();
+    await Future.wait([
+      _persist('songBestScores', jsonEncode(songBestScores)),
+      _persist('songBestStars', jsonEncode(songBestStars)),
+    ]);
+  }
+
   Future<void> removeCustomSong(String id) async {
     customSongs.removeWhere((song) => song.id == id);
     final removedOverride = songIconOverrides.remove(id) != null;
+    final removedFavorite = favoriteSongs.remove(id);
+    final removedScore = songBestScores.remove(id) != null;
+    final removedStars = songBestStars.remove(id) != null;
     notifyListeners();
     await Future.wait([
       _persistCustomSongs(),
       if (removedOverride)
         _persist('songIconOverrides', jsonEncode(songIconOverrides)),
+      if (removedFavorite)
+        _persist('favoriteSongs', jsonEncode(favoriteSongs.toList())),
+      if (removedScore)
+        _persist('songBestScores', jsonEncode(songBestScores)),
+      if (removedStars)
+        _persist('songBestStars', jsonEncode(songBestStars)),
     ]);
   }
 
@@ -383,11 +495,12 @@ class AppController extends ChangeNotifier {
       // The visible state still resets when no platform channel is available.
     }
     displayName = defaultDisplayName;
-    harmonicaKey = 'F';
+    harmonicaKey = 'C';
     hapticsEnabled = true;
     highContrast = false;
     reduceMotion = false;
     sawHarmonicaGuide = false;
+    hasRegisteredHarmonica = false;
     themeMode = ThemeMode.system;
     languageCode = 'zh';
     microphoneSensitivity = 0.68;
@@ -397,7 +510,10 @@ class AppController extends ChangeNotifier {
     practiceDates.clear();
     completedLessons.clear();
     seenCoachTips.clear();
+    favoriteSongs.clear();
     songIconOverrides.clear();
+    songBestScores.clear();
+    songBestStars.clear();
     customSongs.clear();
     pitchAttempts.clear();
     notifyListeners();
@@ -438,6 +554,25 @@ class AppController extends ChangeNotifier {
         final val = entry.value;
         if (key is String && val is String) {
           result[key] = val;
+        }
+      }
+      return result;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static Map<String, int> _decodeIntMap(Object? value) {
+    if (value is! String || value.isEmpty) return {};
+    try {
+      final raw = jsonDecode(value);
+      if (raw is! Map) return {};
+      final result = <String, int>{};
+      for (final entry in raw.entries) {
+        final key = entry.key;
+        final val = entry.value;
+        if (key is String && val is num) {
+          result[key] = val.toInt();
         }
       }
       return result;

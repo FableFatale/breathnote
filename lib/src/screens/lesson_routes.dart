@@ -4,11 +4,21 @@ import '../localization/app_strings.dart';
 import '../models/practice_note.dart';
 import '../models/song.dart';
 import '../theme/app_motion.dart';
+import 'breath_lesson_screen.dart';
+import 'chord_rhythm_lesson_screen.dart';
 import 'lesson_detail_screen.dart';
 import 'practice_screen.dart';
 import 'song_practice_screen.dart';
 
-enum LessonKind { introduction, firstNote, clearNote, drawNote, firstSong }
+enum LessonKind {
+  introduction,
+  breathing,
+  firstNote,
+  clearNote,
+  drawNote,
+  firstSong,
+  chordRhythm,
+}
 
 @immutable
 class LessonDefinition {
@@ -17,14 +27,17 @@ class LessonDefinition {
     required this.number,
     required this.minutes,
     required this.kind,
+    this.isPro = false,
   });
 
   final String id;
   final String number;
   final int minutes;
   final LessonKind kind;
+  final bool isPro;
 }
 
+/// 7 节递进式新手课程（第 01–05 课永久免费，第 06–07 课由 Pro 买断解锁）。
 const lessons = [
   LessonDefinition(
     id: 'lesson_1',
@@ -33,28 +46,42 @@ const lessons = [
     kind: LessonKind.introduction,
   ),
   LessonDefinition(
-    id: 'lesson_2',
+    id: 'lesson_breath',
     number: '02',
+    minutes: 4,
+    kind: LessonKind.breathing,
+  ),
+  LessonDefinition(
+    id: 'lesson_2',
+    number: '03',
     minutes: 6,
     kind: LessonKind.firstNote,
   ),
   LessonDefinition(
     id: 'lesson_3',
-    number: '03',
+    number: '04',
     minutes: 8,
     kind: LessonKind.clearNote,
   ),
   LessonDefinition(
     id: 'lesson_4',
-    number: '04',
+    number: '05',
     minutes: 5,
     kind: LessonKind.drawNote,
   ),
   LessonDefinition(
     id: 'lesson_5',
-    number: '05',
+    number: '06',
     minutes: 8,
     kind: LessonKind.firstSong,
+    isPro: true,
+  ),
+  LessonDefinition(
+    id: 'lesson_chord',
+    number: '07',
+    minutes: 6,
+    kind: LessonKind.chordRhythm,
+    isPro: true,
   ),
 ];
 
@@ -76,28 +103,30 @@ Route<void> lessonRoute(BuildContext context, LessonDefinition lesson) {
       final strings = routeContext.strings;
       return switch (lesson.kind) {
         LessonKind.introduction => const LessonDetailScreen(),
+        LessonKind.breathing => const BreathLessonScreen(),
         LessonKind.firstNote => PracticeScreen(
           target: const PracticeNote(note: 'C', octave: 5, tab: '4↑'),
           lessonId: lesson.id,
           instruction: strings.lessonGuidance(lesson.id),
-          step: 2,
+          step: 3,
         ),
         LessonKind.clearNote => PracticeScreen(
           target: const PracticeNote(note: 'E', octave: 5, tab: '5↑'),
           lessonId: lesson.id,
           instruction: strings.lessonGuidance(lesson.id),
-          step: 3,
+          step: 4,
         ),
         LessonKind.drawNote => PracticeScreen(
           target: const PracticeNote(note: 'D', octave: 5, tab: '4↓'),
           lessonId: lesson.id,
           instruction: strings.lessonGuidance(lesson.id),
-          step: 4,
+          step: 5,
         ),
         LessonKind.firstSong => SongPracticeScreen(
           song: songs.first,
           lessonId: lesson.id,
         ),
+        LessonKind.chordRhythm => const ChordRhythmLessonScreen(),
       };
     },
   );

@@ -317,7 +317,10 @@ class _TunerScreenState extends State<TunerScreen>
     final listening = _status == _TunerStatus.listening;
     final detected = listening && _reading.detected;
     final cents = detected ? _reading.cents.round().clamp(-50, 50).toInt() : 0;
-    final tab = detected ? tabForReading(_reading, key) : null;
+    final activeTabs = detected
+        ? tabsForReading(_reading, key)
+        : const <HarmonicaTabMatch>[];
+    final tab = activeTabs.isEmpty ? null : activeTabs.first;
     final accuracy = AppScope.of(context).weakNoteAccuracy();
     final weakCells = accuracy
         .where((value) => value != null && value < 0.75)
@@ -438,8 +441,22 @@ class _TunerScreenState extends State<TunerScreen>
             height: shortViewport
                 ? 8
                 : compact
-                ? 14
-                : 22,
+                ? 12
+                : 16,
+          ),
+          _TunerLiveHoleStrip(
+            key: const Key('tuner-live-hole-strip'),
+            harmonicaKey: key,
+            activeTabs: activeTabs,
+            detectedNote: detected ? _reading.noteWithOctave : null,
+            inTune: detected && cents.abs() <= 10,
+          ),
+          SizedBox(
+            height: shortViewport
+                ? 8
+                : compact
+                ? 12
+                : 18,
           ),
           SizedBox(
             width: double.infinity,
@@ -1604,6 +1621,157 @@ class _NoteDisplay extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 调音器 1–10 孔横向实时高亮条：与顶部音分表实时联动，支持 2↓ / 3↑ 同音同时点亮。
+class _TunerLiveHoleStrip extends StatelessWidget {
+  const _TunerLiveHoleStrip({
+    required this.harmonicaKey,
+    required this.activeTabs,
+    required this.detectedNote,
+    required this.inTune,
+    super.key,
+  });
+
+  final String harmonicaKey;
+  final List<HarmonicaTabMatch> activeTabs;
+  final String? detectedNote;
+  final bool inTune;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.colors;
+    final strings = context.strings;
+    final hasActive = activeTabs.isNotEmpty && detectedNote != null;
+    final activeLabels = activeTabs
+        .map((match) => '${match.hole}${match.isBlow ? '↑' : '↓'}')
+        .join(' / ');
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.outline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  strings.t('tunerHoleStripTitle'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: palette.muted,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  hasActive
+                      ? strings.t('tunerHoleStripActive', {
+                          'tabs': activeLabels,
+                          'note': detectedNote!,
+                        })
+                      : strings.t('tunerHoleStripIdle'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: hasActive
+                        ? (inTune ? palette.success : palette.primary)
+                        : palette.muted,
+                    fontWeight: hasActive ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              for (var hole = 1; hole <= 10; hole++) ...[
+                if (hole > 1) const SizedBox(width: 3),
+                Expanded(
+                  child: _buildHoleCell(context, hole),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHoleCell(BuildContext context, int hole) {
+    final palette = context.colors;
+    HarmonicaTabMatch? match;
+    for (final candidate in activeTabs) {
+      if (candidate.hole == hole) {
+        match = candidate;
+        break;
+      }
+    }
+    final isActive = match != null;
+    final isBlow = match?.isBlow ?? true;
+    final activeColor = inTune
+        ? palette.success
+        : (isBlow ? palette.primary : palette.accent);
+    final noteName = isActive
+        ? shortNoteNameForHole(hole, isBlow: isBlow, key: harmonicaKey)
+        : shortNoteNameForHole(hole, isBlow: true, key: harmonicaKey);
+
+    return AnimatedContainer(
+      key: Key('tuner-hole-cell-$hole'),
+      duration: AppMotion.duration(context, AppMotion.fast),
+      padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
+      decoration: BoxDecoration(
+        color: isActive
+            ? activeColor.withValues(alpha: 0.16)
+            : palette.surfaceHigh.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isActive ? activeColor : palette.outline,
+          width: isActive ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              isActive ? '$hole${isBlow ? '↑' : '↓'}' : '$hole',
+              style: TextStyle(
+                fontSize: 11.5,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w800,
+                color: isActive ? activeColor : palette.text,
+              ),
+            ),
+          ),
+          const SizedBox(height: 1),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              noteName,
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                color: isActive ? activeColor : palette.muted,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

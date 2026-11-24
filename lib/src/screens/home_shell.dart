@@ -7,9 +7,11 @@ import '../localization/app_strings.dart';
 import '../services/guide_tone_service.dart';
 import '../services/haptics.dart';
 import '../services/pitch_service.dart';
+import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/chuming_launch_splash.dart';
+import 'harmonica_registration_screen.dart';
 import 'learn_screen.dart';
 import 'profile_screen.dart';
 import 'songs_screen.dart';
@@ -100,14 +102,19 @@ class _HomeShellState extends State<HomeShell>
 
   @override
   Widget build(BuildContext context) {
+    final controller = AppScope.of(context);
     final palette = context.colors;
+    final showRegistration =
+        controller.isLoaded && !controller.hasRegisteredHarmonica;
     final screens = [
       const LearnScreen(),
       const SongsScreen(),
-      TunerScreen(active: _index == 2),
+      TunerScreen(active: _index == 2 && !showRegistration),
       const ProfileScreen(),
     ];
-    final scaffold = Scaffold(
+    final Widget mainContent = showRegistration
+        ? const HarmonicaRegistrationScreen()
+        : Scaffold(
       body: SafeArea(
         bottom: false,
         child: NotificationListener<ScrollStartNotification>(
@@ -177,7 +184,7 @@ class _HomeShellState extends State<HomeShell>
         ),
       ),
     );
-    final wrappedScaffold = ChumingLaunchSplashOverlay(child: scaffold);
+    final wrappedScaffold = ChumingLaunchSplashOverlay(child: mainContent);
     if (!kIsWeb) return wrappedScaffold;
 
     return LayoutBuilder(

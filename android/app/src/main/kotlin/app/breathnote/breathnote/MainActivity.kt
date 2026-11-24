@@ -25,6 +25,7 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
     private val audioControlChannel = "app.breathnote/audio_control"
     private val pitchEventsChannel = "app.breathnote/pitch_events"
     private val preferencesChannel = "app.breathnote/preferences"
+    private val billingChannel = "app.breathnote/billing"
     private val permissionRequestCode = 4102
 
     private var eventSink: EventChannel.EventSink? = null
@@ -50,6 +51,19 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
             flutterEngine.dartExecutor.binaryMessenger,
             preferencesChannel,
         ).setMethodCallHandler(::handlePreferencesMethod)
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            billingChannel,
+        ).setMethodCallHandler(::handleBillingMethod)
+    }
+
+    private fun handleBillingMethod(call: MethodCall, result: MethodChannel.Result) {
+        when (call.method) {
+            // Ready for Google Play Billing Client integration once store SKU `breathnote_pro_lifetime` is published.
+            "purchaseProLifetime", "restorePurchases" -> result.success("unavailable")
+            else -> result.notImplemented()
+        }
     }
 
     private fun handleAudioMethod(call: MethodCall, result: MethodChannel.Result) {

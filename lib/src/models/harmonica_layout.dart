@@ -13,19 +13,92 @@ class HarmonicaTabMatch {
 const List<int> kHarmonicaBlowMidi = [60, 64, 67, 72, 76, 79, 84, 88, 91, 96];
 const List<int> kHarmonicaDrawMidi = [62, 67, 71, 74, 77, 81, 83, 86, 89, 93];
 
+const List<String> kAllHarmonicaKeys = [
+  'C',
+  'D♭',
+  'D',
+  'E♭',
+  'E',
+  'F',
+  'F#',
+  'G',
+  'A♭',
+  'A',
+  'B♭',
+  'B',
+];
+
+const List<String> kPrimaryHarmonicaKeys = ['C', 'G', 'A', 'D', 'E', 'B♭', 'F'];
+
+const List<String> kSecondaryHarmonicaKeys = ['D♭', 'E♭', 'F#', 'A♭', 'B'];
+
+class DetectedHarmonicaKey {
+  const DetectedHarmonicaKey({
+    required this.key,
+    required this.midi,
+    required this.cents,
+    required this.noteLabel,
+  });
+
+  final String key;
+  final int midi;
+  final double cents;
+  final String noteLabel;
+}
+
+/// 根据第 4 孔自然吹气基频反推标准 10 孔 Richter 调音口琴调号。
+/// 第 4 孔吹气即为该口琴的主音（例如 C 调为 C5，F 调为 F5，G 调为 G4/G5）。
+DetectedHarmonicaKey? detectHarmonicaKeyFromHole4Blow(double frequency) {
+  if (!frequency.isFinite || frequency < 180 || frequency > 1600) {
+    return null;
+  }
+  final exactMidi = 69 + 12 * (math.log(frequency / 440.0) / math.ln2);
+  final nearestMidi = exactMidi.round();
+  final cents = (exactMidi - nearestMidi) * 100;
+  final pitchClass = ((nearestMidi % 12) + 12) % 12;
+  return DetectedHarmonicaKey(
+    key: kAllHarmonicaKeys[pitchClass],
+    midi: nearestMidi,
+    cents: cents,
+    noteLabel: noteLabelForMidi(nearestMidi),
+  );
+}
+
+/// 返回紧凑无八度音名（用于 10 孔预览表，例如 C / G / B♭）。
+String shortNoteNameForHole(
+  int hole, {
+  required bool isBlow,
+  required String key,
+}) {
+  final safeIndex = (hole - 1).clamp(0, 9);
+  final baseMidi = isBlow
+      ? kHarmonicaBlowMidi[safeIndex]
+      : kHarmonicaDrawMidi[safeIndex];
+  final targetMidi = baseMidi + harmonicaKeyOffset(key);
+  final pitchClass = ((targetMidi % 12) + 12) % 12;
+  return kAllHarmonicaKeys[pitchClass];
+}
+
 HarmonicaTabMatch? tabForReading(PitchReading reading, String key) {
-  if (!reading.detected) return null;
+  final matches = tabsForReading(reading, key);
+  return matches.isEmpty ? null : matches.first;
+}
+
+/// 返回与当前检测音高匹配的所有孔位动作（例如 2 孔吸气与 3 孔吹气为同音，会同时返回两者）。
+List<HarmonicaTabMatch> tabsForReading(PitchReading reading, String key) {
+  if (!reading.detected) return const [];
   final offset = harmonicaKeyOffset(key);
+  final matches = <HarmonicaTabMatch>[];
 
   for (var index = 0; index < kHarmonicaBlowMidi.length; index++) {
     if (kHarmonicaBlowMidi[index] + offset == reading.midi) {
-      return HarmonicaTabMatch(hole: index + 1, isBlow: true);
+      matches.add(HarmonicaTabMatch(hole: index + 1, isBlow: true));
     }
     if (kHarmonicaDrawMidi[index] + offset == reading.midi) {
-      return HarmonicaTabMatch(hole: index + 1, isBlow: false);
+      matches.add(HarmonicaTabMatch(hole: index + 1, isBlow: false));
     }
   }
-  return null;
+  return matches;
 }
 
 /// 零乐理新手友好的口琴孔位详解数据模型

@@ -9,6 +9,7 @@ import '../theme/app_adaptive.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/cute_illustrations.dart';
+import '../widgets/pro_paywall_sheet.dart';
 import 'help_screen.dart';
 import 'local_data_screen.dart';
 
@@ -391,7 +392,60 @@ class ProfileScreen extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
+        Card(
+          key: const Key('profile-pro-card'),
+          color: controller.isProUnlocked
+              ? palette.success.withValues(alpha: 0.08)
+              : palette.primary.withValues(alpha: 0.07),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(
+              color:
+                  (controller.isProUnlocked ? palette.success : palette.primary)
+                      .withValues(alpha: 0.35),
+            ),
+          ),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 18,
+              vertical: 6,
+            ),
+            leading: Icon(
+              controller.isProUnlocked
+                  ? Icons.verified_rounded
+                  : Icons.workspace_premium_rounded,
+              color: controller.isProUnlocked
+                  ? palette.success
+                  : palette.primary,
+            ),
+            title: Text(
+              strings.t(
+                controller.isProUnlocked
+                    ? 'proUnlockedBanner'
+                    : 'proCardTitle',
+              ),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            subtitle: Text(
+              strings.t(
+                controller.isProUnlocked
+                    ? 'proUnlockedSubtitle'
+                    : 'proCardSubtitle',
+              ),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            trailing: controller.isProUnlocked
+                ? null
+                : Icon(Icons.chevron_right_rounded, color: palette.primary),
+            onTap: controller.isProUnlocked
+                ? null
+                : () => showProPaywallSheet(context),
+          ),
+        ),
+        const SizedBox(height: 16),
         Card(
           child: Column(
             children: [

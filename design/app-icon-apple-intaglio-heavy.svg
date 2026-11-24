@@ -1,0 +1,224 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <!-- Background Royal Blue Gradient (高品质苹果宝蓝底) -->
+    <linearGradient id="bgApple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3877FF"/>
+      <stop offset="50%" stop-color="#245BD8"/>
+      <stop offset="100%" stop-color="#123EB5"/>
+    </linearGradient>
+
+    <!-- Center Ambient Flare (中心环境柔光) -->
+    <radialGradient id="centerFlare" cx="50%" cy="50%" r="52%">
+      <stop offset="0%" stop-color="#6499FF" stop-opacity="0.35"/>
+      <stop offset="65%" stop-color="#245BD8" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#123EB5" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Cover Plate Aerodynamic Gradient (上下护板微金属陶瓷质感) -->
+    <linearGradient id="plateTopGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="65%" stop-color="#F2F5FD"/>
+      <stop offset="100%" stop-color="#D7E1F5"/>
+    </linearGradient>
+    <linearGradient id="plateBottomGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#D7E1F5"/>
+      <stop offset="35%" stop-color="#F2F5FD"/>
+      <stop offset="100%" stop-color="#FFFFFF"/>
+    </linearGradient>
+
+    <!-- Comb Body Pure Ceramic Ivory -->
+    <linearGradient id="combWhite" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="85%" stop-color="#F6F9FF"/>
+      <stop offset="100%" stop-color="#E5ECFA"/>
+    </linearGradient>
+
+    <!-- ============================================== -->
+    <!-- 苹果 Icon Composer 级【加重极深阴刻】渐变 -->
+    <!-- ============================================== -->
+    <!-- 1. 普通音孔内腔深邃渐变 (顶端暗黑到内壁深蓝) -->
+    <linearGradient id="deepCavityHeavy" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#020612"/>
+      <stop offset="35%" stop-color="#07122A"/>
+      <stop offset="70%" stop-color="#0E2352"/>
+      <stop offset="100%" stop-color="#16377A"/>
+    </linearGradient>
+
+    <!-- 2. 第 4 孔【翡翠初鸣】极深阴刻渐变 -->
+    <linearGradient id="emeraldCavityHeavy" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#01180A"/>
+      <stop offset="30%" stop-color="#044222"/>
+      <stop offset="65%" stop-color="#0A8847"/>
+      <stop offset="100%" stop-color="#22C55E"/>
+    </linearGradient>
+
+    <!-- 3. 第 4 孔呼吸光晕 -->
+    <radialGradient id="emeraldAura" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#34D399" stop-opacity="0.5"/>
+      <stop offset="60%" stop-color="#10B981" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#059669" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- 苹果风格实体悬浮软投影 -->
+    <filter id="appleElevation" x="-15%" y="-18%" width="130%" height="145%">
+      <feDropShadow dx="0" dy="28" stdDeviation="30" flood-color="#071745" flood-opacity="0.5"/>
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#071745" flood-opacity="0.25"/>
+    </filter>
+
+    <clipPath id="squircle">
+      <rect width="1024" height="1024" rx="228"/>
+    </clipPath>
+  </defs>
+
+  <!-- 1. Background Base -->
+  <rect width="1024" height="1024" rx="228" fill="url(#bgApple)"/>
+  <rect width="1024" height="1024" rx="228" fill="url(#centerFlare)"/>
+
+  <!-- 2. Acoustic Ripples (与底色相融的同心共鸣环) -->
+  <g clip-path="url(#squircle)" opacity="0.32">
+    <ellipse cx="512" cy="512" rx="420" ry="240" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.12"/>
+    <ellipse cx="512" cy="512" rx="330" ry="190" fill="none" stroke="#FFFFFF" stroke-width="2.2" opacity="0.18"/>
+    <ellipse cx="512" cy="512" rx="240" ry="140" fill="none" stroke="#FFFFFF" stroke-width="2.5" opacity="0.26"/>
+    <ellipse cx="512" cy="512" rx="150" ry="90" fill="none" stroke="#34D399" stroke-width="2.8" opacity="0.35"/>
+  </g>
+
+  <!-- 3. Ambient Emerald Glow behind Hole 4 -->
+  <circle cx="512" cy="512" r="150" fill="url(#emeraldAura)"/>
+
+  <!-- 4. Harmonica Instrument Assembly -->
+  <g filter="url(#appleElevation)">
+
+    <!-- Top Aerodynamic Cover Plate (上护板) -->
+    <path d="M 232 348 
+             L 792 348 
+             A 36 36 0 0 1 828 384 
+             L 828 416 
+             L 196 416 
+             L 196 384 
+             A 36 36 0 0 1 232 348 Z" 
+          fill="url(#plateTopGrad)"/>
+    <path d="M 232 348 L 792 348 A 36 36 0 0 1 828 384 L 828 388 L 196 388 L 196 384 A 36 36 0 0 1 232 348 Z" 
+          fill="#FFFFFF" opacity="0.85"/>
+
+    <!-- Bottom Cover Plate (下护板) -->
+    <path d="M 196 608 
+             L 828 608 
+             L 828 640 
+             A 36 36 0 0 1 792 676 
+             L 232 676 
+             A 36 36 0 0 1 196 640 Z" 
+          fill="url(#plateBottomGrad)"/>
+    <path d="M 196 608 L 828 608 L 828 611 L 196 611 Z" fill="#B0C1E5" opacity="0.6"/>
+
+    <!-- Central Ceramic Comb Body (白瓷琴格主体) -->
+    <rect x="180" y="416" width="664" height="192" rx="32" fill="url(#combWhite)"/>
+    
+    <!-- 1px Precision Outer Highlight Chamfer (琴格外缘微倒角高光) -->
+    <rect x="181" y="417" width="662" height="190" rx="31" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.95"/>
+    <line x1="200" y1="416" x2="824" y2="416" stroke="#CAD7F0" stroke-width="1.2" opacity="0.8"/>
+    <line x1="200" y1="608" x2="824" y2="608" stroke="#CAD7F0" stroke-width="1.2" opacity="0.8"/>
+
+    <!-- Rivet Screws (双侧微调螺钉) -->
+    <circle cx="220" cy="402" r="11" fill="#E1E8F7"/>
+    <circle cx="220" cy="402" r="11" fill="none" stroke="#9BB0D4" stroke-width="1.6"/>
+    <line x1="213" y1="402" x2="227" y2="402" stroke="#778DAF" stroke-width="2" stroke-linecap="round"/>
+    
+    <circle cx="804" cy="402" r="11" fill="#E1E8F7"/>
+    <circle cx="804" cy="402" r="11" fill="none" stroke="#9BB0D4" stroke-width="1.6"/>
+    <line x1="797" y1="402" x2="811" y2="402" stroke="#778DAF" stroke-width="2" stroke-linecap="round"/>
+
+    <!-- ================================================================= -->
+    <!-- 7 组【极重度阴刻立体音孔】(Heavy Intaglio with Double Bevel & Occlusion) -->
+    <!-- 孔宽拓宽至 66px (初鸣孔 76px)，极深下陷阴影 + 双层受光内唇 + 外周冲压倒角 -->
+    <!-- ================================================================= -->
+
+    <!-- Slot 1 (x: 208, w: 66, h: 126, rx: 20) -->
+    <g>
+      <!-- 外周冲压暗阴影 (Punched Well Shadow) -->
+      <rect x="207" y="447" width="68" height="128" rx="21" fill="none" stroke="#000000" stroke-width="2" opacity="0.25"/>
+      <!-- 主体内腔深邃渐变 -->
+      <rect x="208" y="448" width="66" height="126" rx="20" fill="url(#deepCavityHeavy)"/>
+      <!-- 极深顶部内壁阴影遮蔽 (Heavy Top Occlusion) -->
+      <path d="M 208 472 A 20 20 0 0 1 228 448 L 254 448 A 20 20 0 0 1 274 472 L 274 482 Q 241 492 208 482 Z" fill="#000000" opacity="0.88"/>
+      <!-- 外周下缘高光唇 (Outer Bottom Chamfer) -->
+      <path d="M 210 575 Q 241 578 272 575" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.9"/>
+      <!-- 腔体内底受光反光唇 (Inner Bottom Shelf) -->
+      <path d="M 215 568 Q 241 575 267 568" stroke="#3B69C4" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.95"/>
+      <path d="M 221 570 Q 241 574 261 570" stroke="#8CB2FF" stroke-width="1.4" stroke-linecap="round" fill="none" opacity="0.75"/>
+    </g>
+
+    <!-- Slot 2 (x: 298, w: 66, h: 126, rx: 20) -->
+    <g>
+      <rect x="297" y="447" width="68" height="128" rx="21" fill="none" stroke="#000000" stroke-width="2" opacity="0.25"/>
+      <rect x="298" y="448" width="66" height="126" rx="20" fill="url(#deepCavityHeavy)"/>
+      <path d="M 298 472 A 20 20 0 0 1 318 448 L 344 448 A 20 20 0 0 1 364 472 L 364 482 Q 331 492 298 482 Z" fill="#000000" opacity="0.88"/>
+      <path d="M 300 575 Q 331 578 362 575" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.9"/>
+      <path d="M 305 568 Q 331 575 357 568" stroke="#3B69C4" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.95"/>
+      <path d="M 311 570 Q 331 574 351 570" stroke="#8CB2FF" stroke-width="1.4" stroke-linecap="round" fill="none" opacity="0.75"/>
+    </g>
+
+    <!-- Slot 3 (x: 388, w: 66, h: 126, rx: 20) -->
+    <g>
+      <rect x="387" y="447" width="68" height="128" rx="21" fill="none" stroke="#000000" stroke-width="2" opacity="0.25"/>
+      <rect x="388" y="448" width="66" height="126" rx="20" fill="url(#deepCavityHeavy)"/>
+      <path d="M 388 472 A 20 20 0 0 1 408 448 L 434 448 A 20 20 0 0 1 454 472 L 454 482 Q 421 492 388 482 Z" fill="#000000" opacity="0.88"/>
+      <path d="M 390 575 Q 421 578 452 575" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.9"/>
+      <path d="M 395 568 Q 421 575 447 568" stroke="#3B69C4" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.95"/>
+      <path d="M 401 570 Q 421 574 441 570" stroke="#8CB2FF" stroke-width="1.4" stroke-linecap="round" fill="none" opacity="0.75"/>
+    </g>
+
+    <!-- ============================================================== -->
+    <!-- Slot 4: HERO "初鸣" 翡翠主孔 (x: 474, w: 76, h: 138, rx: 22) -->
+    <!-- 极重度阴刻、深翠下陷、翡翠宝石光感与双层内唇 -->
+    <!-- ============================================================== -->
+    <g>
+      <!-- 外部呼吸光晕垫层 -->
+      <rect x="470" y="438" width="84" height="146" rx="26" fill="#10B981" opacity="0.32"/>
+      <!-- 外周冲压暗阴影 -->
+      <rect x="472" y="441" width="80" height="140" rx="23" fill="none" stroke="#011B0B" stroke-width="2.2" opacity="0.5"/>
+      <!-- 主腔体翡翠渐变 -->
+      <rect x="474" y="442" width="76" height="138" rx="22" fill="url(#emeraldCavityHeavy)"/>
+      <!-- 顶部极深下陷阴影 (Heavy Emerald Occlusion) -->
+      <path d="M 474 466 A 22 22 0 0 1 496 442 L 528 442 A 22 22 0 0 1 550 466 L 550 478 Q 512 488 474 478 Z" fill="#001006" opacity="0.92"/>
+      <!-- 外周下缘高光唇 -->
+      <path d="M 476 581 Q 512 585 548 581" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.95"/>
+      <!-- 腔体内底受光反光唇 -->
+      <path d="M 481 574 Q 512 582 543 574" stroke="#86EFAC" stroke-width="3.5" stroke-linecap="round" fill="none" opacity="0.95"/>
+      <path d="M 488 576 Q 512 580 536 576" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.9"/>
+      <!-- 核心声学微光球 -->
+      <ellipse cx="512" cy="482" rx="18" ry="24" fill="#FFFFFF" opacity="0.45"/>
+      <circle cx="512" cy="516" r="6.5" fill="#FFFFFF" opacity="0.95"/>
+    </g>
+
+    <!-- Slot 5 (x: 570, w: 66, h: 126, rx: 20) -->
+    <g>
+      <rect x="569" y="447" width="68" height="128" rx="21" fill="none" stroke="#000000" stroke-width="2" opacity="0.25"/>
+      <rect x="570" y="448" width="66" height="126" rx="20" fill="url(#deepCavityHeavy)"/>
+      <path d="M 570 472 A 20 20 0 0 1 590 448 L 616 448 A 20 20 0 0 1 636 472 L 636 482 Q 603 492 570 482 Z" fill="#000000" opacity="0.88"/>
+      <path d="M 572 575 Q 603 578 634 575" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.9"/>
+      <path d="M 577 568 Q 603 575 629 568" stroke="#3B69C4" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.95"/>
+      <path d="M 583 570 Q 603 574 623 570" stroke="#8CB2FF" stroke-width="1.4" stroke-linecap="round" fill="none" opacity="0.75"/>
+    </g>
+
+    <!-- Slot 6 (x: 660, w: 66, h: 126, rx: 20) -->
+    <g>
+      <rect x="659" y="447" width="68" height="128" rx="21" fill="none" stroke="#000000" stroke-width="2" opacity="0.25"/>
+      <rect x="660" y="448" width="66" height="126" rx="20" fill="url(#deepCavityHeavy)"/>
+      <path d="M 660 472 A 20 20 0 0 1 680 448 L 706 448 A 20 20 0 0 1 726 472 L 726 482 Q 693 492 660 482 Z" fill="#000000" opacity="0.88"/>
+      <path d="M 662 575 Q 693 578 724 575" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.9"/>
+      <path d="M 667 568 Q 693 575 719 568" stroke="#3B69C4" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.95"/>
+      <path d="M 673 570 Q 693 574 713 570" stroke="#8CB2FF" stroke-width="1.4" stroke-linecap="round" fill="none" opacity="0.75"/>
+    </g>
+
+    <!-- Slot 7 (x: 750, w: 66, h: 126, rx: 20) -->
+    <g>
+      <rect x="749" y="447" width="68" height="128" rx="21" fill="none" stroke="#000000" stroke-width="2" opacity="0.25"/>
+      <rect x="750" y="448" width="66" height="126" rx="20" fill="url(#deepCavityHeavy)"/>
+      <path d="M 750 472 A 20 20 0 0 1 770 448 L 796 448 A 20 20 0 0 1 816 472 L 816 482 Q 783 492 750 482 Z" fill="#000000" opacity="0.88"/>
+      <path d="M 752 575 Q 783 578 814 575" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.9"/>
+      <path d="M 757 568 Q 783 575 809 568" stroke="#3B69C4" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.95"/>
+      <path d="M 763 570 Q 783 574 803 570" stroke="#8CB2FF" stroke-width="1.4" stroke-linecap="round" fill="none" opacity="0.75"/>
+    </g>
+
+  </g>
+</svg>

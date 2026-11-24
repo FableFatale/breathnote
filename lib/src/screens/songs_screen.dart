@@ -12,6 +12,8 @@ import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/chuming_coach.dart';
 import '../widgets/cute_illustrations.dart';
+import '../widgets/harmonica_guide.dart' show showHarmonicaKeyPicker;
+import '../widgets/pro_paywall_sheet.dart';
 import '../widgets/shared_widgets.dart';
 import 'song_practice_screen.dart';
 
@@ -36,6 +38,10 @@ class _SongsScreenState extends State<SongsScreen> {
   Future<void> _createSong() async {
     final appController = AppScope.read(context);
     unawaited(AppHaptics.selection(context));
+    if (!appController.isProUnlocked) {
+      final unlocked = await showProPaywallSheet(context);
+      if (!unlocked || !mounted) return;
+    }
 
     final createdSong = await showModalBottomSheet<Song>(
       context: context,
@@ -99,10 +105,12 @@ class _SongsScreenState extends State<SongsScreen> {
     final controller = AppScope.of(context);
     final palette = context.colors;
     final visible = controller.allSongs.where((song) {
-      final filterMatches =
-          _filter == 'all' ||
-          (_filter == 'easy' && song.level == 'easy') ||
-          (_filter == 'advanced' && song.level == 'advanced');
+      final filterMatches = switch (_filter) {
+        'easy' => song.level == 'easy',
+        'completed' => controller.isSongCompleted(song.id),
+        'favorites' => controller.isSongFavorite(song.id),
+        _ => true,
+      };
       final query = _query.toLowerCase();
       final localizedTitle = context.strings
           .songTitle(song.id, song.title)
@@ -155,10 +163,52 @@ class _SongsScreenState extends State<SongsScreen> {
                     Expanded(
                       child: Text(
                         context.strings.t('songsLibrary'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(fontSize: 22),
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    InkWell(
+                      key: const Key('songs-key-chip'),
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => showHarmonicaKeyPicker(context),
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 44),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: palette.surface,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: palette.outline),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              context.strings.t('keyName', {
+                                'key': controller.harmonicaKey,
+                              }),
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(
+                                    color: palette.primary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                            const SizedBox(width: 2),
+                            Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 16,
+                              color: palette.muted,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -225,29 +275,32 @@ class _SongsScreenState extends State<SongsScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: SegmentedButton<String>(
-                    segments: [
-                      ButtonSegment(
-                        value: 'all',
-                        label: Text(context.strings.t('all')),
-                      ),
-                      ButtonSegment(
-                        value: 'easy',
-                        label: Text(context.strings.t('easy')),
-                      ),
-                      ButtonSegment(
-                        value: 'advanced',
-                        label: Text(context.strings.t('advanced')),
-                      ),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final option in [
+                        ('all', context.strings.t('all')),
+                        ('easy', context.strings.t('easy')),
+                        ('completed', context.strings.t('filterCompleted')),
+                        ('favorites', context.strings.t('filterFavorites')),
+                      ]) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            key: Key('songs-filter-${option.$1}'),
+                            label: Text(option.$2),
+                            selected: _filter == option.$1,
+                            showCheckmark: false,
+                            onSelected: (selected) {
+                              if (!selected) return;
+                              setState(() => _filter = option.$1);
+                              unawaited(AppHaptics.selection(context));
+                            },
+                          ),
+                        ),
+                      ],
                     ],
-                    selected: {_filter},
-                    showSelectedIcon: false,
-                    onSelectionChanged: (value) async {
-                      setState(() => _filter = value.first);
-                      await AppHaptics.selection(context);
-                    },
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -271,13 +324,27 @@ class _SongsScreenState extends State<SongsScreen> {
               separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final song = visible[index];
+                final proLocked = song.isPro && !controller.isProUnlocked;
                 return _SongTile(
                   song: song,
                   iconId: controller.iconIdForSong(song),
+                  proLocked: proLocked,
+                  bestStars: controller.bestStarsForSong(song.id),
+                  bestScore: controller.bestScoreForSong(song.id),
+                  isFavorite: controller.isSongFavorite(song.id),
                   onPickIcon: () => _pickSongIcon(song),
-                  onTap: () {
+                  onToggleFavorite: () {
                     unawaited(AppHaptics.selection(context));
-                    Navigator.of(context).push(
+                    unawaited(controller.toggleFavoriteSong(song.id));
+                  },
+                  onTap: () async {
+                    unawaited(AppHaptics.selection(context));
+                    if (proLocked) {
+                      final unlocked = await showProPaywallSheet(context);
+                      if (!unlocked || !context.mounted) return;
+                    }
+                    if (!context.mounted) return;
+                    await Navigator.of(context).push(
                       AppPageRoute<void>(
                         reduceMotion: AppMotion.isReduced(context),
                         builder: (_) => SongPracticeScreen(song: song),
@@ -735,21 +802,32 @@ class _SongTile extends StatelessWidget {
   const _SongTile({
     required this.song,
     required this.iconId,
+    required this.proLocked,
+    required this.bestStars,
+    required this.bestScore,
+    required this.isFavorite,
     required this.onTap,
     required this.onPickIcon,
+    required this.onToggleFavorite,
     this.onDelete,
   });
 
   final Song song;
   final String iconId;
+  final bool proLocked;
+  final int bestStars;
+  final int bestScore;
+  final bool isFavorite;
   final VoidCallback onTap;
   final VoidCallback onPickIcon;
+  final VoidCallback onToggleFavorite;
   final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.colors;
     final title = context.strings.songTitle(song.id, song.title);
+    final played = bestStars > 0 || bestScore > 0;
     return Card(
       semanticContainer: false,
       clipBehavior: Clip.antiAlias,
@@ -764,7 +842,7 @@ class _SongTile extends StatelessWidget {
               child: InkWell(
                 onTap: onTap,
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
                   child: Row(
                     children: [
                       SongArtworkBadge(
@@ -780,9 +858,41 @@ class _SongTile extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              title,
-                              style: Theme.of(context).textTheme.titleMedium,
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    title,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleMedium,
+                                  ),
+                                ),
+                                if (proLocked) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    key: Key('song-pro-badge-${song.id}'),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 7,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: palette.accent.withValues(
+                                        alpha: 0.14,
+                                      ),
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      context.strings.t('proBadge'),
+                                      style: TextStyle(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: palette.accent,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                             const SizedBox(height: 2),
                             Text(
@@ -790,51 +900,100 @@ class _SongTile extends StatelessWidget {
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                             const SizedBox(height: 7),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: palette.primary.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                song.tabPreview,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: palette.primary,
-                                  fontSize: 12,
-                                  fontFamily: 'monospace',
-                                  fontWeight: FontWeight.w700,
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: palette.primary.withValues(
+                                      alpha: 0.08,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    song.tabPreview,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: palette.primary,
+                                      fontSize: 12,
+                                      fontFamily: 'monospace',
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                if (played)
+                                  Row(
+                                    key: Key('song-stars-${song.id}'),
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      for (var i = 0; i < 3; i++)
+                                        Icon(
+                                          i < bestStars
+                                              ? Icons.star_rounded
+                                              : Icons.star_outline_rounded,
+                                          size: 14,
+                                          color: i < bestStars
+                                              ? const Color(0xFFF59E0B)
+                                              : palette.outline,
+                                        ),
+                                      if (bestScore > 0) ...[
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          context.strings.t('songBestBadge', {
+                                            'score': bestScore,
+                                          }),
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: palette.muted,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  )
+                                else
+                                  Text(
+                                    context.strings.t('songUnplayed'),
+                                    key: Key('song-unplayed-${song.id}'),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: palette.muted,
+                                    ),
+                                  ),
+                              ],
                             ),
                           ],
                         ),
                       ),
-                      if (onDelete == null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            color: palette.surfaceHigh,
-                            shape: BoxShape.circle,
-                          ),
-                          alignment: Alignment.center,
-                          child: Icon(
-                            Icons.chevron_right_rounded,
-                            color: palette.muted,
-                            size: 18,
-                          ),
-                        ),
-                      ],
                     ],
                   ),
                 ),
               ),
+            ),
+          ),
+          IconButton(
+            key: Key('song-favorite-${song.id}'),
+            tooltip: context.strings.t(
+              isFavorite ? 'favoriteSongRemove' : 'favoriteSongAdd',
+            ),
+            onPressed: onToggleFavorite,
+            style: IconButton.styleFrom(
+              minimumSize: const Size(44, 44),
+            ),
+            icon: Icon(
+              isFavorite
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
+              size: 20,
+              color: isFavorite ? palette.accent : palette.muted,
             ),
           ),
           if (onDelete != null)
@@ -858,7 +1017,9 @@ class _SongTile extends StatelessWidget {
                   ),
                 ),
               ),
-            ),
+            )
+          else
+            const SizedBox(width: 4),
         ],
       ),
     );

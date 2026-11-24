@@ -13,6 +13,7 @@ import '../widgets/cute_illustrations.dart';
 import '../widgets/gesture_guide.dart';
 import '../widgets/harmonica_guide.dart'
     show showHarmonicaGuide, showHarmonicaKeyPicker;
+import '../widgets/pro_paywall_sheet.dart';
 import 'lesson_routes.dart';
 
 class LearnScreen extends StatelessWidget {
@@ -120,6 +121,7 @@ class LearnScreen extends StatelessWidget {
                 nextLessonIndex: nextIndex,
                 complete: controller.completedLessons.contains(lesson.id),
                 active: lesson.id == nextLesson.id,
+                proLocked: lesson.isPro && !controller.isProUnlocked,
                 first: index == 0,
                 last: index == lessons.length - 1,
                 onTap: () => _openLesson(context, lesson),
@@ -148,13 +150,22 @@ class LearnScreen extends StatelessWidget {
     );
   }
 
-  static void _openLesson(BuildContext context, LessonDefinition lesson) {
+  static Future<void> _openLesson(
+    BuildContext context,
+    LessonDefinition lesson,
+  ) async {
     unawaited(AppHaptics.selection(context));
-    if (lesson.id == 'lesson_1' && !AppScope.read(context).sawHarmonicaGuide) {
+    final controller = AppScope.read(context);
+    if (lesson.isPro && !controller.isProUnlocked) {
+      final unlocked = await showProPaywallSheet(context);
+      if (!unlocked || !context.mounted) return;
+    }
+    if (!context.mounted) return;
+    if (lesson.id == 'lesson_1' && !controller.sawHarmonicaGuide) {
       _showBeginnerGuide(context);
       return;
     }
-    Navigator.of(context).push(lessonRoute(context, lesson));
+    await Navigator.of(context).push(lessonRoute(context, lesson));
   }
 }
 
@@ -337,6 +348,7 @@ class _TimelineLesson extends StatelessWidget {
     required this.nextLessonIndex,
     required this.complete,
     required this.active,
+    required this.proLocked,
     required this.first,
     required this.last,
     required this.onTap,
@@ -347,6 +359,7 @@ class _TimelineLesson extends StatelessWidget {
   final int nextLessonIndex;
   final bool complete;
   final bool active;
+  final bool proLocked;
   final bool first;
   final bool last;
   final VoidCallback onTap;
@@ -863,6 +876,28 @@ class _TimelineLesson extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
+              if (proLocked) ...[
+                Container(
+                  key: Key('lesson-pro-badge-${lesson.id}'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: palette.accent.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    context.strings.t('proBadge'),
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w800,
+                      color: palette.accent,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+              ],
               Container(
                 width: 28,
                 height: 28,

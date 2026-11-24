@@ -85,13 +85,13 @@ String defaultIconIdForSong(String songId, {bool isCustom = false}) {
       return 'tiger';
     case 'jasmine':
       return 'flower';
-    case 'sky_castle':
+    case 'amazing_grace':
       return 'moon';
     case 'happy_birthday':
       return 'campfire';
     case 'auld_lang_syne':
       return 'wave';
-    case 'always_with_me':
+    case 'first_breeze':
       return 'vinyl';
     default:
       if (!isCustom) return 'star';
@@ -120,6 +120,7 @@ class Song {
     required this.notes,
     this.iconId,
     this.isCustom = false,
+    this.isPro = false,
   });
 
   factory Song.fromJson(Map<String, Object?> json) {
@@ -155,6 +156,7 @@ class Song {
   final List<PracticeNote> notes;
   final String? iconId;
   final bool isCustom;
+  final bool isPro;
 
   String get defaultIconId =>
       iconId ?? defaultIconIdForSong(id, isCustom: isCustom);
@@ -371,30 +373,36 @@ const songs = [
     level: 'advanced',
     color: Color(0xFF4A3D5E),
     iconId: 'flower',
+    isPro: true,
     notes: [
+      // 传统五声调式校对版（好一朵美丽的茉莉花：3 3 5 6 1̇ 1̇ 6 5）
+      PracticeNote(note: 'E', octave: 5, tab: '5↑'),
       PracticeNote(note: 'E', octave: 5, tab: '5↑'),
       PracticeNote(note: 'G', octave: 5, tab: '6↑'),
-      PracticeNote(note: 'F', octave: 5, tab: '5↓'),
-      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
+      PracticeNote(note: 'A', octave: 5, tab: '6↓'),
       PracticeNote(note: 'C', octave: 6, tab: '7↑'),
+      PracticeNote(note: 'C', octave: 6, tab: '7↑'),
+      PracticeNote(note: 'A', octave: 5, tab: '6↓'),
       PracticeNote(note: 'G', octave: 5, tab: '6↑'),
     ],
   ),
   Song(
-    id: 'sky_castle',
-    title: '天空之城',
-    subtitle: 'song_sky_castle_subtitle',
+    id: 'amazing_grace',
+    title: '奇异恩典',
+    subtitle: 'song_amazing_grace_subtitle',
     level: 'advanced',
     color: Color(0xFF0B7285),
     iconId: 'moon',
+    isPro: true,
     notes: [
-      PracticeNote(note: 'A', octave: 5, tab: '6↓'),
-      PracticeNote(note: 'B', octave: 5, tab: '7↓'),
-      PracticeNote(note: 'C', octave: 6, tab: '7↑'),
-      PracticeNote(note: 'B', octave: 5, tab: '7↓'),
-      PracticeNote(note: 'C', octave: 6, tab: '7↑'),
-      PracticeNote(note: 'E', octave: 6, tab: '8↑'),
-      PracticeNote(note: 'B', octave: 5, tab: '7↓'),
+      // 公版圣咏旋律（5̣ 1 3 1 3 2 1）
+      PracticeNote(note: 'G', octave: 4, tab: '3↑'),
+      PracticeNote(note: 'C', octave: 5, tab: '4↑'),
+      PracticeNote(note: 'E', octave: 5, tab: '5↑'),
+      PracticeNote(note: 'C', octave: 5, tab: '4↑'),
+      PracticeNote(note: 'E', octave: 5, tab: '5↑'),
+      PracticeNote(note: 'D', octave: 5, tab: '4↓'),
+      PracticeNote(note: 'C', octave: 5, tab: '4↑'),
     ],
   ),
   Song(
@@ -404,6 +412,7 @@ const songs = [
     level: 'easy',
     color: Color(0xFFC92A2A),
     iconId: 'campfire',
+    isPro: true,
     notes: [
       PracticeNote(note: 'G', octave: 5, tab: '6↑'),
       PracticeNote(note: 'G', octave: 5, tab: '6↑'),
@@ -420,6 +429,7 @@ const songs = [
     level: 'easy',
     color: Color(0xFF0077B6),
     iconId: 'wave',
+    isPro: true,
     notes: [
       PracticeNote(note: 'G', octave: 5, tab: '6↑'),
       PracticeNote(note: 'E', octave: 5, tab: '5↑'),
@@ -431,21 +441,24 @@ const songs = [
     ],
   ),
   Song(
-    id: 'always_with_me',
-    title: '千与千寻',
-    subtitle: 'song_always_with_me_subtitle',
+    id: 'first_breeze',
+    title: '初鸣微风',
+    subtitle: 'song_first_breeze_subtitle',
     level: 'advanced',
     color: Color(0xFF1E293B),
     iconId: 'vinyl',
+    isPro: true,
     notes: [
+      // 初鸣原创中音区连奏练习曲（4–7 孔自然音阶起伏）
+      PracticeNote(note: 'C', octave: 5, tab: '4↑'),
       PracticeNote(note: 'E', octave: 5, tab: '5↑'),
-      PracticeNote(note: 'F', octave: 5, tab: '5↓'),
       PracticeNote(note: 'G', octave: 5, tab: '6↑'),
-      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
-      PracticeNote(note: 'C', octave: 6, tab: '7↑'),
       PracticeNote(note: 'A', octave: 5, tab: '6↓'),
       PracticeNote(note: 'G', octave: 5, tab: '6↑'),
+      PracticeNote(note: 'F', octave: 5, tab: '5↓'),
       PracticeNote(note: 'E', octave: 5, tab: '5↑'),
+      PracticeNote(note: 'D', octave: 5, tab: '4↓'),
+      PracticeNote(note: 'C', octave: 5, tab: '4↑'),
     ],
   ),
 ];

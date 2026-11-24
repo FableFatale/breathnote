@@ -2,10 +2,15 @@ import 'dart:async';
 
 import 'package:breathnote/src/app.dart';
 import 'package:breathnote/src/localization/app_strings.dart';
+import 'package:breathnote/src/models/harmonica_layout.dart';
 import 'package:breathnote/src/models/practice_note.dart';
 import 'package:breathnote/src/models/song.dart';
+import 'package:breathnote/src/models/song_score.dart';
 import 'package:breathnote/src/services/preferences_service.dart';
 import 'package:breathnote/src/services/pitch_service.dart';
+import 'package:breathnote/src/services/purchase_service.dart';
+import 'package:breathnote/src/screens/lesson_routes.dart';
+import 'package:breathnote/src/screens/song_practice_screen.dart';
 import 'package:breathnote/src/screens/tuner_screen.dart';
 import 'package:breathnote/src/state/app_controller.dart';
 import 'package:breathnote/src/theme/app_motion.dart';
@@ -147,12 +152,16 @@ Future<void> pumpBreathnote(
   Size size = const Size(412, 915),
   double systemTextScale = 1,
   bool sawHarmonicaGuide = true,
+  bool hasRegisteredHarmonica = true,
+  bool isProUnlocked = true,
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
   tester.platformDispatcher.textScaleFactorTestValue = systemTextScale;
   final appController = controller ?? AppController();
   appController.sawHarmonicaGuide = sawHarmonicaGuide;
+  appController.hasRegisteredHarmonica = hasRegisteredHarmonica;
+  appController.isProUnlocked = isProUnlocked;
   addTearDown(tester.view.resetDevicePixelRatio);
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
@@ -448,6 +457,13 @@ void main() {
 
     await tester.tap(find.byKey(const Key('lesson-1-next')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('breath-pacer-card')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('breath-complete-btn')));
+    await tester.tap(find.byKey(const Key('breath-complete-btn')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('breath-next-lesson')));
+    await tester.tap(find.byKey(const Key('breath-next-lesson')));
+    await tester.pumpAndSettle();
     expect(find.text('目标音'), findsOneWidget);
     expect(find.text('含住第 4 孔，轻轻吹气。'), findsOneWidget);
 
@@ -461,7 +477,7 @@ void main() {
     expect(find.text('跟吹'), findsOneWidget);
     expect(find.byKey(const Key('practice-primary-control')), findsOneWidget);
     expect(find.text('循环'), findsOneWidget);
-    expect(find.text('播放 F 的示范音'), findsOneWidget);
+    expect(find.text('播放 C 的示范音'), findsOneWidget);
     expect(find.text('含住第 4 孔，轻轻吹气。'), findsOneWidget);
   });
 
@@ -472,15 +488,15 @@ void main() {
     addTearDown(controller.dispose);
     await pumpBreathnote(tester, controller: controller);
 
-    expect(find.text('已完成 0/5 课'), findsOneWidget);
+    expect(find.text('已完成 0/7 课'), findsOneWidget);
     await controller.markLessonComplete('lesson_1');
     await tester.pumpAndSettle();
 
-    expect(find.text('已完成 1/5 课'), findsOneWidget);
+    expect(find.text('已完成 1/7 课'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byKey(const Key('featured-lesson')),
-        matching: find.text('吹响第一个音'),
+        matching: find.text('呼吸与吹吸'),
       ),
       findsOneWidget,
     );
@@ -527,7 +543,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byKey(const Key('guide-key-cover')),
-        matching: find.text('F 调'),
+        matching: find.text('C 调'),
       ),
       findsOneWidget,
     );
@@ -543,6 +559,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.completedLessons, contains('lesson_1'));
     await tester.tap(find.byKey(const Key('lesson-1-next')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('breath-pacer-card')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('breath-complete-btn')));
+    await tester.tap(find.byKey(const Key('breath-complete-btn')));
+    await tester.pumpAndSettle();
+    expect(controller.completedLessons, contains('lesson_breath'));
+    await tester.ensureVisible(find.byKey(const Key('breath-next-lesson')));
+    await tester.tap(find.byKey(const Key('breath-next-lesson')));
     await tester.pumpAndSettle();
     expect(find.text('目标音'), findsOneWidget);
     expect(find.text('含住第 4 孔，轻轻吹气。'), findsOneWidget);
@@ -587,14 +611,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('guide-key-action')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('harmonica-key-C')));
+    await tester.tap(find.byKey(const Key('harmonica-key-F')));
     await tester.pumpAndSettle();
 
-    expect(controller.harmonicaKey, 'C');
+    expect(controller.harmonicaKey, 'F');
     expect(
       find.descendant(
         of: find.byKey(const Key('guide-key-cover')),
-        matching: find.text('C 调'),
+        matching: find.text('F 调'),
       ),
       findsOneWidget,
     );
@@ -607,7 +631,7 @@ void main() {
 
     await tester.tap(find.text('吹响第一个音').first);
     await tester.pumpAndSettle();
-    expect(find.text('播放 F 的示范音'), findsOneWidget);
+    expect(find.text('播放 C 的示范音'), findsOneWidget);
     expect(find.text('含住第 4 孔，轻轻吹气。'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.arrow_back).first);
@@ -647,15 +671,15 @@ void main() {
     await tester.pump(const Duration(milliseconds: 80));
 
     harness.emitPitch(
-      const PracticeNote(note: 'C', octave: 5, tab: '4↑').frequencyForKey('F'),
+      const PracticeNote(note: 'C', octave: 5, tab: '4↑').frequencyForKey('C'),
     );
     await tester.pump(const Duration(milliseconds: 20));
     harness.emitPitch(
-      const PracticeNote(note: 'C', octave: 5, tab: '4↑').frequencyForKey('F'),
+      const PracticeNote(note: 'C', octave: 5, tab: '4↑').frequencyForKey('C'),
     );
     await tester.pump(const Duration(milliseconds: 520));
     harness.emitPitch(
-      const PracticeNote(note: 'C', octave: 5, tab: '4↑').frequencyForKey('F'),
+      const PracticeNote(note: 'C', octave: 5, tab: '4↑').frequencyForKey('C'),
     );
     await tester.pump(const Duration(milliseconds: 500));
 
@@ -949,7 +973,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('初鸣'), findsOneWidget);
     expect(find.text('Learning path'), findsOneWidget);
-    expect(find.text('0/5 completed'), findsOneWidget);
+    expect(find.text('0/7 completed'), findsOneWidget);
     expect(find.text('Start with one breath'), findsNothing);
     expect(find.text('LEARNING PATH'), findsNothing);
     expect(find.text('TARGET NOTE'), findsNothing);
@@ -998,6 +1022,8 @@ void main() {
     expect(tester.getSemantics(sliderFinder).value, '90%');
     expect(find.text('90%'), findsOneWidget);
 
+    await tester.ensureVisible(sliderFinder);
+    await tester.pumpAndSettle();
     await tester.drag(sliderFinder, const Offset(-120, 0));
     await tester.pumpAndSettle();
     expect(preferences.savedValues['microphoneSensitivity'], isA<double>());
@@ -1554,6 +1580,13 @@ void main() {
       await tester.tap(find.byKey(const Key('lesson-1-next')));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byKey(const Key('breath-complete-btn')));
+      await tester.tap(find.byKey(const Key('breath-complete-btn')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('breath-next-lesson')));
+      await tester.tap(find.byKey(const Key('breath-next-lesson')));
+      await tester.pumpAndSettle();
+
       expect(find.byKey(const Key('practice-hold-bar')), findsOneWidget);
       await tester.tap(find.byKey(const Key('practice-primary-control')));
       await tester.pump(const Duration(milliseconds: 80));
@@ -1574,7 +1607,7 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('学习路径'), findsOneWidget);
-      expect(find.text('已完成 1/5 课'), findsOneWidget);
+      expect(find.text('已完成 2/7 课'), findsOneWidget);
       expect(find.text('吹响第一个音'), findsOneWidget);
     },
   );
@@ -1612,10 +1645,17 @@ void main() {
     'converts Jianpu 1-7 and share codes into harmonica tabs and provides 8 built-in songs',
     () {
       expect(songs, hasLength(8));
-      expect(defaultIconIdForSong('sky_castle'), 'moon');
+      expect(songs.any((s) => s.id == 'sky_castle'), isFalse);
+      expect(songs.any((s) => s.id == 'always_with_me'), isFalse);
+      expect(defaultIconIdForSong('amazing_grace'), 'moon');
       expect(defaultIconIdForSong('happy_birthday'), 'campfire');
       expect(defaultIconIdForSong('auld_lang_syne'), 'wave');
-      expect(defaultIconIdForSong('always_with_me'), 'vinyl');
+      expect(defaultIconIdForSong('first_breeze'), 'vinyl');
+      final jasmine = songs.firstWhere((s) => s.id == 'jasmine');
+      expect(
+        jasmine.notes.map((n) => n.tab),
+        ['5↑', '5↑', '6↑', '6↓', '7↑', '7↑', '6↓', '6↑'],
+      );
 
       expect(
         convertJianpuToTabs('1 1 5 5 6 6 5'),
@@ -1689,4 +1729,496 @@ void main() {
       expect(find.text('已点亮 0/10 孔'), findsOneWidget);
     },
   );
+
+  test('detects harmonica key from hole 4 blow frequency across keys', () {
+    final cResult = detectHarmonicaKeyFromHole4Blow(523.25); // C5
+    expect(cResult, isNotNull);
+    expect(cResult!.key, 'C');
+    expect(cResult.noteLabel, 'C5');
+    expect(cResult.cents.abs(), lessThan(5));
+
+    final fResult = detectHarmonicaKeyFromHole4Blow(698.46); // F5
+    expect(fResult!.key, 'F');
+    expect(fResult.noteLabel, 'F5');
+
+    final gResult = detectHarmonicaKeyFromHole4Blow(392.00); // G4
+    expect(gResult!.key, 'G');
+    expect(gResult.noteLabel, 'G4');
+
+    final bbResult = detectHarmonicaKeyFromHole4Blow(466.16); // Bb4
+    expect(bbResult!.key, 'B♭');
+
+    expect(detectHarmonicaKeyFromHole4Blow(0), isNull);
+    expect(detectHarmonicaKeyFromHole4Blow(80), isNull);
+
+    expect(shortNoteNameForHole(4, isBlow: true, key: 'C'), 'C');
+    expect(shortNoteNameForHole(4, isBlow: false, key: 'C'), 'D');
+    expect(shortNoteNameForHole(4, isBlow: true, key: 'F'), 'F');
+    expect(shortNoteNameForHole(5, isBlow: false, key: 'F'), 'B♭');
+  });
+
+  testWidgets('first-launch registration allows skipping with default C key', (
+    tester,
+  ) async {
+    final controller = AppController();
+    addTearDown(controller.dispose);
+    await pumpBreathnote(
+      tester,
+      controller: controller,
+      hasRegisteredHarmonica: false,
+    );
+
+    expect(find.text('登记你的口琴'), findsOneWidget);
+    expect(find.byKey(const Key('reg-hole-preview')), findsOneWidget);
+    expect(find.byKey(const Key('registration-skip')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('registration-skip')));
+    await tester.pumpAndSettle();
+
+    expect(controller.hasRegisteredHarmonica, isTrue);
+    expect(controller.harmonicaKey, 'C');
+    expect(find.byKey(const Key('main-tab-page-view')), findsOneWidget);
+  });
+
+  testWidgets(
+    'first-launch registration detects harmonica key via hole 4 blow and saves',
+    (tester) async {
+      final harness = installPitchCompletionHarness();
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      await pumpBreathnote(
+        tester,
+        controller: controller,
+        hasRegisteredHarmonica: false,
+      );
+
+      // Expand secondary keys and verify they become visible
+      await tester.tap(find.byKey(const Key('reg-more-keys')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('reg-key-F#')), findsOneWidget);
+
+      // Trigger Hole 4 auto-detection and stream G4 (392 Hz)
+      await tester.ensureVisible(find.byKey(const Key('reg-detect-key-btn')));
+      await tester.tap(find.byKey(const Key('reg-detect-key-btn')));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      harness.emitPitch(392.00); // frame 1 (t = 250ms)
+      await tester.pump(const Duration(milliseconds: 20));
+      harness.emitPitch(392.00); // frame 2 (t = 500ms)
+      await tester.pump(const Duration(milliseconds: 20));
+      harness.emitPitch(392.00); // frame 3 (t = 750ms, elapsed 500ms -> lock!)
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('reg-detect-result')), findsOneWidget);
+      expect(find.textContaining('G 调'), findsWidgets);
+
+      await tester.tap(find.byKey(const Key('registration-complete')));
+      await tester.pumpAndSettle();
+
+      expect(controller.hasRegisteredHarmonica, isTrue);
+      expect(controller.harmonicaKey, 'G');
+      expect(find.byKey(const Key('main-tab-page-view')), findsOneWidget);
+
+      // Verify Songs tab also surfaces the quick harmonica key chip
+      await tester.tap(find.text('曲谱'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('songs-key-chip')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('songs-key-chip')),
+          matching: find.text('G 调'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'gates lessons 6-7 and Pro songs until Early-Bird buyout or Restore Purchases',
+    (tester) async {
+      final fakeBilling = _FakePurchaseService();
+      final controller = AppController(purchaseService: fakeBilling);
+      addTearDown(controller.dispose);
+      await pumpBreathnote(
+        tester,
+        controller: controller,
+        isProUnlocked: false,
+      );
+
+      // Lessons 1-5 are free; lessons 6-7 are Pro
+      expect(lessons.where((l) => !l.isPro), hasLength(5));
+      expect(lessons.where((l) => l.isPro), hasLength(2));
+
+      // Tapping Pro-gated Lesson 6 opens the Early-Bird buyout paywall
+      await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -500));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('lesson-pro-badge-lesson_5')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('progressive-upcoming-lesson_5')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('paywall-buy-pro')), findsOneWidget);
+      expect(find.byKey(const Key('paywall-restore')), findsOneWidget);
+
+      // Buy Pro lifetime -> unlocks immediately and enters Lesson 6
+      await tester.tap(find.byKey(const Key('paywall-buy-pro')));
+      await tester.pumpAndSettle();
+
+      expect(controller.isProUnlocked, isTrue);
+      expect(find.text('开始曲谱练习'), findsOneWidget);
+
+      // Verify Restore Purchases path on a fresh controller
+      final restoreController = AppController(
+        purchaseService: _FakePurchaseService(restoreFound: true),
+      );
+      addTearDown(restoreController.dispose);
+      final restored = await restoreController.restorePro();
+      expect(restored.status, PurchaseStatus.restored);
+      expect(restoreController.isProUnlocked, isTrue);
+    },
+  );
+
+  testWidgets(
+    'lesson 7 chord & rhythm uses beat pulse and breath volume envelope (no single-note pitch required)',
+    (tester) async {
+      const audioChannel = MethodChannel('app.breathnote/audio_control');
+      const pitchChannel = EventChannel('app.breathnote/pitch_events');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      MockStreamHandlerEventSink? eventSink;
+
+      messenger.setMockMethodCallHandler(audioChannel, (call) async {
+        return switch (call.method) {
+          'requestMicrophonePermission' => 'granted',
+          'startPitchDetection' => true,
+          'playGuideSequence' => 600,
+          _ => null,
+        };
+      });
+      messenger.setMockStreamHandler(
+        pitchChannel,
+        MockStreamHandler.inline(
+          onListen: (_, events) {
+            eventSink = events;
+          },
+        ),
+      );
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(audioChannel, null);
+        messenger.setMockStreamHandler(pitchChannel, null);
+      });
+
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      await pumpBreathnote(tester, controller: controller, isProUnlocked: true);
+
+      await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -700));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('progressive-upcoming-lesson_chord')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('chord-holes-bar')), findsOneWidget);
+      expect(find.byKey(const Key('chord-envelope-meter')), findsOneWidget);
+
+      await tester.ensureVisible(find.byKey(const Key('chord-start-practice')));
+      await tester.tap(find.byKey(const Key('chord-start-practice')));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      void emitChordBreath() {
+        // Multi-note chord has detected=false for monophonic pitch, but strong breath envelope (-22 dBFS)!
+        eventSink?.success(<String, Object?>{
+          'detected': false,
+          'frequency': 0.0,
+          'note': '',
+          'octave': 0,
+          'cents': 0.0,
+          'confidence': 0.0,
+          'levelDb': -22.0,
+          'timestampMicros': 1000000,
+        });
+      }
+
+      // Bar 1: Beat 1 (blow) -> Beat 2 (rest) -> Beat 3 (draw) -> Beat 4 (rest)
+      emitChordBreath();
+      await tester.pump(const Duration(milliseconds: 850)); // -> beat 2
+      await tester.pump(const Duration(milliseconds: 850)); // -> beat 3
+      emitChordBreath();
+      await tester.pump(const Duration(milliseconds: 850)); // -> beat 4
+      await tester.pump(const Duration(milliseconds: 850)); // -> Bar 2 Beat 1
+
+      // Bar 2: Beat 1 (blow) -> Beat 2 -> Beat 3 (draw) -> completes!
+      emitChordBreath();
+      await tester.pump(const Duration(milliseconds: 850)); // -> beat 2
+      await tester.pump(const Duration(milliseconds: 850)); // -> beat 3
+      emitChordBreath();
+      await tester.pumpAndSettle();
+
+      expect(controller.completedLessons, contains('lesson_chord'));
+      expect(find.byKey(const Key('chord-share-achievement')), findsOneWidget);
+    },
+  );
+
+  test(
+    'evaluates 3D song score (pitch, timing, stability), stars, and weakest tab coaching',
+    () {
+      const n1 = PracticeNote(note: 'C', octave: 5, tab: '4↑');
+      const n2 = PracticeNote(note: 'E', octave: 5, tab: '5↑');
+      const n3 = PracticeNote(note: 'A', octave: 5, tab: '6↓');
+      const n4 = PracticeNote(note: 'A', octave: 5, tab: '6↓');
+
+      final records = [
+        NoteScoreRecord.fromSamples(
+          index: 0,
+          note: n1,
+          centsSamples: const [2, 4, 1],
+          firstOnsetOffsetMs: 40,
+        ),
+        NoteScoreRecord.fromSamples(
+          index: 1,
+          note: n2,
+          centsSamples: const [-6, -4, -5],
+          firstOnsetOffsetMs: 80,
+        ),
+        NoteScoreRecord.fromSamples(
+          index: 2,
+          note: n3,
+          centsSamples: const [-38, -42, -35],
+          firstOnsetOffsetMs: 180,
+        ),
+        NoteScoreRecord.fromSamples(
+          index: 3,
+          note: n4,
+          centsSamples: const [],
+          firstOnsetOffsetMs: null,
+        ),
+      ];
+
+      final summary = SongScoreSummary.evaluate(records);
+      expect(summary.hitCount, 3);
+      expect(summary.maxCombo, 2);
+      expect(summary.pitchScore, inInclusiveRange(50, 85));
+      expect(summary.timingScore, inInclusiveRange(60, 85));
+      expect(summary.stabilityScore, inInclusiveRange(65, 85));
+      expect(summary.stars, inInclusiveRange(1, 2));
+      expect(summary.weakestTab, '6↓');
+      expect(summary.notes[0].status, NoteScoreStatus.accurate);
+      expect(summary.notes[2].status, NoteScoreStatus.flat);
+      expect(summary.notes[3].status, NoteScoreStatus.missed);
+    },
+  );
+
+  testWidgets(
+    'song scoring mode runs count-in, scores notes, gates 3D report for Free and unlocks on Pro buyout',
+    (tester) async {
+      final harness = installPitchCompletionHarness();
+      final controller = AppController(
+        purchaseService: const _FakePurchaseService(),
+      );
+      addTearDown(controller.dispose);
+      const miniSong = Song(
+        id: 'mini_score_song',
+        title: '双音小测',
+        subtitle: 'customSongSubtitle',
+        level: 'easy',
+        color: Color(0xFF1A6BFF),
+        notes: [
+          PracticeNote(note: 'C', octave: 5, tab: '4↑'),
+          PracticeNote(note: 'E', octave: 5, tab: '5↑'),
+        ],
+      );
+
+      controller.sawHarmonicaGuide = true;
+      controller.hasRegisteredHarmonica = true;
+      controller.isProUnlocked = false;
+
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(412, 915);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        AppScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.light(highContrast: false, reduceMotion: false),
+            home: const SongPracticeScreen(song: miniSong),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Switch to Scoring Mode
+      await tester.tap(find.text('评分模式'));
+      await tester.pumpAndSettle();
+      expect(find.text('开始评分挑战'), findsOneWidget);
+
+      // Start Scoring -> 4-beat count-in
+      await tester.tap(find.text('开始评分挑战'));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.byKey(const Key('scoring-count-in-banner')), findsOneWidget);
+
+      // Advance past 4 count-in beats (4 * 450ms = 1800ms)
+      await tester.pump(const Duration(milliseconds: 1850));
+
+      // Note 1: 4↑ (C5) accurate
+      harness.emitPitch(miniSong.notes[0].frequencyForKey('C'));
+      await tester.pump(const Duration(milliseconds: 900));
+
+      // Note 2: 5↑ (E5) accurate -> completes song & opens Performance Report
+      harness.emitPitch(miniSong.notes[1].frequencyForKey('C'));
+      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pumpAndSettle();
+
+      // Free user sees stars + total score + Pro locked teaser
+      expect(find.byKey(const Key('score-stars-row')), findsOneWidget);
+      expect(find.byKey(const Key('score-pro-locked-card')), findsOneWidget);
+      expect(find.byKey(const Key('score-pro-diagnostics')), findsNothing);
+      expect(controller.bestStarsForSong('mini_score_song'), 3);
+      expect(controller.isSongCompleted('mini_score_song'), isTrue);
+
+      // Unlock Pro inside report -> 3D breakdown, note review & coach tip appear immediately
+      await tester.ensureVisible(find.byKey(const Key('score-unlock-pro-btn')));
+      await tester.tap(find.byKey(const Key('score-unlock-pro-btn')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('paywall-buy-pro')));
+      await tester.pumpAndSettle();
+
+      expect(controller.isProUnlocked, isTrue);
+      expect(find.byKey(const Key('score-pro-diagnostics')), findsOneWidget);
+      expect(find.byKey(const Key('score-dim-pitch')), findsOneWidget);
+      expect(find.byKey(const Key('score-dim-timing')), findsOneWidget);
+      expect(find.byKey(const Key('score-dim-stability')), findsOneWidget);
+      expect(find.byKey(const Key('score-note-review')), findsOneWidget);
+      expect(find.byKey(const Key('score-coach-tip')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'songs library supports favorites, star badges, and completed/favorites filters',
+    (tester) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      await controller.recordSongResult(
+        songId: 'twinkle',
+        score: 92,
+        stars: 3,
+      );
+      await pumpBreathnote(tester, controller: controller);
+
+      await tester.tap(find.text('曲谱'));
+      await tester.pumpAndSettle();
+
+      // Completed song shows star badge; unplayed song shows unplayed tag
+      expect(find.byKey(const Key('song-stars-twinkle')), findsOneWidget);
+      expect(find.byKey(const Key('song-unplayed-ode_to_joy')), findsOneWidget);
+
+      // Filter: Completed -> only twinkle visible
+      await tester.tap(find.byKey(const Key('songs-filter-completed')));
+      await tester.pumpAndSettle();
+      expect(find.text('小星星'), findsOneWidget);
+      expect(find.text('欢乐颂'), findsNothing);
+
+      // Favorite twinkle and check Favorites filter
+      await tester.tap(find.byKey(const Key('song-favorite-twinkle')));
+      await tester.pumpAndSettle();
+      expect(controller.isSongFavorite('twinkle'), isTrue);
+
+      await tester.tap(find.byKey(const Key('songs-filter-favorites')));
+      await tester.pumpAndSettle();
+      expect(find.text('小星星'), findsOneWidget);
+      expect(find.text('两只老虎'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'tuner live 1-10 hole strip highlights enharmonic 2↓ and 3↑ simultaneously',
+    (tester) async {
+      const audioChannel = MethodChannel('app.breathnote/audio_control');
+      const pitchChannel = EventChannel('app.breathnote/pitch_events');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      MockStreamHandlerEventSink? eventSink;
+
+      messenger.setMockMethodCallHandler(audioChannel, (call) async {
+        return switch (call.method) {
+          'requestMicrophonePermission' => 'granted',
+          'startPitchDetection' => true,
+          _ => null,
+        };
+      });
+      messenger.setMockStreamHandler(
+        pitchChannel,
+        MockStreamHandler.inline(
+          onListen: (_, events) {
+            eventSink = events;
+          },
+        ),
+      );
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(audioChannel, null);
+        messenger.setMockStreamHandler(pitchChannel, null);
+      });
+
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      await pumpBreathnote(tester, controller: controller);
+
+      await tester.tap(find.text('调音'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('tuner-live-hole-strip')), findsOneWidget);
+      for (var hole = 1; hole <= 10; hole++) {
+        expect(find.byKey(Key('tuner-hole-cell-$hole')), findsOneWidget);
+      }
+
+      await tester.ensureVisible(find.text('开始调音'));
+      await tester.tap(find.text('开始调音'));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // G4 (392.0 Hz, MIDI 67) is BOTH 2↓ and 3↑ on a C harmonica!
+      eventSink?.success(<String, Object?>{
+        'detected': true,
+        'frequency': 392.0,
+        'note': 'G',
+        'octave': 4,
+        'cents': 0.0,
+        'confidence': 1.0,
+        'levelDb': -20.0,
+        'timestampMicros': 1000000,
+      });
+      await tester.pump(const Duration(milliseconds: 80));
+
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('tuner-hole-cell-2')),
+          matching: find.text('2↓'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('tuner-hole-cell-3')),
+          matching: find.text('3↑'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+}
+
+class _FakePurchaseService extends PurchaseService {
+  const _FakePurchaseService({this.restoreFound = false});
+
+  final bool restoreFound;
+
+  @override
+  Future<PurchaseResult> purchaseProLifetime() async {
+    return const PurchaseResult(PurchaseStatus.purchased);
+  }
+
+  @override
+  Future<PurchaseResult> restorePurchases() async {
+    return PurchaseResult(
+      restoreFound ? PurchaseStatus.restored : PurchaseStatus.notFound,
+    );
+  }
 }

@@ -3,26 +3,33 @@
 初鸣 is the first harmonica-learning product under the 鸣阶 brand. It supports
 Android 13 and newer.
 
-## V1 features
+## Current features (v1.7.0)
 
-- Five connected learning lessons with local completion progress and streaks
+See the full product specification in [docs/PRD.md](docs/PRD.md).
+
+- First-launch harmonica registration (defaults to C 10-hole, skippable) with Hole-4 blow auto key detection and quick key switching
+- Seven progressive learning lessons (Lessons 01–05 free, Lessons 06–07 Pro): includes dedicated Breathing (`02`) and Chord & Rhythm (`07`, beat pulse + breath volume envelope + chord guide demo)
 - Real microphone permission flow
-- Real-time local pitch detection for single-note practice and tuning
+- Real-time local pitch detection for single-note practice and tuning, paired with a live 1–10 hole harmonica strip (highlighting enharmonic `2↓`/`3↑` together)
+- 10-hole harmonica checkup, session pitch distribution, and 7-day weak-note accuracy map
 - Shared, persisted microphone detection sensitivity for practice and tuning
-- Note-by-note practice for four built-in songs
-- Local custom-song creation with notation such as `4↑ 4↑ 6↑ 6↑`
+- Dual-mode song practice (Follow mode + Beat-synced Scoring mode with 4-beat count-in, live score/combo, 1–3 stars, and Pro 3D Pitch/Timing/Stability breakdown + tap-to-hear note review + tailored coaching tip)
+- Eight copyright-clean public-domain & original songs (3 starter songs free, 5 songs + custom songs Pro) with star badges, favorites, and `All / Starter / Done / Saved` filters
+- Local custom-song creation with harmonica tab notation (e.g. `4↑ 4↑ 6↑ 6↑`), automatic Jianpu (`1-7`) to tab conversion, and custom song icons
+- Early-Bird lifetime Pro buyout paywall, Restore Purchases flow, and native billing MethodChannel bridge (`app.breathnote/billing`)
 - Generated guide tones with `0.5×` / `1×` speed and loop controls
-- System, light, and dark appearance modes
+- Achievement share cards after completing lessons and songs
+- System, light, and dark appearance modes (Palermo 2.0 design system)
 - Chinese, English, and Japanese interfaces
-- Configurable harmonica key, haptics, text scale, contrast, and motion
+- Configurable 12-key harmonica tuning, haptics, text scale, high contrast, and reduced motion
 - Local nickname, practice statistics, and data-clear controls
 
 Audio samples are analyzed on the Android device. Raw microphone audio is not
 saved or uploaded. Microphone capture stops when the app leaves an active
 practice or tuner flow.
 
-Accounts, cloud synchronization, and payments are not included in this
-version.
+Self-hosted user accounts and cloud synchronization are intentionally omitted;
+Pro lifetime entitlement uses local persistence plus store Restore Purchases.
 
 ## Build and verify
 
@@ -35,10 +42,15 @@ C:\Users\Administrator\flutter\bin\flutter.bat test
 C:\Users\Administrator\flutter\bin\flutter.bat build apk --debug
 ```
 
+### Release signing
+
+Copy `android/key.properties.example` to `android/key.properties` (gitignored) and point `storeFile` to your private release keystore (or provide `RELEASE_STORE_FILE`, `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS`, `RELEASE_KEY_PASSWORD` in CI), then run:
+
+```powershell
+C:\Users\Administrator\flutter\bin\flutter.bat build apk --release
+```
+
 The GitHub Actions Android workflow runs the same checks and uploads
 `breathnote-debug-apk`. The matching APK for the current source is written to
 `artifacts/breathnote-current-debug.apk` after CI finishes. Each CI run summary
 records the exact commit and APK SHA-256 used for that build.
-
-The debug APK uses Android debug signing for internal testing. A private release
-keystore is required before Play Store delivery.

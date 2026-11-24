@@ -7,6 +7,7 @@ import '../localization/app_strings.dart';
 import '../models/harmonica_layout.dart';
 import '../models/pitch_reading.dart';
 import '../models/song.dart';
+import '../models/song_score.dart';
 import '../services/guide_tone_service.dart';
 import '../services/haptics.dart';
 import '../services/pitch_service.dart';
@@ -17,14 +18,25 @@ import '../theme/app_theme.dart';
 import '../widgets/cute_illustrations.dart';
 import '../widgets/gesture_guide.dart';
 import '../widgets/motion_widgets.dart';
+import '../widgets/pro_paywall_sheet.dart';
 import '../widgets/shared_widgets.dart';
+import '../widgets/song_score_report.dart';
 import 'help_screen.dart';
+import 'lesson_routes.dart';
+
+enum SongPracticeMode { follow, score }
 
 class SongPracticeScreen extends StatefulWidget {
-  const SongPracticeScreen({required this.song, this.lessonId, super.key});
+  const SongPracticeScreen({
+    required this.song,
+    this.lessonId,
+    this.initialMode = SongPracticeMode.follow,
+    super.key,
+  });
 
   final Song song;
   final String? lessonId;
+  final SongPracticeMode initialMode;
 
   @override
   State<SongPracticeScreen> createState() => _SongPracticeScreenState();
@@ -46,8 +58,11 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   StreamSubscription<PitchReading>? _subscription;
   Timer? _guideTimer;
   Timer? _guideStepTimer;
+  Timer? _countInTimer;
+  Timer? _scoreTimer;
   PitchReading _reading = const PitchReading.silent();
   _SongStatus _status = _SongStatus.idle;
+  late SongPracticeMode _mode = widget.initialMode;
   DateTime? _stableSince;
   int? _stableSinceMicros;
   DateTime? _listeningStartedAt;
@@ -67,6 +82,20 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   bool _unsupported = false;
   double _guideSpeed = 1;
 
+  // 评分模式实时状态
+  int _countInBeat = 0;
+  DateTime? _noteWindowStartedAt;
+  final List<double> _currentNoteCents = [];
+  double? _currentNoteFirstOnsetMs;
+  final List<NoteScoreRecord> _scoreRecords = [];
+  int _liveCombo = 0;
+  int _liveMaxCombo = 0;
+  int _liveScore = 0;
+  SongScoreSummary? _scoreSummary;
+
+  Duration get _scoreNoteDuration =>
+      Duration(milliseconds: _guideSpeed <= 0.6 ? 1300 : 850);
+
   @override
   void initState() {
     super.initState();
@@ -84,6 +113,8 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   void deactivate() {
     _guideTimer?.cancel();
     _guideStepTimer?.cancel();
+    _countInTimer?.cancel();
+    _scoreTimer?.cancel();
     _pausePracticeTimer();
     super.deactivate();
   }
@@ -93,6 +124,8 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     WidgetsBinding.instance.removeObserver(this);
     _guideTimer?.cancel();
     _guideStepTimer?.cancel();
+    _countInTimer?.cancel();
+    _scoreTimer?.cancel();
     _subscription?.cancel();
     _pitchService.stop();
     _guideToneService.stop();
@@ -153,7 +186,141 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
           : context.strings.t('microphoneSettingsError');
       if (started) _listeningStartedAt ??= DateTime.now();
     });
-    if (started) await AppHaptics.light(context);
+    if (started) {
+      unawaited(AppHaptics.light(context));
+      if (_mode == SongPracticeMode.score) {
+        _startScoringTimeline();
+      }
+    }
+  }
+
+  void _startScoringTimeline() {
+    _countInTimer?.cancel();
+    _scoreTimer?.cancel();
+    setState(() {
+      _index = 0;
+      _demoNoteIndex = 0;
+      _holdProgress = 0;
+      _completed = false;
+      _finishing = false;
+      _scoreSummary = null;
+      _scoreRecords.clear();
+      _currentNoteCents.clear();
+      _currentNoteFirstOnsetMs = null;
+      _noteWindowStartedAt = null;
+      _liveCombo = 0;
+      _liveMaxCombo = 0;
+      _liveScore = 0;
+      _countInBeat = 4;
+    });
+    _countInTimer = Timer.periodic(const Duration(milliseconds: 450), (timer) {
+      if (!mounted || _status != _SongStatus.listening) {
+        timer.cancel();
+        return;
+      }
+      if (_countInBeat > 1) {
+        unawaited(AppHaptics.selection(context));
+        setState(() => _countInBeat--);
+      } else {
+        timer.cancel();
+        unawaited(AppHaptics.light(context));
+        setState(() {
+          _countInBeat = 0;
+          _noteWindowStartedAt = DateTime.now();
+          _currentNoteCents.clear();
+          _currentNoteFirstOnsetMs = null;
+        });
+        _scoreTimer?.cancel();
+        _scoreTimer = Timer.periodic(_scoreNoteDuration, (_) {
+          unawaited(_commitCurrentScoringNote());
+        });
+      }
+    });
+  }
+
+  Future<void> _commitCurrentScoringNote() async {
+    if (!mounted ||
+        _status != _SongStatus.listening ||
+        _completed ||
+        _finishing) {
+      return;
+    }
+    final note = widget.song.notes[_index];
+    final record = NoteScoreRecord.fromSamples(
+      index: _index,
+      note: note,
+      centsSamples: List<double>.of(_currentNoteCents),
+      firstOnsetOffsetMs: _currentNoteFirstOnsetMs,
+    );
+    _scoreRecords.add(record);
+    if (record.isAccurate) {
+      _liveCombo++;
+      if (_liveCombo > _liveMaxCombo) {
+        _liveMaxCombo = _liveCombo;
+      }
+      unawaited(AppHaptics.light(context));
+    } else {
+      _liveCombo = 0;
+    }
+    final runningSummary = SongScoreSummary.evaluate(
+      _scoreRecords,
+      maxCombo: _liveMaxCombo,
+    );
+    _liveScore = runningSummary.totalScore;
+
+    if (_index < widget.song.notes.length - 1) {
+      setState(() {
+        _index++;
+        _demoNoteIndex = _index;
+        _holdProgress = 0;
+        _reading = const PitchReading.silent();
+        _currentNoteCents.clear();
+        _currentNoteFirstOnsetMs = null;
+        _noteWindowStartedAt = DateTime.now();
+      });
+      return;
+    }
+
+    // 最后一个音结束，汇总评分报告
+    _scoreTimer?.cancel();
+    _countInTimer?.cancel();
+    _finishing = true;
+    _completed = true;
+    _holdProgress = 1;
+    _pausePracticeTimer();
+    final summary = SongScoreSummary.evaluate(
+      _scoreRecords,
+      maxCombo: _liveMaxCombo,
+    );
+    _scoreSummary = summary;
+    _score = summary.totalScore;
+    final controller = AppScope.maybeRead(context);
+    if (controller == null) return;
+    final seconds = _activePracticeDuration.inSeconds.clamp(0, 3600).toInt();
+    final futures = <Future<void>>[
+      _pitchService.stop(),
+      _guideToneService.stop(),
+      controller.recordPractice(
+        seconds: seconds == 0 ? 1 : seconds,
+        score: summary.totalScore,
+      ),
+      controller.recordSongResult(
+        songId: widget.song.id,
+        score: summary.totalScore,
+        stars: summary.stars,
+      ),
+    ];
+    if (widget.lessonId != null) {
+      futures.add(controller.markLessonComplete(widget.lessonId!));
+    }
+    await Future.wait(futures);
+    if (!mounted) return;
+    unawaited(AppHaptics.success(context));
+    setState(() {
+      _status = _SongStatus.idle;
+      _guidePlaying = false;
+      _finishing = false;
+    });
   }
 
   void _onReading(PitchReading reading) {
@@ -170,8 +337,51 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       reading.frequency,
       controller.harmonicaKey,
     );
-    final matches = reading.detected && cents.abs() <= 35;
     final now = DateTime.now();
+
+    if (_mode == SongPracticeMode.score) {
+      if (_countInBeat > 0) {
+        setState(() => _reading = reading);
+        return;
+      }
+      if (reading.detected) {
+        if (_lastSampleAt == null ||
+            now.difference(_lastSampleAt!).inMilliseconds >= 500) {
+          _lastSampleAt = now;
+          unawaited(
+            controller.recordPitchAttempt(
+              tab: target.tab,
+              reading: reading,
+              cents: cents,
+            ),
+          );
+        }
+        if (cents.abs() <= 120) {
+          if (_currentNoteCents.isEmpty) {
+            final startedAt = _noteWindowStartedAt;
+            _currentNoteFirstOnsetMs = startedAt == null
+                ? 0
+                : now.difference(startedAt).inMilliseconds.toDouble();
+            if (cents.abs() <= 25) {
+              unawaited(AppHaptics.reedResonance(context));
+            }
+          }
+          _currentNoteCents.add(cents);
+        }
+      }
+      final startedAt = _noteWindowStartedAt;
+      if (startedAt != null) {
+        _holdProgress =
+            (now.difference(startedAt).inMilliseconds /
+                    _scoreNoteDuration.inMilliseconds)
+                .clamp(0.0, 1.0)
+                .toDouble();
+      }
+      setState(() => _reading = reading);
+      return;
+    }
+
+    final matches = reading.detected && cents.abs() <= 35;
     if (reading.detected &&
         (_lastSampleAt == null ||
             now.difference(_lastSampleAt!).inMilliseconds >= 500)) {
@@ -256,6 +466,11 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         seconds: seconds == 0 ? 1 : seconds,
         score: _score,
       ),
+      controller.recordSongResult(
+        songId: widget.song.id,
+        score: _score,
+        stars: starsForSongScore(_score),
+      ),
     ];
     if (widget.lessonId != null) {
       futures.add(controller.markLessonComplete(widget.lessonId!));
@@ -274,6 +489,8 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   Future<void> _stopAll({required bool resetStatus}) async {
     _guideTimer?.cancel();
     _guideStepTimer?.cancel();
+    _countInTimer?.cancel();
+    _scoreTimer?.cancel();
     _pausePracticeTimer();
     await Future.wait([_pitchService.stop(), _guideToneService.stop()]);
     if (!mounted) return;
@@ -281,6 +498,8 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _guidePlaying = false;
       _resumeAfterGuide = false;
       _holdProgress = 0;
+      _countInBeat = 0;
+      _noteWindowStartedAt = null;
       _reading = const PitchReading.silent();
       _stableSince = null;
       _stableSinceMicros = null;
@@ -292,6 +511,8 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   Future<void> _handleReadingError() async {
     _guideTimer?.cancel();
     _guideStepTimer?.cancel();
+    _countInTimer?.cancel();
+    _scoreTimer?.cancel();
     _pausePracticeTimer();
     await Future.wait([_pitchService.stop(), _guideToneService.stop()]);
     if (!mounted || _completed) return;
@@ -301,6 +522,8 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _guidePlaying = false;
       _resumeAfterGuide = false;
       _holdProgress = 0;
+      _countInBeat = 0;
+      _noteWindowStartedAt = null;
       _reading = const PitchReading.silent();
       _stableSince = null;
       _stableSinceMicros = null;
@@ -393,6 +616,32 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     if (shouldResume) await _beginListening();
   }
 
+  Future<void> _setMode(SongPracticeMode nextMode) async {
+    if (nextMode == _mode) return;
+    unawaited(AppHaptics.selection(context));
+    await _stopAll(resetStatus: true);
+    if (!mounted) return;
+    setState(() {
+      _mode = nextMode;
+      _index = 0;
+      _demoNoteIndex = 0;
+      _holdProgress = 0;
+      _score = 0;
+      _matchedError = 0;
+      _completed = false;
+      _finishing = false;
+      _countInBeat = 0;
+      _noteWindowStartedAt = null;
+      _currentNoteCents.clear();
+      _currentNoteFirstOnsetMs = null;
+      _scoreRecords.clear();
+      _liveCombo = 0;
+      _liveMaxCombo = 0;
+      _liveScore = 0;
+      _scoreSummary = null;
+    });
+  }
+
   Future<void> _restart() async {
     await _stopAll(resetStatus: true);
     if (!mounted) return;
@@ -407,7 +656,33 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _listeningStartedAt = null;
       _activePracticeDuration = Duration.zero;
       _lastSampleAt = null;
+      _countInBeat = 0;
+      _noteWindowStartedAt = null;
+      _currentNoteCents.clear();
+      _currentNoteFirstOnsetMs = null;
+      _scoreRecords.clear();
+      _liveCombo = 0;
+      _liveMaxCombo = 0;
+      _liveScore = 0;
+      _scoreSummary = null;
     });
+  }
+
+  Future<void> _openNextLessonOrClose() async {
+    final nextId =
+        widget.lessonId == null ? null : nextLessonId(widget.lessonId!);
+    if (nextId == null) {
+      Navigator.of(context).pop();
+      return;
+    }
+    final nextLesson = lessonById(nextId);
+    final controller = AppScope.read(context);
+    if (nextLesson.isPro && !controller.isProUnlocked) {
+      final unlocked = await showProPaywallSheet(context);
+      if (!unlocked || !mounted) return;
+    }
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(lessonRoute(context, nextLesson));
   }
 
   void _pausePracticeTimer() {
@@ -476,6 +751,27 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         ),
         actions: [
           IconButton(
+            key: const Key('song-practice-favorite'),
+            tooltip: context.strings.t(
+              controller.isSongFavorite(widget.song.id)
+                  ? 'favoriteSongRemove'
+                  : 'favoriteSongAdd',
+            ),
+            onPressed: () {
+              unawaited(AppHaptics.selection(context));
+              unawaited(controller.toggleFavoriteSong(widget.song.id));
+            },
+            icon: Icon(
+              controller.isSongFavorite(widget.song.id)
+                  ? Icons.favorite_rounded
+                  : Icons.favorite_border_rounded,
+              size: 20,
+              color: controller.isSongFavorite(widget.song.id)
+                  ? palette.accent
+                  : null,
+            ),
+          ),
+          IconButton(
             key: const Key('share-song-code'),
             tooltip: context.strings.t('copySongShareCode'),
             onPressed: () async {
@@ -514,6 +810,31 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // 0. 顶部双模式切换（跟练模式 / 评分模式）
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<SongPracticeMode>(
+                      key: const Key('song-mode-switcher'),
+                      segments: [
+                        ButtonSegment(
+                          value: SongPracticeMode.follow,
+                          icon: const Icon(Icons.music_note_rounded, size: 16),
+                          label: Text(context.strings.t('modeFollow')),
+                        ),
+                        ButtonSegment(
+                          value: SongPracticeMode.score,
+                          icon: const Icon(Icons.stars_rounded, size: 16),
+                          label: Text(context.strings.t('modeScore')),
+                        ),
+                      ],
+                      selected: {_mode},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (selection) {
+                        unawaited(_setMode(selection.first));
+                      },
+                    ),
+                  ),
+                  SizedBox(height: sectionGap),
                   // 1. 顶部动态进度卡片
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -546,18 +867,49 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                       ? context.strings.t(
                                           'songPracticeComplete',
                                         )
+                                      : _mode == SongPracticeMode.score &&
+                                            _countInBeat > 0
+                                      ? context.strings.t('scoringCountIn', {
+                                          'beat': _countInBeat,
+                                        })
                                       : context.strings.t('songNoteProgress', {
                                           'current': activeNoteIndex + 1,
                                           'total': widget.song.notes.length,
                                         }),
                                   key: ValueKey(
-                                    'progress_${_completed}_$activeNoteIndex',
+                                    'progress_${_completed}_${_countInBeat}_$activeNoteIndex',
                                   ),
                                   style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(fontWeight: FontWeight.w600),
                                 ),
                               ),
                             ),
+                            if (_mode == SongPracticeMode.score &&
+                                !_completed &&
+                                _status == _SongStatus.listening &&
+                                _countInBeat == 0) ...[
+                              Container(
+                                key: const Key('scoring-live-stats'),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: palette.accent.withValues(alpha: 0.14),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  '${context.strings.t('scoringLiveScore')} $_liveScore · '
+                                  '${context.strings.t('scoringCombo', {'count': _liveCombo})}',
+                                  style: TextStyle(
+                                    color: palette.accent,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
                             TweenAnimationBuilder<double>(
                               tween: Tween<double>(end: progress),
                               duration: AppMotion.duration(
@@ -590,22 +942,65 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                             backgroundColor: palette.surfaceHigh,
                             color: _completed
                                 ? palette.success
+                                : _mode == SongPracticeMode.score
+                                ? palette.accent
                                 : palette.primary,
                           ),
                         ),
                       ],
                     ),
                   ),
+                  if (_mode == SongPracticeMode.score &&
+                      !_completed &&
+                      _countInBeat > 0) ...[
+                    SizedBox(height: sectionGap),
+                    Container(
+                      key: const Key('scoring-count-in-banner'),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: palette.accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: palette.accent.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.timer_rounded,
+                            size: 18,
+                            color: palette.accent,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            context.strings.t('scoringCountIn', {
+                              'beat': _countInBeat,
+                            }),
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
+                                  color: palette.accent,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   SizedBox(height: sectionGap),
                   AnimatedSwitcher(
                     duration: AppMotion.duration(context, AppMotion.base),
                     child: _completed
-                        ? _SongCompletion(
+                        ? SongScoreReportCard(
                             key: const ValueKey('song-complete'),
                             score: _score,
                             song: widget.song,
                             title: localizedSongTitle,
                             iconId: controller.iconIdForSong(widget.song),
+                            summary: _scoreSummary,
                           )
                         : Column(
                             key: const ValueKey('song-active'),
@@ -990,10 +1385,13 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                           child: SizedBox(
                             height: 48,
                             child: OutlinedButton.icon(
+                              key: const Key('score-retry-btn'),
                               onPressed: _restart,
                               icon: const Icon(Icons.replay_rounded),
                               label: Text(
-                                context.strings.t('restartPractice'),
+                                _mode == SongPracticeMode.score
+                                    ? context.strings.t('scoringRetryBtn')
+                                    : context.strings.t('restartPractice'),
                               ),
                             ),
                           ),
@@ -1003,9 +1401,20 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                           child: SizedBox(
                             height: 48,
                             child: FilledButton.icon(
-                              onPressed: () => Navigator.of(context).pop(),
-                              icon: const Icon(Icons.check_rounded),
-                              label: Text(context.strings.t('commonDone')),
+                              key: const Key('score-done-or-next-btn'),
+                              onPressed: _openNextLessonOrClose,
+                              icon: Icon(
+                                widget.lessonId != null &&
+                                        nextLessonId(widget.lessonId!) != null
+                                    ? Icons.arrow_forward_rounded
+                                    : Icons.check_rounded,
+                              ),
+                              label: Text(
+                                widget.lessonId != null &&
+                                        nextLessonId(widget.lessonId!) != null
+                                    ? context.strings.t('scoringNextLessonBtn')
+                                    : context.strings.t('commonDone'),
+                              ),
                             ),
                           ),
                         ),
@@ -1054,11 +1463,17 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     if (_unsupported) return strings.t('help');
     return switch (_status) {
       _SongStatus.requestingPermission => strings.t('requestingPermission'),
-      _SongStatus.listening => strings.t('stopPractice'),
+      _SongStatus.listening =>
+        _mode == SongPracticeMode.score
+            ? strings.t('stopScoring')
+            : strings.t('stopPractice'),
       _SongStatus.denied => strings.t('grantMicrophoneAgain'),
       _SongStatus.permanentlyDenied => strings.t('permissionOff'),
       _SongStatus.error => strings.t('commonRetry'),
-      _ => strings.t('startSongPractice'),
+      _ =>
+        _mode == SongPracticeMode.score
+            ? strings.t('startScoring')
+            : strings.t('startSongPractice'),
     };
   }
 }
@@ -1364,67 +1779,6 @@ class _SongGuideControls extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SongCompletion extends StatelessWidget {
-  const _SongCompletion({
-    required this.score,
-    required this.song,
-    required this.title,
-    required this.iconId,
-    super.key,
-  });
-
-  final int score;
-  final Song song;
-  final String title;
-  final String iconId;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.colors;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            const ChumingBird(
-              size: 72,
-              mood: ChumingMood.celebrating,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              context.strings.t('melodyComplete'),
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              context.strings.t('pitchScore', {'score': score}),
-              style: TextStyle(
-                color: palette.primary,
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 14),
-            OutlinedButton.icon(
-              key: const Key('share-achievement-card'),
-              onPressed: () => showAchievementCardSheet(
-                context,
-                title: title,
-                score: score,
-                iconId: iconId,
-                songId: song.id,
-                tabPreview: song.tabPreview,
-              ),
-              icon: const Icon(Icons.workspace_premium_rounded, size: 18),
-              label: Text(context.strings.t('shareAchievementBtn')),
-            ),
-          ],
-        ),
       ),
     );
   }

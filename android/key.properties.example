@@ -1,0 +1,6 @@
+# Copy this file to android/key.properties (gitignored) and fill in your private keystore credentials.
+# Never commit android/key.properties or *.jks files to version control.
+storeFile=breathnote-release.jks
+storePassword=CHANGE_ME_STRONG_STORE_PASSWORD
+keyAlias=breathnote
+keyPassword=CHANGE_ME_STRONG_KEY_PASSWORD

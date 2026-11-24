@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../localization/app_strings.dart';
 import '../models/harmonica_layout.dart';
+import '../screens/harmonica_registration_screen.dart';
 import '../services/haptics.dart';
 import '../state/app_controller.dart';
 import '../theme/app_adaptive.dart';
@@ -27,6 +28,8 @@ const _harmonicaKeys = [
   'B',
 ];
 
+const _detectKeySentinel = '__detect_hole4__';
+
 Future<void> showHarmonicaKeyPicker(BuildContext context) async {
   final controller = AppScope.read(context);
   unawaited(AppHaptics.selection(context));
@@ -45,7 +48,7 @@ Future<void> showHarmonicaKeyPicker(BuildContext context) async {
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
                 pickerContext.strings.t('chooseHarmonicaKey'),
@@ -67,6 +70,17 @@ Future<void> showHarmonicaKeyPicker(BuildContext context) async {
                   );
                 }).toList(),
               ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                key: const Key('key-picker-detect-hole4'),
+                onPressed: () =>
+                    Navigator.pop(pickerContext, _detectKeySentinel),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(44),
+                ),
+                icon: const Icon(Icons.mic_none_rounded, size: 18),
+                label: Text(pickerContext.strings.t('keyPickerDetectAction')),
+              ),
             ],
           ),
         ),
@@ -74,6 +88,15 @@ Future<void> showHarmonicaKeyPicker(BuildContext context) async {
     },
   );
   if (selected == null || !context.mounted) return;
+  if (selected == _detectKeySentinel) {
+    await Navigator.of(context).push<String>(
+      AppPageRoute<String>(
+        reduceMotion: AppMotion.isReduced(context),
+        builder: (_) => const HarmonicaRegistrationScreen(isModal: true),
+      ),
+    );
+    return;
+  }
   await controller.setHarmonicaKey(selected);
   if (!context.mounted) return;
   await AppHaptics.selection(context);

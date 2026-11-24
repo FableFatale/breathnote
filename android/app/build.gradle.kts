@@ -1,8 +1,35 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        val cleaned = keystorePropertiesFile.readText(Charsets.UTF_8).removePrefix("\uFEFF")
+        load(cleaned.reader())
+    }
+}
+
+fun resolveSigningProp(propKey: String, envKey: String): String? {
+    return (keystoreProperties.getProperty(propKey) ?: System.getenv(envKey))
+        ?.trim()
+        ?.takeIf { it.isNotEmpty() }
+}
+
+val releaseStoreFilePath = resolveSigningProp("storeFile", "RELEASE_STORE_FILE")
+val releaseStorePassword = resolveSigningProp("storePassword", "RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = resolveSigningProp("keyAlias", "RELEASE_KEY_ALIAS")
+val releaseKeyPassword = resolveSigningProp("keyPassword", "RELEASE_KEY_PASSWORD")
+val hasReleaseSigning =
+    releaseStoreFilePath != null &&
+        releaseStorePassword != null &&
+        releaseKeyAlias != null &&
+        releaseKeyPassword != null &&
+        file(releaseStoreFilePath).exists()
 
 android {
     namespace = "app.breathnote.breathnote"
@@ -21,9 +48,7 @@ android {
         minSdk = 33
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
-        // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
-        // You can force using the value of versionCode by specifying the `-P force-version-code-ignoring-abi=true`
-        // flag during build.
+        // is added automatically by Flutter. (https://flutter.dev/to/review-gradle-config)
         val ciRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
         versionCode = if (ciRunNumber != null) {
             100 + flutter.versionCode + ciRunNumber
@@ -44,6 +69,14 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseStoreFilePath!!)
+                storePassword = releaseStorePassword!!
+                keyAlias = releaseKeyAlias!!
+                keyPassword = releaseKeyPassword!!
+            }
+        }
     }
 
     buildTypes {
@@ -51,8 +84,11 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
         release {
-            // V1 is an internal preview. Store signing will be added before release.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

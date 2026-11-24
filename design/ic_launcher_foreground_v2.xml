@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Acoustic Concentric Resonance Ring 1 -->
+    <path
+        android:pathData="M24,54 A30,16 0 1,0 84,54 A30,16 0 1,0 24,54"
+        android:strokeColor="#FFFFFF"
+        android:strokeAlpha="0.18"
+        android:strokeWidth="0.8" />
+    <!-- Acoustic Concentric Resonance Ring 2 -->
+    <path
+        android:pathData="M32,54 A22,12 0 1,0 76,54 A22,12 0 1,0 32,54"
+        android:strokeColor="#46F594"
+        android:strokeAlpha="0.30"
+        android:strokeWidth="1.0" />
+
+    <!-- Harmonica Elevation Underlay / Shadow -->
+    <path
+        android:pathData="M24,42 H84 A4,4 0,0 1,88 46 V62 A4,4 0,0 1,84 66 H24 A4,4 0,0 1,20 62 V46 A4,4 0,0 1,24 42 Z"
+        android:fillColor="#0D2057"
+        android:fillAlpha="0.32" />
+
+    <!-- Upper Metal Cover Plate -->
+    <path
+        android:pathData="M28,37 H80 A3.5,3.5 0,0 1,83.5 40.5 V43 H24.5 V40.5 A3.5,3.5 0,0 1,28 37 Z"
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.96" />
+
+    <!-- Lower Metal Cover Plate -->
+    <path
+        android:pathData="M24.5,65 H83.5 V67.5 A3.5,3.5 0,0 1,80 71 H28 A3.5,3.5 0,0 1,24.5 67.5 V65 Z"
+        android:fillColor="#EDF2FC"
+        android:fillAlpha="0.92" />
+
+    <!-- Central Acoustic Comb Body (Pure White Ceramic) -->
+    <path
+        android:pathData="M24,43 H84 A3.5,3.5 0,0 1,87.5 46.5 V61.5 A3.5,3.5 0,0 1,84 65 H24 A3.5,3.5 0,0 1,20.5 61.5 V46.5 A3.5,3.5 0,0 1,24 43 Z"
+        android:fillColor="#F6F9FF" />
+
+    <!-- Mounting Rivet Screws -->
+    <path
+        android:pathData="M24,40 A1.2,1.2 0 1,0 26.4,40 A1.2,1.2 0 1,0 24,40"
+        android:fillColor="#A9BBDC" />
+    <path
+        android:pathData="M81.6,40 A1.2,1.2 0 1,0 84,40 A1.2,1.2 0 1,0 81.6,40"
+        android:fillColor="#A9BBDC" />
+
+    <!-- 6 Standard Acoustic Reed Chambers (Deep Palermo Indigo #16368C) -->
+    <!-- Slot 1 -->
+    <path
+        android:pathData="M26,47 H29.5 A1.8,1.8 0,0 1,31.3 48.8 V59.2 A1.8,1.8 0,0 1,29.5 61 H26 A1.8,1.8 0,0 1,24.2 49.2 V48.8 A1.8,1.8 0,0 1,26 47 Z"
+        android:fillColor="#16368C" />
+    <!-- Slot 2 -->
+    <path
+        android:pathData="M34,47 H37.5 A1.8,1.8 0,0 1,39.3 48.8 V59.2 A1.8,1.8 0,0 1,37.5 61 H34 A1.8,1.8 0,0 1,32.2 49.2 V48.8 A1.8,1.8 0,0 1,34 47 Z"
+        android:fillColor="#16368C" />
+    <!-- Slot 3 -->
+    <path
+        android:pathData="M42,47 H45.5 A1.8,1.8 0,0 1,47.3 48.8 V59.2 A1.8,1.8 0,0 1,45.5 61 H42 A1.8,1.8 0,0 1,40.2 49.2 V48.8 A1.8,1.8 0,0 1,42 47 Z"
+        android:fillColor="#16368C" />
+
+    <!-- Slot 4: Hero 4th Note "初鸣" (Luminous Palermo Emerald #15B462 with Glow Outer) -->
+    <path
+        android:pathData="M49.6,45.5 H54.4 A2.2,2.2 0,0 1,56.6 47.7 V60.3 A2.2,2.2 0,0 1,54.4 62.5 H49.6 A2.2,2.2 0,0 1,47.4 60.3 V47.7 A2.2,2.2 0,0 1,49.6 45.5 Z"
+        android:fillColor="#34E886"
+        android:fillAlpha="0.3" />
+    <path
+        android:pathData="M50.2,46.2 H53.8 A1.8,1.8 0,0 1,55.6 48 V60 A1.8,1.8 0,0 1,53.8 61.8 H50.2 A1.8,1.8 0,0 1,48.4 60 V48 A1.8,1.8 0,0 1,50.2 46.2 Z"
+        android:fillColor="#15B462" />
+
+    <!-- Slot 5 -->
+    <path
+        android:pathData="M58.5,47 H62 A1.8,1.8 0,0 1,63.8 48.8 V59.2 A1.8,1.8 0,0 1,62 61 H58.5 A1.8,1.8 0,0 1,56.7 49.2 V48.8 A1.8,1.8 0,0 1,58.5 47 Z"
+        android:fillColor="#16368C" />
+    <!-- Slot 6 -->
+    <path
+        android:pathData="M66.5,47 H70 A1.8,1.8 0,0 1,71.8 48.8 V59.2 A1.8,1.8 0,0 1,70 61 H66.5 A1.8,1.8 0,0 1,64.7 49.2 V48.8 A1.8,1.8 0,0 1,66.5 47 Z"
+        android:fillColor="#16368C" />
+    <!-- Slot 7 -->
+    <path
+        android:pathData="M74.5,47 H78 A1.8,1.8 0,0 1,79.8 48.8 V59.2 A1.8,1.8 0,0 1,78 61 H74.5 A1.8,1.8 0,0 1,72.7 49.2 V48.8 A1.8,1.8 0,0 1,74.5 47 Z"
+        android:fillColor="#16368C" />
+</vector>

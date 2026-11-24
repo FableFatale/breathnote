@@ -36,6 +36,12 @@ void main() {
     await tester.pumpWidget(BreathnoteApp(controller: controller));
     await tester.pumpAndSettle();
 
+    // First-launch harmonica registration fits compact screen & large text
+    final skipFinder = find.byKey(const Key('registration-skip'));
+    expect(skipFinder, findsOneWidget);
+    await tester.tap(skipFinder);
+    await tester.pumpAndSettle();
+
     for (final tab in ['学习', '曲谱', '调音', '我的']) {
       final finder = find.text(tab);
       if (finder.evaluate().isEmpty) continue;

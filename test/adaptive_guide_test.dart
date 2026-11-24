@@ -25,6 +25,7 @@ void main() {
   }) async {
     final controller = AppController()
       ..languageCode = languageCode
+      ..hasRegisteredHarmonica = true
       ..textScale = 1.2;
     addTearDown(controller.dispose);
     tester.view.devicePixelRatio = 1;

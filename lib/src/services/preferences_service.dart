@@ -23,6 +23,8 @@ class PreferencesService {
     'customSongs',
     'pitchAttempts',
     'sawHarmonicaGuide',
+    'hasRegisteredHarmonica',
+    'isProUnlocked',
   };
 
   Future<Map<String, Object?>> getAll() async {

@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="birdBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B7BFF"/>
+      <stop offset="50%" stop-color="#255FE6"/>
+      <stop offset="100%" stop-color="#1444BD"/>
+    </linearGradient>
+
+    <!-- Ambient Center Light -->
+    <radialGradient id="birdAmbient" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#6CA2FF" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#255FE6" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Bird Body Blue Gradient -->
+    <linearGradient id="bodyBlue" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#5B93FF"/>
+      <stop offset="100%" stop-color="#346EEB"/>
+    </linearGradient>
+
+    <!-- Bird Belly White Gradient -->
+    <linearGradient id="bellyWhite" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="85%" stop-color="#F4F7FD"/>
+      <stop offset="100%" stop-color="#E1E8F7"/>
+    </linearGradient>
+
+    <!-- Beak Orange Gradient -->
+    <linearGradient id="beakOrange" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFA436"/>
+      <stop offset="100%" stop-color="#F57600"/>
+    </linearGradient>
+
+    <!-- Sound Ring Emerald Gradient -->
+    <linearGradient id="soundJade" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4EFAA4"/>
+      <stop offset="100%" stop-color="#10B981"/>
+    </linearGradient>
+
+    <!-- Soft Drop Shadow for Mascot -->
+    <filter id="mascotShadow" x="-15%" y="-15%" width="130%" height="135%">
+      <feDropShadow dx="0" dy="24" stdDeviation="28" flood-color="#0A1C54" flood-opacity="0.4"/>
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#0A1C54" flood-opacity="0.2"/>
+    </filter>
+
+    <clipPath id="squircle">
+      <rect width="1024" height="1024" rx="228"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background Base -->
+  <rect width="1024" height="1024" rx="228" fill="url(#birdBg)"/>
+  <rect width="1024" height="1024" rx="228" fill="url(#birdAmbient)"/>
+
+  <!-- Subtle Harmonic Echo Circles in Background -->
+  <g clip-path="url(#squircle)" opacity="0.3">
+    <circle cx="512" cy="530" r="380" fill="none" stroke="#FFFFFF" stroke-width="1.8" opacity="0.12"/>
+    <circle cx="512" cy="530" r="280" fill="none" stroke="#FFFFFF" stroke-width="2.2" opacity="0.18"/>
+  </g>
+
+  <!-- Mascot Body Group -->
+  <g filter="url(#mascotShadow)">
+    
+    <!-- 1. Wing Left (Left flap) -->
+    <path d="M 230 520 C 180 550, 190 670, 290 650 C 310 590, 280 540, 230 520 Z" fill="#295FD4"/>
+    
+    <!-- 2. Main Round Body -->
+    <ellipse cx="512" cy="530" rx="260" ry="250" fill="url(#bodyBlue)"/>
+
+    <!-- Wing Right (Folded) -->
+    <path d="M 780 520 C 830 550, 820 670, 720 650 C 700 590, 730 540, 780 520 Z" fill="#295FD4"/>
+
+    <!-- 3. Big White Chest / Belly -->
+    <path d="M 330 570 C 330 430, 694 430, 694 570 C 694 710, 330 710, 330 570 Z" fill="url(#bellyWhite)"/>
+
+    <!-- 4. Cute Pink Cheeks -->
+    <ellipse cx="360" cy="545" rx="36" ry="22" fill="#FF7EB6" opacity="0.55"/>
+    <ellipse cx="664" cy="545" rx="36" ry="22" fill="#FF7EB6" opacity="0.55"/>
+
+    <!-- 5. Eyes (Big, lively, friendly) -->
+    <!-- Left Eye -->
+    <ellipse cx="420" cy="470" rx="24" ry="32" fill="#18233C"/>
+    <circle cx="428" cy="460" r="10" fill="#FFFFFF"/>
+    <circle cx="414" cy="482" r="4.5" fill="#FFFFFF"/>
+
+    <!-- Right Eye -->
+    <ellipse cx="604" cy="470" rx="24" ry="32" fill="#18233C"/>
+    <circle cx="612" cy="460" r="10" fill="#FFFFFF"/>
+    <circle cx="598" cy="482" r="4.5" fill="#FFFFFF"/>
+
+    <!-- 6. Cute Beak -->
+    <path d="M 480 495 Q 512 470 544 495 Q 512 550 480 495 Z" fill="url(#beakOrange)"/>
+
+    <!-- 7. Tiny Little Feather Tuft on Top (呆毛) -->
+    <path d="M 512 280 C 490 230, 530 200, 520 180 C 545 205, 545 250, 512 280 Z" fill="#5B93FF"/>
+    <path d="M 522 280 C 538 240, 570 220, 575 205 C 575 235, 550 265, 522 280 Z" fill="#4785FF"/>
+
+  </g>
+
+  <!-- 8. Musical "初鸣" Sound Bubbles / Acoustic Note floating out -->
+  <g clip-path="url(#squircle)">
+    <!-- Harmonic Ripple 1 -->
+    <circle cx="690" cy="380" r="32" fill="none" stroke="url(#soundJade)" stroke-width="6" opacity="0.85"/>
+    <circle cx="690" cy="380" r="14" fill="#34D399" opacity="0.9"/>
+    
+    <!-- Harmonic Ripple 2 -->
+    <circle cx="760" cy="320" r="22" fill="none" stroke="url(#soundJade)" stroke-width="5" opacity="0.65"/>
+    <circle cx="760" cy="320" r="9" fill="#34D399" opacity="0.75"/>
+
+    <!-- Harmonic Ripple 3 -->
+    <circle cx="810" cy="270" r="14" fill="none" stroke="url(#soundJade)" stroke-width="4" opacity="0.45"/>
+  </g>
+</svg>
