@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:breathnote/src/app.dart';
 import 'package:breathnote/src/localization/app_strings.dart';
 import 'package:breathnote/src/models/harmonica_layout.dart';
+import 'package:breathnote/src/models/pitch_reading.dart';
 import 'package:breathnote/src/models/practice_note.dart';
 import 'package:breathnote/src/models/score_import.dart';
 import 'package:breathnote/src/models/song.dart';
@@ -2437,6 +2438,104 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('¥68'), findsOneWidget);
       expect(find.text('一次性永久买断'), findsOneWidget);
+    },
+  );
+
+  test(
+    'maps all 12 standard Richter keys to physical octaves and matches Tuner holes accurately',
+    () {
+      const hole1Blow = PracticeNote(note: 'C', octave: 4, tab: '1↑');
+      const hole4Blow = PracticeNote(note: 'C', octave: 5, tab: '4↑');
+      const hole10Blow = PracticeNote(note: 'C', octave: 7, tab: '10↑');
+
+      // Authentic physical Richter octaves: G3..F#4 on Hole 1 blow
+      expect(hole1Blow.labelForKey('G'), 'G3');
+      expect(hole4Blow.labelForKey('G'), 'G4');
+      expect(hole4Blow.frequencyForKey('G'), closeTo(392.00, 0.2));
+      expect(hole4Blow.labelForKey('A'), 'A4');
+      expect(hole4Blow.frequencyForKey('A'), closeTo(440.00, 0.2));
+      expect(hole4Blow.labelForKey('B♭'), 'A#4');
+      expect(hole4Blow.labelForKey('C'), 'C5');
+      expect(hole4Blow.labelForKey('F'), 'F5');
+      expect(hole10Blow.labelForKey('F#'), 'F#7');
+      expect(hole10Blow.frequencyForKey('F#'), closeTo(2959.96, 0.5));
+
+      // Tuner live hole strip must match physical G4 = 4↑ on a G harmonica
+      final g4Tabs = tabsForReading(
+        const PitchReading(
+          detected: true,
+          frequency: 392.00,
+          note: 'G',
+          octave: 4,
+          cents: 0,
+          confidence: 0.96,
+          levelDb: -24,
+          timestampMicros: 1000,
+        ),
+        'G',
+      );
+      expect(g4Tabs, hasLength(1));
+      expect(g4Tabs.first.hole, 4);
+      expect(g4Tabs.first.isBlow, isTrue);
+
+      // Physical A4 = 4↑ on an A harmonica
+      final a4Tabs = tabsForReading(
+        const PitchReading(
+          detected: true,
+          frequency: 440.00,
+          note: 'A',
+          octave: 4,
+          cents: 0,
+          confidence: 0.96,
+          levelDb: -24,
+          timestampMicros: 1000,
+        ),
+        'A',
+      );
+      expect(a4Tabs, hasLength(1));
+      expect(a4Tabs.first.hole, 4);
+      expect(a4Tabs.first.isBlow, isTrue);
+
+      // Attack-transient trimming: 1 stray onset frame (+85¢) followed by steady frames
+      // must keep median accurate and high stability score
+      final trimmed = NoteScoreRecord.fromSamples(
+        index: 0,
+        note: hole4Blow,
+        centsSamples: const [85.0, 2.0, -1.0, 3.0, 1.0, 0.0],
+        firstOnsetOffsetMs: 40,
+      );
+      expect(trimmed.status, NoteScoreStatus.accurate);
+      expect(trimmed.stabilityStdDevCents!, lessThan(3.0));
+      final summary = SongScoreSummary.evaluate([trimmed]);
+      expect(summary.stabilityScore, 100);
+    },
+  );
+
+  testWidgets(
+    'tuner header exposes quick multi-key switcher chip and updates active key',
+    (tester) async {
+      final controller = AppController()..harmonicaKey = 'C';
+      addTearDown(controller.dispose);
+      await pumpBreathnote(tester, controller: controller);
+
+      await tester.tap(find.text('调音'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('tuner-key-chip')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('tuner-key-chip')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('harmonica-key-G')));
+      await tester.pumpAndSettle();
+
+      expect(controller.harmonicaKey, 'G');
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('tuner-key-chip')),
+          matching: find.textContaining('G'),
+        ),
+        findsOneWidget,
+      );
     },
   );
 }

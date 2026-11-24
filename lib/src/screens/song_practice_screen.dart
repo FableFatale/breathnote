@@ -72,6 +72,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   int _index = 0;
   int _demoNoteIndex = 0;
   double _holdProgress = 0;
+  int _missedFrames = 0;
   int _score = 0;
   double _matchedError = 0;
   bool _completed = false;
@@ -395,6 +396,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       );
     }
     if (matches) {
+      _missedFrames = 0;
       if (_stableSince == null && _stableSinceMicros == null) {
         unawaited(AppHaptics.reedResonance(context));
       }
@@ -406,9 +408,12 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         return;
       }
     } else {
-      _stableSince = null;
-      _stableSinceMicros = null;
-      _holdProgress = 0;
+      _missedFrames += 1;
+      if (_missedFrames >= 3) {
+        _stableSince = null;
+        _stableSinceMicros = null;
+        _holdProgress = 0;
+      }
     }
     setState(() => _reading = reading);
   }
@@ -440,6 +445,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         _index++;
         _demoNoteIndex = _index;
         _holdProgress = 0;
+        _missedFrames = 0;
         _reading = const PitchReading.silent();
         _stableSince = null;
         _stableSinceMicros = null;
@@ -498,6 +504,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _guidePlaying = false;
       _resumeAfterGuide = false;
       _holdProgress = 0;
+      _missedFrames = 0;
       _countInBeat = 0;
       _noteWindowStartedAt = null;
       _reading = const PitchReading.silent();
@@ -522,6 +529,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _guidePlaying = false;
       _resumeAfterGuide = false;
       _holdProgress = 0;
+      _missedFrames = 0;
       _countInBeat = 0;
       _noteWindowStartedAt = null;
       _reading = const PitchReading.silent();
@@ -547,6 +555,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _guidePlaying = true;
       _demoNoteIndex = _index;
       _holdProgress = 0;
+      _missedFrames = 0;
       _status = _SongStatus.idle;
       _reading = const PitchReading.silent();
       _stableSince = null;
@@ -626,6 +635,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _index = 0;
       _demoNoteIndex = 0;
       _holdProgress = 0;
+      _missedFrames = 0;
       _score = 0;
       _matchedError = 0;
       _completed = false;
@@ -649,6 +659,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _index = 0;
       _demoNoteIndex = 0;
       _holdProgress = 0;
+      _missedFrames = 0;
       _score = 0;
       _matchedError = 0;
       _completed = false;

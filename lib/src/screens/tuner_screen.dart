@@ -17,6 +17,7 @@ import '../theme/app_adaptive.dart';
 import '../widgets/chuming_coach.dart';
 import '../widgets/cute_illustrations.dart';
 import '../widgets/gesture_guide.dart';
+import '../widgets/harmonica_guide.dart';
 import '../widgets/motion_widgets.dart';
 import 'help_screen.dart';
 
@@ -366,6 +367,23 @@ class _TunerScreenState extends State<TunerScreen>
                       ?.copyWith(fontSize: 22),
                 ),
               ),
+              ActionChip(
+                key: const Key('tuner-key-chip'),
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.padded,
+                avatar: const HarmonicaBrandIcon(size: 16),
+                label: Text(
+                  context.strings.t('keyName', {'key': key}),
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                onPressed: () {
+                  unawaited(AppHaptics.selection(context));
+                  unawaited(showHarmonicaKeyPicker(context));
+                },
+              ),
+              const SizedBox(width: 6),
               IconButton.filledTonal(
                 tooltip: context.strings.t('tunerSettings'),
                 onPressed: _showSettings,

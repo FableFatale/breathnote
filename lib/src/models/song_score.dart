@@ -75,14 +75,21 @@ class NoteScoreRecord {
         ? sorted[mid]
         : (sorted[mid - 1] + sorted[mid]) / 2.0;
 
+    // 真实口琴簧片起音瞬间（首帧 ~23–46 ms）常有气压爬升瞬态，样本足够时剔除偏离中位数 >25¢ 的起音瞬态，
+    // 让稳定度评分专注衡量稳态气息波动，而非误伤正常起音。
+    final steadySamples = centsSamples.length >= 4 &&
+            (centsSamples.first - median).abs() > 25.0
+        ? centsSamples.sublist(1)
+        : centsSamples;
+
     final mean =
-        centsSamples.reduce((a, b) => a + b) / centsSamples.length;
+        steadySamples.reduce((a, b) => a + b) / steadySamples.length;
     var varianceSum = 0.0;
-    for (final sample in centsSamples) {
+    for (final sample in steadySamples) {
       final delta = sample - mean;
       varianceSum += delta * delta;
     }
-    final stdDev = math.sqrt(varianceSum / centsSamples.length);
+    final stdDev = math.sqrt(varianceSum / steadySamples.length);
 
     final NoteScoreStatus status;
     if (median.abs() <= 25.0) {

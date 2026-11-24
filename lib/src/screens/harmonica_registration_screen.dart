@@ -179,7 +179,9 @@ class _HarmonicaRegistrationScreenState
   void _onReading(PitchReading reading) {
     if (!mounted || _detectState != _DetectState.listening) return;
 
-    final detected = reading.detected
+    final lowConfidenceNoise =
+        reading.confidence > 0 && reading.confidence < 0.65;
+    final detected = reading.detected && !lowConfidenceNoise
         ? detectHarmonicaKeyFromHole4Blow(reading.frequency)
         : null;
 
