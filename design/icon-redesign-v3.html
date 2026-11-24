@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>初鸣 (Breathnote) App Icon 多方向重设计评审展板 v3</title>
+  <style>
+    :root {
+      --bg: #0c101b;
+      --bg-gradient: radial-gradient(circle at 20% 0%, #18233d 0%, #0c101b 58%);
+      --surface: #141b2c;
+      --surface-2: #1a2338;
+      --border: rgba(255, 255, 255, 0.09);
+      --text: #f3f5fa;
+      --muted: #98a4be;
+      --accent: #376cff;
+      --pill-bg: #0e1422;
+      --shadow-card: 0 18px 44px rgba(0, 0, 0, 0.34);
+      --icon-shadow: 0 16px 34px rgba(0, 0, 0, 0.38), 0 2px 6px rgba(0, 0, 0, 0.25);
+      --mask-radius: 22.37%;
+    }
+
+    body[data-theme="light"] {
+      --bg: #f4f5f8;
+      --bg-gradient: radial-gradient(circle at 18% 0%, #ffffff 0%, #eef1f7 65%);
+      --surface: #ffffff;
+      --surface-2: #f8f9fc;
+      --border: rgba(24, 24, 26, 0.09);
+      --text: #18181a;
+      --muted: #666b78;
+      --pill-bg: #eef0f6;
+      --shadow-card: 0 12px 32px rgba(18, 24, 42, 0.07);
+      --icon-shadow: 0 14px 30px rgba(18, 24, 42, 0.14), 0 2px 6px rgba(18, 24, 42, 0.08);
+    }
+
+    body[data-theme="store"] {
+      --bg: #ffffff;
+      --bg-gradient: #ffffff;
+      --surface: #ffffff;
+      --surface-2: #fafafa;
+      --border: #ebebeb;
+      --text: #18181a;
+      --muted: #787878;
+      --pill-bg: #f4f4f6;
+      --shadow-card: 0 4px 18px rgba(0, 0, 0, 0.04);
+      --icon-shadow: 0 12px 26px rgba(0, 0, 0, 0.12), 0 1px 4px rgba(0, 0, 0, 0.07);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      background-image: var(--bg-gradient);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+      line-height: 1.55;
+      padding: 36px 24px 72px;
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    .container {
+      max-width: 1320px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: rgba(55, 108, 255, 0.14);
+      border: 1px solid rgba(55, 108, 255, 0.32);
+      color: #6ea3ff;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      margin-bottom: 12px;
+    }
+
+    body[data-theme="light"] .eyebrow,
+    body[data-theme="store"] .eyebrow {
+      color: #2456e8;
+      background: #eef4ff;
+      border-color: #d6e4ff;
+    }
+
+    h1 {
+      font-size: clamp(26px, 3vw, 36px);
+      font-weight: 800;
+      letter-spacing: -0.6px;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 15px;
+      max-width: 760px;
+    }
+
+    .status-note {
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: rgba(21, 180, 98, 0.10);
+      border: 1px solid rgba(21, 180, 98, 0.28);
+      color: #2fd07e;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    body[data-theme="light"] .status-note,
+    body[data-theme="store"] .status-note {
+      color: #0e7c44;
+      background: #e9fbf1;
+      border-color: #bfeccf;
+    }
+
+    /* Sticky Controls Toolbar */
+    .toolbar {
+      position: sticky;
+      top: 14px;
+      z-index: 20;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 14px 18px;
+      box-shadow: var(--shadow-card);
+      backdrop-filter: blur(12px);
+      margin-bottom: 32px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .control-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: 0.4px;
+    }
+
+    .segmented {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 12px;
+      background: var(--pill-bg);
+      border: 1px solid var(--border);
+    }
+
+    .seg-btn {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .seg-btn:hover {
+      color: var(--text);
+    }
+
+    .seg-btn.active {
+      background: var(--accent);
+      color: #ffffff;
+      box-shadow: 0 3px 10px rgba(55, 108, 255, 0.34);
+    }
+
+    .toggle-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 13px;
+      border-radius: 11px;
+      background: var(--pill-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle-chip input {
+      accent-color: var(--accent);
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+    }
+
+    /* Section Headings */
+    .section-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 40px 0 18px;
+    }
+
+    .section-head h2 {
+      font-size: 20px;
+      font-weight: 750;
+      letter-spacing: -0.3px;
+    }
+
+    .section-head p {
+      font-size: 13.5px;
+      color: var(--muted);
+    }
+
+    /* Section 1: 4-Column Hero Proposal Cards */
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 20px;
+    }
+
+    @media (max-width: 1140px) {
+      .hero-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .hero-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .proposal-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 22px 20px 20px;
+      box-shadow: var(--shadow-card);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .proposal-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(55, 108, 255, 0.35);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .option-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 750;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .subject-tag {
+      font-size: 11.5px;
+      font-weight: 650;
+      color: var(--muted);
+    }
+
+    .icon-stage {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 14px 8px;
+      border-radius: 18px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      position: relative;
+      cursor: zoom-in;
+    }
+
+    .icon-frame {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      border-radius: var(--mask-radius);
+      overflow: hidden;
+      box-shadow: var(--icon-shadow);
+      transition: border-radius 0.25s ease, transform 0.2s ease;
+      background: #111;
+    }
+
+    .icon-stage:hover .icon-frame {
+      transform: scale(1.02);
+    }
+
+    .icon-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .safe-zone-ring {
+      position: absolute;
+      inset: 50% auto auto 50%;
+      width: 66%;
+      height: 66%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      border: 2px dashed rgba(255, 255, 255, 0.85);
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    }
+
+    body.show-safe-zone .safe-zone-ring {
+      opacity: 1;
+    }
+
+    .zoom-hint {
+      position: absolute;
+      right: 10px;
+      bottom: 8px;
+      font-size: 11px;
+      color: var(--muted);
+      opacity: 0.72;
+    }
+
+    .card-title {
+      font-size: 17px;
+      font-weight: 750;
+      letter-spacing: -0.2px;
+      margin-bottom: 4px;
+    }
+
+    .card-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .swatches {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .swatch-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 8px;
+      background: var(--pill-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      cursor: pointer;
+      transition: border-color 0.15s ease;
+    }
+
+    .swatch-chip:hover {
+      border-color: var(--accent);
+    }
+
+    .swatch-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      border: 1px solid rgba(128, 128, 128, 0.35);
+      flex-shrink: 0;
+    }
+
+    .strengths {
+      font-size: 12.5px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    .strengths strong {
+      color: var(--text);
+    }
+
+    /* Section 2: Phone Home Screen Wallpaper Simulator */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 22px;
+      box-shadow: var(--shadow-card);
+    }
+
+    .wallpaper-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .wallpaper-stage {
+      border-radius: 26px;
+      padding: 28px 24px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      transition: background 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .wallpaper-stage[data-wallpaper="morning"] {
+      background: linear-gradient(145deg, #d7e8ff 0%, #f5efe6 52%, #ffe6d5 100%);
+      color: #16181f;
+    }
+
+    .wallpaper-stage[data-wallpaper="midnight"] {
+      background: radial-gradient(circle at 25% 20%, #243b6b 0%, #0f1526 52%, #070a12 100%);
+      color: #f4f7ff;
+    }
+
+    .wallpaper-stage[data-wallpaper="vibrant"] {
+      background: linear-gradient(135deg, #3a6ff8 0%, #7d52f4 45%, #f07b63 100%);
+      color: #ffffff;
+    }
+
+    .wallpaper-stage[data-wallpaper="minimal"] {
+      background: linear-gradient(160deg, #e5e8ef 0%, #d6dbe5 100%);
+      color: #1a1d24;
+    }
+
+    .phone-status {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 700;
+      opacity: 0.78;
+      margin-bottom: 24px;
+    }
+
+    .homescreen-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+      gap: 20px 14px;
+      justify-items: center;
+      align-items: start;
+    }
+
+    .app-tile {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px;
+      width: 84px;
+      text-align: center;
+    }
+
+    .app-icon-60 {
+      width: 60px;
+      height: 60px;
+      border-radius: var(--mask-radius);
+      overflow: hidden;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22), 0 1px 3px rgba(0, 0, 0, 0.14);
+      transition: border-radius 0.25s ease, transform 0.2s ease;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .app-tile:hover .app-icon-60 {
+      transform: translateY(-2px);
+    }
+
+    .app-icon-60 img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .app-label {
+      font-size: 11.5px;
+      font-weight: 600;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.14);
+      white-space: nowrap;
+    }
+
+    .wallpaper-stage[data-wallpaper="morning"] .app-label,
+    .wallpaper-stage[data-wallpaper="minimal"] .app-label {
+      text-shadow: none;
+    }
+
+    .app-subtag {
+      font-size: 10px;
+      opacity: 0.72;
+      margin-top: -4px;
+    }
+
+    .neighbor-notes {
+      background: linear-gradient(180deg, #ffd74b 0%, #f5b916 32%, #ffffff 33%, #f7f7fa 100%);
+    }
+
+    .neighbor-calendar {
+      background: #ffffff;
+      color: #18181a;
+      flex-direction: column;
+    }
+
+    .neighbor-music {
+      background: linear-gradient(135deg, #fa3c5a 0%, #fd6f49 100%);
+      color: #ffffff;
+    }
+
+    /* Section 3: Multi-Size Legibility Matrix */
+    .matrix-wrap {
+      overflow-x: auto;
+    }
+
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 720px;
+    }
+
+    .matrix-table th,
+    .matrix-table td {
+      padding: 16px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: center;
+      vertical-align: middle;
+    }
+
+    .matrix-table th {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .matrix-table th:first-child,
+    .matrix-table td:first-child {
+      text-align: left;
+      width: 220px;
+    }
+
+    .matrix-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .row-name {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .row-sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .size-box {
+      display: inline-block;
+      border-radius: var(--mask-radius);
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
+      transition: border-radius 0.25s ease;
+      vertical-align: middle;
+      background: #111;
+    }
+
+    .size-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Lightbox Modal */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      background: rgba(8, 11, 20, 0.82);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 100;
+    }
+
+    .lightbox.open {
+      display: flex;
+    }
+
+    .lightbox-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 24px;
+      max-width: 560px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 28px 72px rgba(0, 0, 0, 0.55);
+    }
+
+    .lightbox-img-wrap {
+      position: relative;
+      width: min(420px, 78vw);
+      height: min(420px, 78vw);
+      margin: 0 auto 18px;
+      border-radius: var(--mask-radius);
+      overflow: hidden;
+      box-shadow: var(--icon-shadow);
+    }
+
+    .lightbox-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .lightbox-title {
+      font-size: 19px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .lightbox-meta {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    .close-btn {
+      border: 1px solid var(--border);
+      background: var(--pill-bg);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 650;
+      padding: 8px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%) translateY(14px);
+      background: #18181a;
+      color: #ffffff;
+      padding: 9px 16px;
+      border-radius: 999px;
+      font-size: 12.5px;
+      font-weight: 600;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      z-index: 150;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body data-theme="dark">
+  <div class="container">
+    <header class="header">
+      <div>
+        <div class="eyebrow">BREATHNOTE · 初鸣见音口琴陪练 · ICON REDESIGN v3</div>
+        <h1>App Icon 多方向与多色彩重构方案</h1>
+        <p class="subtitle">
+          参照 Apple macOS / iOS Icon Composer 层次化轻拟物与现代触感材质标准，输出 4 套不同视觉主体、不同配色性格的高保真概念，并同步旧版工程图标作真实桌面与极限小尺寸对照。
+        </p>
+      </div>
+      <div class="status-note">状态：候选评审阶段 · 尚未修改 Android / Web 工程图标</div>
+    </header>
+
+    <div class="toolbar">
+      <div class="control-group">
+        <span class="control-label">图标裁切形态</span>
+        <div class="segmented" id="maskGroup">
+          <button class="seg-btn active" data-radius="22.37%">iOS Squircle</button>
+          <button class="seg-btn" data-radius="50%">Android 圆形</button>
+          <button class="seg-btn" data-radius="26%">Android 圆角方</button>
+          <button class="seg-btn" data-radius="50% 50% 16% 50%">Android 水滴形</button>
+          <button class="seg-btn" data-radius="0">原始方形</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label class="toggle-chip">
+          <input type="checkbox" id="safeZoneToggle" />
+          显示 66% 自适应安全区圆环
+        </label>
+
+        <span class="control-label">展板底色</span>
+        <div class="segmented" id="themeGroup">
+          <button class="seg-btn active" data-theme="dark">深色评审台</button>
+          <button class="seg-btn" data-theme="light">浅色评审台</button>
+          <button class="seg-btn" data-theme="store">纯白商店底</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 0: A + B Fusion Spotlight Comparison -->
+    <div class="section-head">
+      <div>
+        <h2>零、A + B 融合精选对比（方案 A vs AB-1 晴空彩孔 vs AB-2 暖瓷小鸟 vs 方案 B）</h2>
+        <p>结合「方案 A 初鸣小鸟 IP」与「方案 B 琉璃五色彩阶口琴」生成两套融合候选，方便并排对比最终质感</p>
+      </div>
+    </div>
+
+    <section class="hero-grid">
+      <!-- Option A Baseline -->
+      <article class="proposal-card">
+        <div class="card-top">
+          <span class="option-badge">方案 A · 原版参照</span>
+          <span class="subject-tag">蓝底 + 翡翠单孔鸟</span>
+        </div>
+        <div class="icon-stage" onclick="openLightbox('brand/redesign-v3/option-a-mascot-blue.png', '方案 A：初鸣小鸟 · 晴空蓝瓷', 'Palermo 品牌蓝底 · 小鸟 + 5 孔瓷白口琴（第 2 孔翡翠高光）')">
+          <div class="icon-frame">
+            <img src="brand/redesign-v3/option-a-mascot-blue.png" alt="方案 A 原版" />
+            <div class="safe-zone-ring"></div>
+          </div>
+          <span class="zoom-hint">点击放大</span>
+        </div>
+        <div>
+          <h3 class="card-title">方案 A：初鸣小鸟（单孔高光）</h3>
+          <p class="card-desc">聚焦「初鸣第 4 孔」单一翡翠亮孔，色彩最集中克制，小尺寸下视觉焦点极强。</p>
+        </div>
+        <div class="strengths">
+          <strong>特点：</strong>单点亮绿视觉纯度高，辨识重心集中。
+        </div>
+      </article>
+
+      <!-- Option AB-1 -->
+      <article class="proposal-card" style="border-color: rgba(55, 108, 255, 0.45);">
+        <div class="card-top">
+          <span class="option-badge" style="background: rgba(55,108,255,0.18); border-color: rgba(55,108,255,0.45); color: #6ea3ff;">方案 AB-1 · 融合推荐</span>
+          <span class="subject-tag">蓝底 + 小鸟 × 五彩口琴</span>
+        </div>
+        <div class="icon-stage" onclick="openLightbox('brand/redesign-v3/option-ab1-blue-rainbow.png', '方案 AB-1：晴空蓝瓷 · 初鸣小鸟 × 琉璃彩孔口琴', '保留方案 A Palermo 品牌蓝与小鸟造型，升级置入方案 B 5 枚渐变琉璃彩阶音孔')">
+          <div class="icon-frame">
+            <img src="brand/redesign-v3/option-ab1-blue-rainbow.png" alt="方案 AB-1：蓝底彩孔小鸟" />
+            <div class="safe-zone-ring"></div>
+          </div>
+          <span class="zoom-hint">点击放大</span>
+        </div>
+        <div>
+          <h3 class="card-title">AB-1：晴空小鸟 × 琉璃彩孔</h3>
+          <p class="card-desc">沿用晴空蓝瓷背景与小鸟萌态，把原先绿色光环清理收束，换上方案 B 渐变琉璃五彩音柱。</p>
+        </div>
+        <div class="swatches">
+          <button class="swatch-chip" onclick="copyHex('#376CFF')"><span class="swatch-dot" style="background:#376CFF"></span>#376CFF</button>
+          <button class="swatch-chip" onclick="copyHex('#FF6B4A')"><span class="swatch-dot" style="background:#FF6B4A"></span>#FF6B4A</button>
+          <button class="swatch-chip" onclick="copyHex('#15B462')"><span class="swatch-dot" style="background:#15B462"></span>#15B462</button>
+        </div>
+        <div class="strengths">
+          <strong>适合定位：</strong>兼得吉祥物亲和力、品牌主蓝识别度与 App 内见音彩阶特色，无白底边缘风险。
+        </div>
+      </article>
+
+      <!-- Option AB-2 -->
+      <article class="proposal-card" style="border-color: rgba(249, 168, 37, 0.35);">
+        <div class="card-top">
+          <span class="option-badge">方案 AB-2 · 浅瓷融合</span>
+          <span class="subject-tag">暖瓷底 + 小鸟 × 五彩口琴</span>
+        </div>
+        <div class="icon-stage" onclick="openLightbox('brand/redesign-v3/option-ab2-ceramic-mascot.png', '方案 AB-2：暖瓷留白 · 初鸣小鸟 × 琉璃彩孔口琴', '方案 B 温润暖瓷浅底搭配初鸣小鸟与 5 色彩阶口琴')">
+          <div class="icon-frame">
+            <img src="brand/redesign-v3/option-ab2-ceramic-mascot.png" alt="方案 AB-2：暖瓷彩孔小鸟" />
+            <div class="safe-zone-ring"></div>
+          </div>
+          <span class="zoom-hint">点击放大</span>
+        </div>
+        <div>
+          <h3 class="card-title">AB-2：暖瓷留白 × 彩孔小鸟</h3>
+          <p class="card-desc">让晴空蓝小鸟站在方案 B 的暖象牙瓷浅灰桌面舞台上，底部辅以柔和工作室投影，通透留白更显高级。</p>
+        </div>
+        <div class="swatches">
+          <button class="swatch-chip" onclick="copyHex('#FCFBF8')"><span class="swatch-dot" style="background:#FCFBF8"></span>#FCFBF8</button>
+          <button class="swatch-chip" onclick="copyHex('#5AA2EE')"><span class="swatch-dot" style="background:#5AA2EE"></span>#5AA2EE</button>
+          <button class="swatch-chip" onclick="copyHex('#15B462')"><span class="swatch-dot" style="background:#15B462"></span>#15B462</button>
+        </div>
+        <div class="strengths">
+          <strong>适合定位：</strong>喜欢白浅底桌面极简美感、同时又舍不得初鸣小鸟 IP 的折中理想解。
+        </div>
+      </article>
+
+      <!-- Option B Reference -->
+      <article class="proposal-card">
+        <div class="card-top">
+          <span class="option-badge">方案 B · 器物参照</span>
+          <span class="subject-tag">暖瓷纯口琴硬件</span>
+        </div>
+        <div class="icon-stage" onclick="openLightbox('brand/redesign-v3/option-b-ceramic-spectrum.png', '方案 B：琉璃音阶 · 暖瓷留白', '暖瓷白轻浅背景 · Dieter Rams 风拉丝铝壳 + 5 枚琉璃彩阶孔')">
+          <div class="icon-frame">
+            <img src="brand/redesign-v3/option-b-ceramic-spectrum.png" alt="方案 B 参照" />
+            <div class="safe-zone-ring"></div>
+          </div>
+          <span class="zoom-hint">点击放大</span>
+        </div>
+        <div>
+          <h3 class="card-title">方案 B：纯器物（五色彩孔）</h3>
+          <p class="card-desc">去掉吉祥物形象，纯粹表达极简随身乐器工业美感与 5 色彩孔。</p>
+        </div>
+        <div class="strengths">
+          <strong>特点：</strong>高度极简工业硬件风格，适合偏冷峻理性的工具品味。
+        </div>
+      </article>
+    </section>
+
+    <!-- Section 1: 4 Hero Proposals -->
+    <div class="section-head">
+      <div>
+        <h2>一、全向设计概念一览（A / B / C / D）</h2>
+        <p>点击任意大图标可放大审视材质与边缘细节；点击色卡可直接复制 Hex 色值</p>
+      </div>
+    </div>
+
+    <section class="hero-grid">
+      <!-- Option A -->
+      <article class="proposal-card">
+        <div class="card-top">
+          <span class="option-badge">方案 A · 品牌IP</span>
+          <span class="subject-tag">初鸣小鸟 + 口琴</span>
+        </div>
+        <div class="icon-stage" onclick="openLightbox('brand/redesign-v3/option-a-mascot-blue.png', '方案 A：初鸣小鸟 · 晴空蓝瓷', 'Palermo 品牌蓝渐变底 · 蓝白圆润小鸟吹奏口琴')">
+          <div class="icon-frame">
+            <img src="brand/redesign-v3/option-a-mascot-blue.png" alt="方案 A：初鸣小鸟 · 晴空蓝瓷" />
+            <div class="safe-zone-ring"></div>
+          </div>
+          <span class="zoom-hint">点击放大</span>
+        </div>
+        <div>
+          <h3 class="card-title">初鸣小鸟 · 晴空蓝瓷</h3>
+          <p class="card-desc">
+            将 App 内「初鸣小老师」小肥啾直接升级为桌面主角，圆润晴空蓝白身躯捧着 5 孔瓷白口琴，主音孔泛起翡翠柔光，情绪感染力极强。
+          </p>
+        </div>
+        <div class="swatches">
+          <button class="swatch-chip" onclick="copyHex('#376CFF')"><span class="swatch-dot" style="background:#376CFF"></span>#376CFF</button>
+          <button class="swatch-chip" onclick="copyHex('#FF8B1A')"><span class="swatch-dot" style="background:#FF8B1A"></span>#FF8B1A</button>
+          <button class="swatch-chip" onclick="copyHex('#15B462')"><span class="swatch-dot" style="background:#15B462"></span>#15B462</button>
+        </div>
+        <div class="strengths">
+          <strong>适合定位：</strong>陪伴式练琴伙伴路线（类似多邻国记忆点），新用户下载转化与品牌亲和力最高。
+        </div>
+      </article>
+
+      <!-- Option B -->
+      <article class="proposal-card">
+        <div class="card-top">
+          <span class="option-badge">方案 B · 工业美学</span>
+          <span class="subject-tag">五色彩孔精密口琴</span>
+        </div>
+        <div class="icon-stage" onclick="openLightbox('brand/redesign-v3/option-b-ceramic-spectrum.png', '方案 B：琉璃音阶 · 暖瓷留白', '暖瓷白轻浅背景 · Dieter Rams 风拉丝铝壳 + 5 枚琉璃彩阶孔')">
+          <div class="icon-frame">
+            <img src="brand/redesign-v3/option-b-ceramic-spectrum.png" alt="方案 B：琉璃音阶 · 暖瓷留白" />
+            <div class="safe-zone-ring"></div>
+          </div>
+          <span class="zoom-hint">点击放大</span>
+        </div>
+        <div>
+          <h3 class="card-title">琉璃音阶 · 暖瓷留白</h3>
+          <p class="card-desc">
+            汲取 Dieter Rams 与 Teenage Engineering 硬件质感：温润瓷白琴盖、拉丝铝合金边框，5 枚晶莹琉璃彩柱精准呼应 App 内见音色阶谱。
+          </p>
+        </div>
+        <div class="swatches">
+          <button class="swatch-chip" onclick="copyHex('#F8F5EE')"><span class="swatch-dot" style="background:#F8F5EE"></span>#F8F5EE</button>
+          <button class="swatch-chip" onclick="copyHex('#15B462')"><span class="swatch-dot" style="background:#15B462"></span>#15B462</button>
+          <button class="swatch-chip" onclick="copyHex('#FF6B4A')"><span class="swatch-dot" style="background:#FF6B4A"></span>#FF6B4A</button>
+        </div>
+        <div class="strengths">
+          <strong>适合定位：</strong>极简白底桌面美学，把「口琴」和「音阶可视化」合并成高端随身乐器工业件。（注意：用于 Android 圆形需微缩前景留足左右边距）
+        </div>
+      </article>
+
+      <!-- Option C -->
+      <article class="proposal-card">
+        <div class="card-top">
+          <span class="option-badge">方案 C · 液态玻璃</span>
+          <span class="subject-tag">呼吸丝带 + 气孔</span>
+        </div>
+        <div class="icon-stage" onclick="openLightbox('brand/redesign-v3/option-c-emerald-wave.png', '方案 C：声息共鸣 · 翡翠极光', '翡翠青绿渐变底 · Liquid Glass 磨砂气孔条与流体息流丝带')">
+          <div class="icon-frame">
+            <img src="brand/redesign-v3/option-c-emerald-wave.png" alt="方案 C：声息共鸣 · 翡翠极光" />
+            <div class="safe-zone-ring"></div>
+          </div>
+          <span class="zoom-hint">点击放大</span>
+        </div>
+        <div>
+          <h3 class="card-title">声息共鸣 · 翡翠极光</h3>
+          <p class="card-desc">
+            紧扣 iOS 液态玻璃语言，将 5 个极简音孔简化为珍珠磨砂条，一道流畅透明的 S 形呼吸丝带自第 4 孔袅袅升起，优雅避开 Wi-Fi 同心弧误读。
+          </p>
+        </div>
+        <div class="swatches">
+          <button class="swatch-chip" onclick="copyHex('#1DD185')"><span class="swatch-dot" style="background:#1DD185"></span>#1DD185</button>
+          <button class="swatch-chip" onclick="copyHex('#0FA972')"><span class="swatch-dot" style="background:#0FA972"></span>#0FA972</button>
+          <button class="swatch-chip" onclick="copyHex('#086972')"><span class="swatch-dot" style="background:#086972"></span>#086972</button>
+        </div>
+        <div class="strengths">
+          <strong>适合定位：</strong>纯正品牌图形象征，「Breath + Note」字面意象与「初鸣第 4 孔」高度统一，桌面清新透气感十足。
+        </div>
+      </article>
+
+      <!-- Option D -->
+      <article class="proposal-card">
+        <div class="card-top">
+          <span class="option-badge">方案 D · 专业音频</span>
+          <span class="subject-tag">钛金黑腔 + 金声</span>
+        </div>
+        <div class="icon-stage" onclick="openLightbox('brand/redesign-v3/option-d-midnight-gold.png', '方案 D：午夜金声 · 专业调音', '深邃午夜靛黑底 · 枪灰钛金属琴身 + 第 2 孔暖金共鸣核心')">
+          <div class="icon-frame">
+            <img src="brand/redesign-v3/option-d-midnight-gold.png" alt="方案 D：午夜金声 · 专业调音" />
+            <div class="safe-zone-ring"></div>
+          </div>
+          <span class="zoom-hint">点击放大</span>
+        </div>
+        <div>
+          <h3 class="card-title">午夜金声 · 专业调音</h3>
+          <p class="card-desc">
+            对标 Logic Pro 与精密调音表质感：枪灰钛金属与拉丝香槟金琴格沉稳精致，焦点音孔内聚起琥珀金共鸣声环，顶缘微透冷蓝反光。
+          </p>
+        </div>
+        <div class="swatches">
+          <button class="swatch-chip" onclick="copyHex('#1D243B')"><span class="swatch-dot" style="background:#1D243B"></span>#1D243B</button>
+          <button class="swatch-chip" onclick="copyHex('#C9B794')"><span class="swatch-dot" style="background:#C9B794"></span>#C9B794</button>
+          <button class="swatch-chip" onclick="copyHex('#FFA12E')"><span class="swatch-dot" style="background:#FFA12E"></span>#FFA12E</button>
+        </div>
+        <div class="strengths">
+          <strong>适合定位：</strong>高端乐器与精准测音专业工具气质，在全部 4 套里对比度最稳，圆形/水滴形/方形安全区余量最充裕。
+        </div>
+      </article>
+    </section>
+
+    <!-- Section 2: Phone Home Screen Wallpaper Simulator -->
+    <div class="section-head">
+      <div>
+        <h2>二、手机桌面壁纸实景模拟（60 × 60 px 真实体量）</h2>
+        <p>把 4 套新方案、当前旧版工程图标以及常见系统应用（备忘录/日历/音乐）放上同一排桌面检验抓眼程度</p>
+      </div>
+    </div>
+
+    <section class="panel">
+      <div class="wallpaper-header">
+        <span class="control-label">切换手机壁纸环境</span>
+        <div class="segmented" id="wallpaperGroup">
+          <button class="seg-btn active" data-wallpaper="morning">亮色晨光壁纸</button>
+          <button class="seg-btn" data-wallpaper="midnight">深色午夜壁纸</button>
+          <button class="seg-btn" data-wallpaper="vibrant">活力渐变壁纸</button>
+          <button class="seg-btn" data-wallpaper="minimal">浅灰极简桌面</button>
+        </div>
+      </div>
+
+      <div class="wallpaper-stage" id="wallpaperStage" data-wallpaper="morning">
+        <div class="phone-status">
+          <span>09:41</span>
+          <span>5G · 92%</span>
+        </div>
+
+        <div class="homescreen-grid">
+          <div class="app-tile">
+            <div class="app-icon-60"><img src="brand/redesign-v3/option-ab1-blue-rainbow.png" alt="方案 AB-1" /></div>
+            <span class="app-label">初鸣</span>
+            <span class="app-subtag">AB-1 蓝底彩孔鸟</span>
+          </div>
+          <div class="app-tile">
+            <div class="app-icon-60"><img src="brand/redesign-v3/option-ab2-ceramic-mascot.png" alt="方案 AB-2" /></div>
+            <span class="app-label">初鸣</span>
+            <span class="app-subtag">AB-2 暖瓷彩孔鸟</span>
+          </div>
+          <div class="app-tile">
+            <div class="app-icon-60"><img src="brand/redesign-v3/option-a-mascot-blue.png" alt="方案 A" /></div>
+            <span class="app-label">初鸣</span>
+            <span class="app-subtag">方案 A 晴空鸟</span>
+          </div>
+          <div class="app-tile">
+            <div class="app-icon-60"><img src="brand/redesign-v3/option-b-ceramic-spectrum.png" alt="方案 B" /></div>
+            <span class="app-label">初鸣</span>
+            <span class="app-subtag">方案 B 暖瓷彩</span>
+          </div>
+          <div class="app-tile">
+            <div class="app-icon-60"><img src="brand/redesign-v3/option-c-emerald-wave.png" alt="方案 C" /></div>
+            <span class="app-label">初鸣</span>
+            <span class="app-subtag">方案 C 翡翠波</span>
+          </div>
+          <div class="app-tile">
+            <div class="app-icon-60"><img src="brand/redesign-v3/option-d-midnight-gold.png" alt="方案 D" /></div>
+            <span class="app-label">初鸣</span>
+            <span class="app-subtag">方案 D 午夜金</span>
+          </div>
+          <div class="app-tile">
+            <div class="app-icon-60"><img src="../android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" alt="当前工程旧版" /></div>
+            <span class="app-label">初鸣 (旧版)</span>
+            <span class="app-subtag">当前工程基线</span>
+          </div>
+          <!-- Neutral system neighbors -->
+          <div class="app-tile">
+            <div class="app-icon-60 neighbor-calendar">
+              <span style="font-size:10px;font-weight:800;color:#ff3b30;line-height:1;">TUE</span>
+              <span style="font-size:24px;font-weight:700;line-height:1.05;">24</span>
+            </div>
+            <span class="app-label">日历</span>
+            <span class="app-subtag">参照应用</span>
+          </div>
+          <div class="app-tile">
+            <div class="app-icon-60 neighbor-music">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M9 17.5A2.5 2.5 0 1 1 6.5 15c.4 0 .8.1 1.1.3V7l10-2.5v9.8a2.5 2.5 0 1 1-1.5-2.3V7.3l-7 1.8v8.4z"/></svg>
+            </div>
+            <span class="app-label">音乐</span>
+            <span class="app-subtag">参照应用</span>
+          </div>
+          <div class="app-tile">
+            <div class="app-icon-60 neighbor-notes"></div>
+            <span class="app-label">备忘录</span>
+            <span class="app-subtag">参照应用</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: Multi-Size Legibility Matrix -->
+    <div class="section-head">
+      <div>
+        <h2>三、多尺寸可读性矩阵（120 px → 20 px 同步裁切对照）</h2>
+        <p>严格核验在设置列表、App 抽屉、多任务切换及浏览器标签页下的轮廓锐度与主体可辨识度</p>
+      </div>
+    </div>
+
+    <section class="panel matrix-wrap">
+      <table class="matrix-table">
+        <thead>
+          <tr>
+            <th>方案</th>
+            <th>120 px（应用商店预览）</th>
+            <th>60 px（手机桌面主图标）</th>
+            <th>40 px（系统设置 / 搜索）</th>
+            <th>28 px（小尺寸极限）</th>
+            <th>20 px（Web Favicon）</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="row-name">方案 AB-1：晴空小鸟 × 琉璃彩孔</div>
+              <div class="row-sub">品牌蓝底 + 小鸟 IP + 五彩阶孔</div>
+            </td>
+            <td><span class="size-box" style="width:120px;height:120px"><img src="brand/redesign-v3/option-ab1-blue-rainbow.png" alt="AB1 120" /></span></td>
+            <td><span class="size-box" style="width:60px;height:60px"><img src="brand/redesign-v3/option-ab1-blue-rainbow.png" alt="AB1 60" /></span></td>
+            <td><span class="size-box" style="width:40px;height:40px"><img src="brand/redesign-v3/option-ab1-blue-rainbow.png" alt="AB1 40" /></span></td>
+            <td><span class="size-box" style="width:28px;height:28px"><img src="brand/redesign-v3/option-ab1-blue-rainbow.png" alt="AB1 28" /></span></td>
+            <td><span class="size-box" style="width:20px;height:20px"><img src="brand/redesign-v3/option-ab1-blue-rainbow.png" alt="AB1 20" /></span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="row-name">方案 AB-2：暖瓷留白 × 彩孔小鸟</div>
+              <div class="row-sub">暖瓷浅底 + 小鸟 IP + 五彩阶孔</div>
+            </td>
+            <td><span class="size-box" style="width:120px;height:120px"><img src="brand/redesign-v3/option-ab2-ceramic-mascot.png" alt="AB2 120" /></span></td>
+            <td><span class="size-box" style="width:60px;height:60px"><img src="brand/redesign-v3/option-ab2-ceramic-mascot.png" alt="AB2 60" /></span></td>
+            <td><span class="size-box" style="width:40px;height:40px"><img src="brand/redesign-v3/option-ab2-ceramic-mascot.png" alt="AB2 40" /></span></td>
+            <td><span class="size-box" style="width:28px;height:28px"><img src="brand/redesign-v3/option-ab2-ceramic-mascot.png" alt="AB2 28" /></span></td>
+            <td><span class="size-box" style="width:20px;height:20px"><img src="brand/redesign-v3/option-ab2-ceramic-mascot.png" alt="AB2 20" /></span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="row-name">方案 A：初鸣小鸟 · 晴空蓝瓷</div>
+              <div class="row-sub">品牌吉祥物 · Palermo Blue</div>
+            </td>
+            <td><span class="size-box" style="width:120px;height:120px"><img src="brand/redesign-v3/option-a-mascot-blue.png" alt="A 120" /></span></td>
+            <td><span class="size-box" style="width:60px;height:60px"><img src="brand/redesign-v3/option-a-mascot-blue.png" alt="A 60" /></span></td>
+            <td><span class="size-box" style="width:40px;height:40px"><img src="brand/redesign-v3/option-a-mascot-blue.png" alt="A 40" /></span></td>
+            <td><span class="size-box" style="width:28px;height:28px"><img src="brand/redesign-v3/option-a-mascot-blue.png" alt="A 28" /></span></td>
+            <td><span class="size-box" style="width:20px;height:20px"><img src="brand/redesign-v3/option-a-mascot-blue.png" alt="A 20" /></span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="row-name">方案 B：琉璃音阶 · 暖瓷留白</div>
+              <div class="row-sub">极简硬件 · 彩孔光谱</div>
+            </td>
+            <td><span class="size-box" style="width:120px;height:120px"><img src="brand/redesign-v3/option-b-ceramic-spectrum.png" alt="B 120" /></span></td>
+            <td><span class="size-box" style="width:60px;height:60px"><img src="brand/redesign-v3/option-b-ceramic-spectrum.png" alt="B 60" /></span></td>
+            <td><span class="size-box" style="width:40px;height:40px"><img src="brand/redesign-v3/option-b-ceramic-spectrum.png" alt="B 40" /></span></td>
+            <td><span class="size-box" style="width:28px;height:28px"><img src="brand/redesign-v3/option-b-ceramic-spectrum.png" alt="B 28" /></span></td>
+            <td><span class="size-box" style="width:20px;height:20px"><img src="brand/redesign-v3/option-b-ceramic-spectrum.png" alt="B 20" /></span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="row-name">方案 C：声息共鸣 · 翡翠极光</div>
+              <div class="row-sub">Liquid Glass · 息流声波</div>
+            </td>
+            <td><span class="size-box" style="width:120px;height:120px"><img src="brand/redesign-v3/option-c-emerald-wave.png" alt="C 120" /></span></td>
+            <td><span class="size-box" style="width:60px;height:60px"><img src="brand/redesign-v3/option-c-emerald-wave.png" alt="C 60" /></span></td>
+            <td><span class="size-box" style="width:40px;height:40px"><img src="brand/redesign-v3/option-c-emerald-wave.png" alt="C 40" /></span></td>
+            <td><span class="size-box" style="width:28px;height:28px"><img src="brand/redesign-v3/option-c-emerald-wave.png" alt="C 28" /></span></td>
+            <td><span class="size-box" style="width:20px;height:20px"><img src="brand/redesign-v3/option-c-emerald-wave.png" alt="C 20" /></span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="row-name">方案 D：午夜金声 · 专业调音</div>
+              <div class="row-sub">Pro Audio 钛金深邃风</div>
+            </td>
+            <td><span class="size-box" style="width:120px;height:120px"><img src="brand/redesign-v3/option-d-midnight-gold.png" alt="D 120" /></span></td>
+            <td><span class="size-box" style="width:60px;height:60px"><img src="brand/redesign-v3/option-d-midnight-gold.png" alt="D 60" /></span></td>
+            <td><span class="size-box" style="width:40px;height:40px"><img src="brand/redesign-v3/option-d-midnight-gold.png" alt="D 40" /></span></td>
+            <td><span class="size-box" style="width:28px;height:28px"><img src="brand/redesign-v3/option-d-midnight-gold.png" alt="D 28" /></span></td>
+            <td><span class="size-box" style="width:20px;height:20px"><img src="brand/redesign-v3/option-d-midnight-gold.png" alt="D 20" /></span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="row-name">当前工程旧版（基线对照）</div>
+              <div class="row-sub">mipmap-xxxhdpi/ic_launcher.png</div>
+            </td>
+            <td><span class="size-box" style="width:120px;height:120px"><img src="../android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" alt="Old 120" /></span></td>
+            <td><span class="size-box" style="width:60px;height:60px"><img src="../android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" alt="Old 60" /></span></td>
+            <td><span class="size-box" style="width:40px;height:40px"><img src="../android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" alt="Old 40" /></span></td>
+            <td><span class="size-box" style="width:28px;height:28px"><img src="../android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" alt="Old 28" /></span></td>
+            <td><span class="size-box" style="width:20px;height:20px"><img src="../android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" alt="Old 20" /></span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <!-- Lightbox Modal -->
+  <div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+    <div class="lightbox-card" onclick="event.stopPropagation()">
+      <div class="lightbox-img-wrap">
+        <img id="lightboxImg" src="" alt="" />
+        <div class="safe-zone-ring"></div>
+      </div>
+      <div class="lightbox-title" id="lightboxTitle"></div>
+      <div class="lightbox-meta" id="lightboxMeta"></div>
+      <button class="close-btn" onclick="closeLightbox()">关闭放大预览 (Esc)</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">已复制色值</div>
+
+  <script>
+    const root = document.documentElement;
+    const maskGroup = document.getElementById('maskGroup');
+    const themeGroup = document.getElementById('themeGroup');
+    const wallpaperGroup = document.getElementById('wallpaperGroup');
+    const wallpaperStage = document.getElementById('wallpaperStage');
+    const safeZoneToggle = document.getElementById('safeZoneToggle');
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightboxImg');
+    const lightboxTitle = document.getElementById('lightboxTitle');
+    const lightboxMeta = document.getElementById('lightboxMeta');
+    const toast = document.getElementById('toast');
+
+    maskGroup.addEventListener('click', (e) => {
+      const btn = e.target.closest('.seg-btn');
+      if (!btn) return;
+      maskGroup.querySelectorAll('.seg-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      root.style.setProperty('--mask-radius', btn.dataset.radius);
+    });
+
+    themeGroup.addEventListener('click', (e) => {
+      const btn = e.target.closest('.seg-btn');
+      if (!btn) return;
+      themeGroup.querySelectorAll('.seg-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.body.dataset.theme = btn.dataset.theme;
+    });
+
+    wallpaperGroup.addEventListener('click', (e) => {
+      const btn = e.target.closest('.seg-btn');
+      if (!btn) return;
+      wallpaperGroup.querySelectorAll('.seg-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      wallpaperStage.dataset.wallpaper = btn.dataset.wallpaper;
+    });
+
+    safeZoneToggle.addEventListener('change', () => {
+      document.body.classList.toggle('show-safe-zone', safeZoneToggle.checked);
+    });
+
+    function openLightbox(src, title, meta) {
+      lightboxImg.src = src;
+      lightboxImg.alt = title;
+      lightboxTitle.textContent = title;
+      lightboxMeta.textContent = meta;
+      lightbox.classList.add('open');
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove('open');
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeLightbox();
+    });
+
+    let toastTimer = null;
+    function copyHex(hex) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(hex).catch(() => {});
+      }
+      toast.textContent = `已复制色值 ${hex}`;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 1400);
+    }
+  </script>
+</body>
+</html>
