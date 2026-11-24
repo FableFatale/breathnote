@@ -5,6 +5,7 @@ class PracticeNote {
     required this.note,
     required this.octave,
     required this.tab,
+    this.requiresBend = false,
   });
 
   factory PracticeNote.fromJson(Map<String, Object?> json) {
@@ -12,12 +13,14 @@ class PracticeNote {
       note: json['note'] as String,
       octave: (json['octave'] as num).toInt(),
       tab: json['tab'] as String,
+      requiresBend: json['bend'] as bool? ?? false,
     );
   }
 
   final String note;
   final int octave;
   final String tab;
+  final bool requiresBend;
 
   String get label => '$note$octave';
 
@@ -60,7 +63,12 @@ class PracticeNote {
   }
 
   Map<String, Object> toJson() {
-    return {'note': note, 'octave': octave, 'tab': tab};
+    return {
+      'note': note,
+      'octave': octave,
+      'tab': tab,
+      if (requiresBend) 'bend': true,
+    };
   }
 }
 

@@ -3,7 +3,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../models/harmonica_layout.dart';
 import '../models/pitch_reading.dart';
+import '../models/practice_note.dart';
 import '../models/song.dart';
 import '../services/preferences_service.dart';
 import '../services/purchase_service.dart';
@@ -24,10 +26,13 @@ class AppController extends ChangeNotifier {
   static const sawHarmonicaGuideKey = 'sawHarmonicaGuide';
   static const hasRegisteredHarmonicaKey = 'hasRegisteredHarmonica';
   static const isProUnlockedKey = 'isProUnlocked';
+  static const firstInstallAtKey = 'firstInstallAt';
+  static const introOfferDuration = Duration(hours: 48);
   static const totalLessonCount = 7;
 
   String displayName = defaultDisplayName;
   String harmonicaKey = 'C';
+  String? activePresetId;
   bool hapticsEnabled = true;
   bool highContrast = false;
   bool reduceMotion = false;
@@ -41,6 +46,7 @@ class AppController extends ChangeNotifier {
   bool sawHarmonicaGuide = false;
   bool hasRegisteredHarmonica = false;
   bool isProUnlocked = false;
+  DateTime? firstInstallAt;
   String appVersionLabel = kAppDisplayVersion;
   final Set<String> practiceDates = {};
   final Set<String> completedLessons = {};
@@ -49,12 +55,34 @@ class AppController extends ChangeNotifier {
   final Map<String, String> songIconOverrides = {};
   final Map<String, int> songBestScores = {};
   final Map<String, int> songBestStars = {};
+  final List<HarmonicaPreset> harmonicaPresets = [];
   final List<Song> customSongs = [];
   final List<PitchAttempt> pitchAttempts = [];
 
   static const _maxPitchAttempts = 400;
 
   List<Song> get allSongs => [...customSongs, ...songs];
+
+  /// 真实按设备首次安装时间计算的 48 小时新手首单立减剩余时长（绝不伪造倒计时）。
+  Duration get introOfferRemaining {
+    if (isProUnlocked) return Duration.zero;
+    final start = firstInstallAt;
+    if (start == null) return introOfferDuration;
+    final left = introOfferDuration - DateTime.now().difference(start);
+    return left.isNegative ? Duration.zero : left;
+  }
+
+  bool get hasActiveIntroOffer =>
+      !isProUnlocked && introOfferRemaining > Duration.zero;
+
+  HarmonicaPreset? get activePreset {
+    final id = activePresetId;
+    if (id == null) return null;
+    for (final preset in harmonicaPresets) {
+      if (preset.id == id) return preset;
+    }
+    return null;
+  }
 
   int bestScoreForSong(String songId) => songBestScores[songId] ?? 0;
 
@@ -185,6 +213,30 @@ class AppController extends ChangeNotifier {
       if (savedPro != null) {
         isProUnlocked = savedPro;
       }
+      final savedFirstInstall = values[firstInstallAtKey] as String?;
+      final parsedInstall = savedFirstInstall == null
+          ? null
+          : DateTime.tryParse(savedFirstInstall);
+      if (parsedInstall != null) {
+        firstInstallAt = parsedInstall;
+      } else {
+        firstInstallAt = DateTime.now();
+        unawaited(_persist(firstInstallAtKey, firstInstallAt!.toIso8601String()));
+      }
+      activePresetId = values['activePresetId'] as String?;
+      final rawPresets = values['harmonicaPresets'];
+      if (rawPresets is String && rawPresets.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(rawPresets) as List<Object?>;
+          for (final entry in decoded) {
+            if (entry is Map) {
+              harmonicaPresets.add(
+                HarmonicaPreset.fromJson(Map<String, Object?>.from(entry)),
+              );
+            }
+          }
+        } catch (_) {}
+      }
       final savedRegistered = values[hasRegisteredHarmonicaKey] as bool?;
       if (savedRegistered != null) {
         hasRegisteredHarmonica = savedRegistered;
@@ -212,10 +264,74 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> setHarmonicaKey(String value) async {
-    if (value == harmonicaKey) return;
+    if (value == harmonicaKey && activePresetId == null) return;
     harmonicaKey = value;
+    if (activePreset != null && activePreset!.key != value) {
+      activePresetId = null;
+    }
     notifyListeners();
-    await _persist('harmonicaKey', value);
+    await Future.wait([
+      _persist('harmonicaKey', value),
+      if (activePresetId == null) _persist('activePresetId', ''),
+    ]);
+  }
+
+  Future<HarmonicaPreset> addHarmonicaPreset({
+    required String name,
+    required String key,
+  }) async {
+    final trimmed = name.trim();
+    final preset = HarmonicaPreset(
+      id: 'harp_${DateTime.now().microsecondsSinceEpoch}',
+      name: trimmed.isEmpty ? '$key 调口琴' : trimmed,
+      key: key,
+    );
+    harmonicaPresets.add(preset);
+    activePresetId = preset.id;
+    harmonicaKey = key;
+    notifyListeners();
+    await Future.wait([
+      _persist(
+        'harmonicaPresets',
+        jsonEncode(harmonicaPresets.map((item) => item.toJson()).toList()),
+      ),
+      _persist('activePresetId', preset.id),
+      _persist('harmonicaKey', key),
+    ]);
+    return preset;
+  }
+
+  Future<void> selectHarmonicaPreset(String id) async {
+    HarmonicaPreset? target;
+    for (final preset in harmonicaPresets) {
+      if (preset.id == id) {
+        target = preset;
+        break;
+      }
+    }
+    if (target == null) return;
+    activePresetId = target.id;
+    harmonicaKey = target.key;
+    notifyListeners();
+    await Future.wait([
+      _persist('activePresetId', target.id),
+      _persist('harmonicaKey', target.key),
+    ]);
+  }
+
+  Future<void> removeHarmonicaPreset(String id) async {
+    harmonicaPresets.removeWhere((preset) => preset.id == id);
+    if (activePresetId == id) {
+      activePresetId = null;
+    }
+    notifyListeners();
+    await Future.wait([
+      _persist(
+        'harmonicaPresets',
+        jsonEncode(harmonicaPresets.map((item) => item.toJson()).toList()),
+      ),
+      _persist('activePresetId', activePresetId ?? ''),
+    ]);
   }
 
   Future<void> completeHarmonicaRegistration({String? key}) async {
@@ -372,10 +488,28 @@ class AppController extends ChangeNotifier {
     required String title,
     required String notation,
     String? iconId,
+    bool skipBendNotes = false,
+  }) async {
+    return addCustomSongFromNotes(
+      title: title,
+      notes: parseHarmonicaTabs(notation),
+      iconId: iconId,
+      skipBendNotes: skipBendNotes,
+    );
+  }
+
+  Future<Song> addCustomSongFromNotes({
+    required String title,
+    required List<PracticeNote> notes,
+    String? iconId,
+    bool skipBendNotes = false,
   }) async {
     final normalizedTitle = title.trim();
     if (normalizedTitle.isEmpty) {
       throw const HarmonicaTabFormatException('enterSongName');
+    }
+    if (notes.isEmpty) {
+      throw const HarmonicaTabFormatException('emptyNotation');
     }
     final validIconId =
         (iconId != null && songIconPresets.any((preset) => preset.id == iconId))
@@ -387,9 +521,10 @@ class AppController extends ChangeNotifier {
       subtitle: 'customSongSubtitle',
       level: 'custom',
       color: const Color(0xFF506A5D),
-      notes: parseHarmonicaTabs(notation),
+      notes: List.unmodifiable(notes),
       iconId: validIconId,
       isCustom: true,
+      skipBendNotes: skipBendNotes,
     );
     customSongs.add(song);
     notifyListeners();
@@ -424,6 +559,7 @@ class AppController extends ChangeNotifier {
           notes: current.notes,
           iconId: validIconId ?? defaultId,
           isCustom: true,
+          skipBendNotes: current.skipBendNotes,
         );
         updatedCustom = true;
       }
@@ -496,6 +632,8 @@ class AppController extends ChangeNotifier {
     }
     displayName = defaultDisplayName;
     harmonicaKey = 'C';
+    activePresetId = null;
+    harmonicaPresets.clear();
     hapticsEnabled = true;
     highContrast = false;
     reduceMotion = false;

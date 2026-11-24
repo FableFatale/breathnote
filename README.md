@@ -3,11 +3,11 @@
 初鸣 is the first harmonica-learning product under the 鸣阶 brand. It supports
 Android 13 and newer.
 
-## Current features (v1.7.0)
+## Current features (v1.8.0)
 
 See the full product specification in [docs/PRD.md](docs/PRD.md).
 
-- First-launch harmonica registration (defaults to C 10-hole, skippable) with Hole-4 blow auto key detection and quick key switching
+- First-launch harmonica registration (defaults to C 10-hole, skippable) with Hole-4 blow auto key detection, quick key switching, and Pro multi-harmonica presets
 - Seven progressive learning lessons (Lessons 01–05 free, Lessons 06–07 Pro): includes dedicated Breathing (`02`) and Chord & Rhythm (`07`, beat pulse + breath volume envelope + chord guide demo)
 - Real microphone permission flow
 - Real-time local pitch detection for single-note practice and tuning, paired with a live 1–10 hole harmonica strip (highlighting enharmonic `2↓`/`3↑` together)
@@ -15,8 +15,8 @@ See the full product specification in [docs/PRD.md](docs/PRD.md).
 - Shared, persisted microphone detection sensitivity for practice and tuning
 - Dual-mode song practice (Follow mode + Beat-synced Scoring mode with 4-beat count-in, live score/combo, 1–3 stars, and Pro 3D Pitch/Timing/Stability breakdown + tap-to-hear note review + tailored coaching tip)
 - Eight copyright-clean public-domain & original songs (3 starter songs free, 5 songs + custom songs Pro) with star badges, favorites, and `All / Starter / Done / Saved` filters
-- Local custom-song creation with harmonica tab notation (e.g. `4↑ 4↑ 6↑ 6↑`), automatic Jianpu (`1-7`) to tab conversion, and custom song icons
-- Early-Bird lifetime Pro buyout paywall, Restore Purchases flow, and native billing MethodChannel bridge (`app.breathnote/billing`)
+- 3-step custom song import wizard: Tab/Jianpu (`1-7`) input or native local MIDI (`.mid`) / MusicXML (`.xml/.musicxml`) import → auto optimal transposition, bend preview & skip-bend practice mode → enharmonic (`2↓`/`3↑`) least-hand-movement check & custom cover icons
+- Real 48-hour new-player offer (computed from persisted `firstInstallAt`) with automatic transition to standard lifetime Pro buyout pricing, Restore Purchases, and native billing MethodChannel bridge (`app.breathnote/billing`)
 - Generated guide tones with `0.5×` / `1×` speed and loop controls
 - Achievement share cards after completing lessons and songs
 - System, light, and dark appearance modes (Palermo 2.0 design system)

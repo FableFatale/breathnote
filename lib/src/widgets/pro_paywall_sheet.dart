@@ -90,10 +90,13 @@ class _ProPaywallSheetBodyState extends State<_ProPaywallSheetBody> {
 
   @override
   Widget build(BuildContext context) {
+    final controller = AppScope.of(context);
     final strings = context.strings;
     final palette = context.colors;
     final textTheme = Theme.of(context).textTheme;
     final pagePadding = AppAdaptive.pagePadding(context);
+    final hasIntroOffer = controller.hasActiveIntroOffer;
+    final hoursLeft = controller.introOfferRemaining.inHours.clamp(1, 48);
 
     final benefits = [
       strings.t('proBenefit1'),
@@ -141,7 +144,12 @@ class _ProPaywallSheetBodyState extends State<_ProPaywallSheetBody> {
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
-                          strings.t('proEarlyBirdBadge'),
+                          key: const Key('paywall-offer-badge'),
+                          hasIntroOffer
+                              ? strings.t('proOffer48hBadge', {
+                                  'hours': hoursLeft,
+                                })
+                              : strings.t('proStandardBadge'),
                           style: textTheme.labelSmall?.copyWith(
                             color: palette.accent,
                             fontWeight: FontWeight.w800,
@@ -197,18 +205,22 @@ class _ProPaywallSheetBodyState extends State<_ProPaywallSheetBody> {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        strings.t('proOriginalPrice'),
-                        style: textTheme.bodySmall?.copyWith(
-                          color: palette.muted,
-                          decoration: TextDecoration.lineThrough,
+                      if (hasIntroOffer) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          strings.t('proOriginalPrice'),
+                          style: textTheme.bodySmall?.copyWith(
+                            color: palette.muted,
+                            decoration: TextDecoration.lineThrough,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                   Text(
-                    strings.t('proEarlyBirdPrice'),
+                    hasIntroOffer
+                        ? strings.t('proEarlyBirdPrice')
+                        : strings.t('proStandardPrice'),
                     style: textTheme.headlineMedium?.copyWith(
                       color: palette.primary,
                       fontWeight: FontWeight.w900,
@@ -283,7 +295,11 @@ class _ProPaywallSheetBodyState extends State<_ProPaywallSheetBody> {
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2.2),
                     )
-                  : Text(strings.t('proBuyButton')),
+                  : Text(
+                      hasIntroOffer
+                          ? strings.t('proBuyButton')
+                          : strings.t('proBuyStandardBtn'),
+                    ),
             ),
             const SizedBox(height: 8),
             TextButton(

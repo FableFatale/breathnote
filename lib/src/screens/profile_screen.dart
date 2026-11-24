@@ -9,27 +9,13 @@ import '../theme/app_adaptive.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/cute_illustrations.dart';
+import '../widgets/harmonica_guide.dart' show showHarmonicaKeyPicker;
 import '../widgets/pro_paywall_sheet.dart';
 import 'help_screen.dart';
 import 'local_data_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
-
-  static const _harmonicaKeys = [
-    'C',
-    'D♭',
-    'D',
-    'E♭',
-    'E',
-    'F',
-    'F#',
-    'G',
-    'A♭',
-    'A',
-    'B♭',
-    'B',
-  ];
 
   Future<void> _editName(BuildContext context) async {
     final controller = AppScope.read(context);
@@ -77,46 +63,7 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Future<void> _chooseKey(BuildContext context) async {
-    final controller = AppScope.read(context);
-    unawaited(AppHaptics.selection(context));
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      sheetAnimationStyle: AppMotion.sheetAnimationStyle(context),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.strings.t('chooseHarmonicaKey'),
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 14),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _harmonicaKeys.map((key) {
-                    return ChoiceChip(
-                      key: Key('harmonica-key-$key'),
-                      label: Text(context.strings.t('keyName', {'key': key})),
-                      selected: controller.harmonicaKey == key,
-                      onSelected: (_) => Navigator.pop(context, key),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-    if (selected == null || !context.mounted) return;
-    await controller.setHarmonicaKey(selected);
-    if (!context.mounted) return;
-    await AppHaptics.selection(context);
+    await showHarmonicaKeyPicker(context);
   }
 
   Future<void> _showAccessibility(BuildContext context) async {
@@ -461,7 +408,11 @@ class ProfileScreen extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      strings.t('keyName', {'key': controller.harmonicaKey}),
+                      controller.activePreset != null
+                          ? '${controller.activePreset!.name} · ${strings.t('keyName', {'key': controller.harmonicaKey})}'
+                          : strings.t('keyName', {
+                              'key': controller.harmonicaKey,
+                            }),
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(width: 4),

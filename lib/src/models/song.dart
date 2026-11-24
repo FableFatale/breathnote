@@ -121,6 +121,7 @@ class Song {
     this.iconId,
     this.isCustom = false,
     this.isPro = false,
+    this.skipBendNotes = false,
   });
 
   factory Song.fromJson(Map<String, Object?> json) {
@@ -145,6 +146,7 @@ class Song {
       notes: notes,
       iconId: rawIconId ?? defaultIconIdForSong(id, isCustom: true),
       isCustom: true,
+      skipBendNotes: json['skipBendNotes'] as bool? ?? false,
     );
   }
 
@@ -157,6 +159,16 @@ class Song {
   final String? iconId;
   final bool isCustom;
   final bool isPro;
+  final bool skipBendNotes;
+
+  /// 开启「评分时跳过压音」时自动过滤需压音音符（若全部需压音则保留原列表避免空曲）。
+  List<PracticeNote> get playableNotes {
+    if (!skipBendNotes) return notes;
+    final direct = notes.where((n) => !n.requiresBend).toList();
+    return direct.isEmpty ? notes : direct;
+  }
+
+  int get bendNoteCount => notes.where((n) => n.requiresBend).length;
 
   String get defaultIconId =>
       iconId ?? defaultIconIdForSong(id, isCustom: isCustom);
@@ -171,6 +183,7 @@ class Song {
       'level': level,
       'iconId': defaultIconId,
       'notes': notes.map((note) => note.toJson()).toList(),
+      if (skipBendNotes) 'skipBendNotes': true,
     };
   }
 }

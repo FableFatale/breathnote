@@ -10,6 +10,29 @@ class HarmonicaTabMatch {
   final bool isBlow;
 }
 
+/// Pro「我的多把口琴」预设模型（如「C 调日常琴」「G 调民谣琴」）。
+class HarmonicaPreset {
+  const HarmonicaPreset({
+    required this.id,
+    required this.name,
+    required this.key,
+  });
+
+  factory HarmonicaPreset.fromJson(Map<String, Object?> json) {
+    return HarmonicaPreset(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      key: json['key'] as String? ?? 'C',
+    );
+  }
+
+  final String id;
+  final String name;
+  final String key;
+
+  Map<String, Object> toJson() => {'id': id, 'name': name, 'key': key};
+}
+
 const List<int> kHarmonicaBlowMidi = [60, 64, 67, 72, 76, 79, 84, 88, 91, 96];
 const List<int> kHarmonicaDrawMidi = [62, 67, 71, 74, 77, 81, 83, 86, 89, 93];
 

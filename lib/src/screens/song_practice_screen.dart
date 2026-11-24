@@ -245,7 +245,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         _finishing) {
       return;
     }
-    final note = widget.song.notes[_index];
+    final note = widget.song.playableNotes[_index];
     final record = NoteScoreRecord.fromSamples(
       index: _index,
       note: note,
@@ -268,7 +268,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     );
     _liveScore = runningSummary.totalScore;
 
-    if (_index < widget.song.notes.length - 1) {
+    if (_index < widget.song.playableNotes.length - 1) {
       setState(() {
         _index++;
         _demoNoteIndex = _index;
@@ -332,7 +332,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     }
     final controller = AppScope.maybeRead(context);
     if (controller == null) return;
-    final target = widget.song.notes[_index];
+    final target = widget.song.playableNotes[_index];
     final cents = target.centsFromFrequency(
       reading.frequency,
       controller.harmonicaKey,
@@ -433,7 +433,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     if (_finishing) return;
     _finishing = true;
     _matchedError += error;
-    if (_index < widget.song.notes.length - 1) {
+    if (_index < widget.song.playableNotes.length - 1) {
       await AppHaptics.light(context);
       if (!mounted) return;
       setState(() {
@@ -452,7 +452,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     _completed = true;
     _holdProgress = 1;
     _pausePracticeTimer();
-    _score = (100 - _matchedError / widget.song.notes.length * 1.4)
+    _score = (100 - _matchedError / widget.song.playableNotes.length * 1.4)
         .round()
         .clamp(0, 100)
         .toInt();
@@ -558,14 +558,14 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     try {
       final key = AppScope.maybeRead(context)?.harmonicaKey ?? 'C';
       final duration = await _guideToneService.play(
-        frequencies: widget.song.notes
+        frequencies: widget.song.playableNotes
             .map((note) => note.frequencyForKey(key))
             .toList(),
         speed: _guideSpeed,
         repeat: _guideLoop,
       );
       if (!mounted) return;
-      final stepMs = (duration / widget.song.notes.length)
+      final stepMs = (duration / widget.song.playableNotes.length)
           .round()
           .clamp(160, 1200);
       _guideStepTimer?.cancel();
@@ -575,7 +575,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
           return;
         }
         setState(() {
-          if (_demoNoteIndex < widget.song.notes.length - 1) {
+          if (_demoNoteIndex < widget.song.playableNotes.length - 1) {
             _demoNoteIndex++;
           } else if (_guideLoop) {
             _demoNoteIndex = 0;
@@ -697,9 +697,9 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     final controller = AppScope.of(context);
     final palette = context.colors;
     final activeNoteIndex = _guidePlaying ? _demoNoteIndex : _index;
-    final target = widget.song.notes[activeNoteIndex];
-    final nextNote = activeNoteIndex + 1 < widget.song.notes.length
-        ? widget.song.notes[activeNoteIndex + 1]
+    final target = widget.song.playableNotes[activeNoteIndex];
+    final nextNote = activeNoteIndex + 1 < widget.song.playableNotes.length
+        ? widget.song.playableNotes[activeNoteIndex + 1]
         : null;
     final cents = _reading.detected
         ? target.centsFromFrequency(_reading.frequency, controller.harmonicaKey)
@@ -707,10 +707,10 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     final progress = _completed
         ? 1.0
         : _guidePlaying
-        ? ((activeNoteIndex + 1) / widget.song.notes.length)
+        ? ((activeNoteIndex + 1) / widget.song.playableNotes.length)
               .clamp(0.0, 1.0)
               .toDouble()
-        : ((_index + _holdProgress) / widget.song.notes.length)
+        : ((_index + _holdProgress) / widget.song.playableNotes.length)
               .clamp(0.0, 1.0)
               .toDouble();
     final pagePadding = AppAdaptive.pagePadding(context);
@@ -874,7 +874,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                         })
                                       : context.strings.t('songNoteProgress', {
                                           'current': activeNoteIndex + 1,
-                                          'total': widget.song.notes.length,
+                                          'total': widget.song.playableNotes.length,
                                         }),
                                   key: ValueKey(
                                     'progress_${_completed}_${_countInBeat}_$activeNoteIndex',
@@ -947,6 +947,24 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                 : palette.primary,
                           ),
                         ),
+                        if (widget.song.skipBendNotes &&
+                            widget.song.bendNoteCount > 0) ...[
+                          const SizedBox(height: 6),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              context.strings.t('songSkipBendBadge', {
+                                'count': widget.song.bendNoteCount,
+                              }),
+                              key: const Key('song-skip-bend-badge'),
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: palette.warning,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1494,7 +1512,7 @@ class _Sequence extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.colors;
-    final total = song.notes.length;
+    final total = song.playableNotes.length;
 
     Widget buildNoteCell(int index, {required bool expanded}) {
       final complete = index < currentIndex;
@@ -1555,7 +1573,7 @@ class _Sequence extends StatelessWidget {
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        song.notes[index].tab,
+                        song.playableNotes[index].tab,
                         style: TextStyle(
                           color: complete
                               ? palette.success

@@ -1,6 +1,7 @@
 package app.breathnote.breathnote
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -11,6 +12,7 @@ import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.provider.OpenableColumns
 import android.provider.Settings
 import android.view.HapticFeedbackConstants
 import androidx.core.app.ActivityCompat
@@ -26,10 +28,13 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
     private val pitchEventsChannel = "app.breathnote/pitch_events"
     private val preferencesChannel = "app.breathnote/preferences"
     private val billingChannel = "app.breathnote/billing"
+    private val filePickerChannel = "app.breathnote/file_picker"
     private val permissionRequestCode = 4102
+    private val scoreFileRequestCode = 4103
 
     private var eventSink: EventChannel.EventSink? = null
     private var pendingPermissionResult: MethodChannel.Result? = null
+    private var pendingFilePickerResult: MethodChannel.Result? = null
     private lateinit var pitchDetector: PitchDetector
     private val guideTonePlayer = GuideTonePlayer()
 
@@ -56,6 +61,85 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
             flutterEngine.dartExecutor.binaryMessenger,
             billingChannel,
         ).setMethodCallHandler(::handleBillingMethod)
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            filePickerChannel,
+        ).setMethodCallHandler(::handleFilePickerMethod)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun handleFilePickerMethod(call: MethodCall, result: MethodChannel.Result) {
+        when (call.method) {
+            "pickScoreFile" -> {
+                if (pendingFilePickerResult != null) {
+                    result.error("file_picker_active", "A file picker request is already active.", null)
+                    return
+                }
+                pendingFilePickerResult = result
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "*/*"
+                    putExtra(
+                        Intent.EXTRA_MIME_TYPES,
+                        arrayOf(
+                            "audio/midi",
+                            "audio/x-midi",
+                            "application/xml",
+                            "text/xml",
+                            "application/vnd.recordare.musicxml+xml",
+                            "application/octet-stream",
+                        ),
+                    )
+                }
+                try {
+                    startActivityForResult(intent, scoreFileRequestCode)
+                } catch (error: Exception) {
+                    pendingFilePickerResult = null
+                    result.error("file_picker_unavailable", error.message, null)
+                }
+            }
+            else -> result.notImplemented()
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != scoreFileRequestCode) return
+        val pending = pendingFilePickerResult ?: return
+        pendingFilePickerResult = null
+        if (resultCode != Activity.RESULT_OK || data?.data == null) {
+            pending.success(null)
+            return
+        }
+        val uri = data.data!!
+        try {
+            var fileName = "imported.mid"
+            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (idx >= 0) {
+                        val queried = cursor.getString(idx)
+                        if (!queried.isNullOrBlank()) fileName = queried
+                    }
+                }
+            }
+            val bytes = contentResolver.openInputStream(uri)?.use { stream ->
+                val raw = stream.readBytes()
+                if (raw.size > 2 * 1024 * 1024) {
+                    throw IllegalArgumentException("File exceeds 2MB limit.")
+                }
+                raw
+            }
+            if (bytes == null || bytes.isEmpty()) {
+                pending.success(null)
+                return
+            }
+            pending.success(mapOf("name" to fileName, "bytes" to bytes))
+        } catch (error: Exception) {
+            pending.error("file_read_error", error.message ?: "Unable to read selected file.", null)
+        }
     }
 
     private fun handleBillingMethod(call: MethodCall, result: MethodChannel.Result) {

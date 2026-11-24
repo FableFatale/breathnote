@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:breathnote/src/app.dart';
 import 'package:breathnote/src/localization/app_strings.dart';
 import 'package:breathnote/src/models/harmonica_layout.dart';
 import 'package:breathnote/src/models/practice_note.dart';
+import 'package:breathnote/src/models/score_import.dart';
 import 'package:breathnote/src/models/song.dart';
 import 'package:breathnote/src/models/song_score.dart';
 import 'package:breathnote/src/services/preferences_service.dart';
@@ -2201,6 +2203,240 @@ void main() {
         ),
         findsOneWidget,
       );
+    },
+  );
+
+  test(
+    'parses MIDI SMF bytes and MusicXML, auto-transposes for minimum bends, and recommends enharmonic holes',
+    () {
+      // Build a valid SMF Format 0 MIDI with track title "Folk" and C# major notes [61, 63, 65, 68]
+      final titleBytes = utf8.encode('Folk');
+      final trackEvents = <int>[
+        0x00, 0xFF, 0x03, titleBytes.length, ...titleBytes, // Track Name
+        0x00, 0x90, 61, 100, // C#4
+        0x20, 0x80, 61, 0,
+        0x00, 0x90, 63, 100, // D#4
+        0x20, 0x80, 63, 0,
+        0x00, 0x90, 65, 100, // F4
+        0x20, 0x80, 65, 0,
+        0x00, 0x90, 68, 100, // G#4
+        0x20, 0x80, 68, 0,
+        0x00, 0x99, 36, 100, // Channel 10 percussion -> must be skipped
+        0x00, 0xFF, 0x2F, 0x00, // End of track
+      ];
+      final midiBytes = Uint8List.fromList([
+        0x4D, 0x54, 0x68, 0x64, // MThd
+        0x00, 0x00, 0x00, 0x06, // header length 6
+        0x00, 0x00, // format 0
+        0x00, 0x01, // 1 track
+        0x00, 0x60, // division 96
+        0x4D, 0x54, 0x72, 0x6B, // MTrk
+        (trackEvents.length >> 24) & 0xFF,
+        (trackEvents.length >> 16) & 0xFF,
+        (trackEvents.length >> 8) & 0xFF,
+        trackEvents.length & 0xFF,
+        ...trackEvents,
+      ]);
+
+      final midiSource = parseMidiBytes(midiBytes);
+      expect(midiSource.title, 'Folk');
+      expect(midiSource.midis, [61, 63, 65, 68]);
+
+      final midiPlan = buildScoreImportPlan(
+        sourceMidis: midiSource.midis,
+        harmonicaKey: 'C',
+      );
+      // Shifting -1 semitone turns [61, 63, 65, 68] -> [60, 62, 64, 67] (C D E G: 0 bends!)
+      expect(midiPlan.bendCount, 0);
+
+      // Parse MusicXML with rest & chord skipped
+      const sampleXml = '''
+<score-partwise>
+  <work><work-title>River Song</work-title></work>
+  <part id="P1">
+    <measure number="1">
+      <note><pitch><step>C</step><octave>4</octave></pitch></note>
+      <note><chord/><pitch><step>E</step><octave>4</octave></pitch></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch></note>
+      <note><rest/></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch></note>
+    </measure>
+  </part>
+</score-partwise>
+''';
+      final xmlSource = parseMusicXml(sampleXml);
+      expect(xmlSource.title, 'River Song');
+      expect(xmlSource.midis, [60, 67, 72, 67]);
+
+      final xmlPlan = buildScoreImportPlan(
+        sourceMidis: xmlSource.midis,
+        harmonicaKey: 'C',
+        transposeOverride: 0,
+      );
+      // Index 1 (G4 after C4/1↑) -> recommends 2↓; Index 3 (G4 after C5/4↑) -> recommends 3↑!
+      expect(xmlPlan.items[1].hasEnharmonicChoice, isTrue);
+      expect(xmlPlan.items[1].selectedTab, '2↓');
+      expect(xmlPlan.items[3].selectedTab, '3↑');
+
+      final flipped = xmlPlan.withSelectedTab(1, '3↑');
+      expect(flipped.items[1].selectedTab, '3↑');
+    },
+  );
+
+  testWidgets(
+    '3-step custom song import wizard imports MusicXML, transposes, skips bends, edits 2↓/3↑, and saves',
+    (tester) async {
+      const filePickerChannel = MethodChannel('app.breathnote/file_picker');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      // Chromatic cluster C4, C#4, D4, G4 (2↓/3↑ enharmonic), C5, E5 -> guarantees >=1 bend in any key
+      const sampleXml = '''
+<score-partwise>
+  <work><work-title>Breeze XML</work-title></work>
+  <part id="P1">
+    <measure number="1">
+      <note><pitch><step>C</step><octave>4</octave></pitch></note>
+      <note><pitch><step>C</step><alter>1</alter><octave>4</octave></pitch></note>
+      <note><pitch><step>D</step><octave>4</octave></pitch></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch></note>
+      <note><pitch><step>C</step><octave>5</octave></pitch></note>
+      <note><pitch><step>E</step><octave>5</octave></pitch></note>
+    </measure>
+  </part>
+</score-partwise>
+''';
+      messenger.setMockMethodCallHandler(filePickerChannel, (call) async {
+        if (call.method == 'pickScoreFile') {
+          return <String, Object?>{
+            'name': 'breeze.musicxml',
+            'bytes': Uint8List.fromList(utf8.encode(sampleXml)),
+          };
+        }
+        return null;
+      });
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(filePickerChannel, null),
+      );
+
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      await pumpBreathnote(tester, controller: controller, isProUnlocked: true);
+
+      await tester.tap(find.text('曲谱'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('add-custom-song')));
+      await tester.pumpAndSettle();
+
+      // Switch Step 1 to MIDI / MusicXML tab and pick file
+      await tester.tap(find.text('MIDI / MusicXML'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('import-pick-file-btn')));
+      await tester.pumpAndSettle();
+
+      // Step 2: Transpose & Bend preview
+      expect(find.byKey(const Key('import-transpose-summary')), findsOneWidget);
+      expect(find.byKey(const Key('import-skip-bend-switch')), findsOneWidget);
+
+      // Step 3: Enharmonic check (if enharmonic present, flip; then save)
+      await tester.ensureVisible(find.byKey(const Key('import-next-to-step3')));
+      await tester.tap(find.byKey(const Key('import-next-to-step3')));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.byKey(const Key('import-final-save')));
+      await tester.tap(find.byKey(const Key('import-final-save')));
+      await tester.pumpAndSettle();
+
+      expect(controller.customSongs, hasLength(1));
+      final saved = controller.customSongs.first;
+      expect(saved.title, 'Breeze XML');
+      expect(saved.skipBendNotes, isTrue);
+      expect(saved.bendNoteCount, greaterThan(0));
+      expect(saved.playableNotes.length, lessThan(saved.notes.length));
+      expect(find.byKey(const Key('song-skip-bend-badge')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Pro multi-harmonica presets allow adding and one-tap switching with Pro gating',
+    (tester) async {
+      final controller = AppController(
+        purchaseService: const _FakePurchaseService(),
+      );
+      addTearDown(controller.dispose);
+      await pumpBreathnote(tester, controller: controller, isProUnlocked: false);
+
+      await tester.tap(find.text('我的'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('harmonica-key-setting')));
+      await tester.pumpAndSettle();
+
+      // Tapping Add Harp while Free opens Pro paywall -> buy unlocks -> opens Add dialog
+      await tester.tap(find.byKey(const Key('key-picker-add-preset')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('paywall-buy-pro')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('paywall-buy-pro')));
+      await tester.pumpAndSettle();
+
+      // Add "G 调民谣琴" in key G
+      await tester.enterText(
+        find.byKey(const Key('preset-name-field')),
+        'G 调民谣琴',
+      );
+      await tester.tap(find.byKey(const Key('preset-key-G')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('preset-save-btn')));
+      await tester.pumpAndSettle();
+
+      expect(controller.isProUnlocked, isTrue);
+      expect(controller.harmonicaPresets, hasLength(1));
+      expect(controller.harmonicaKey, 'G');
+      expect(controller.activePreset?.name, 'G 调民谣琴');
+
+      // Switch to key C directly, then tap preset to jump back to G
+      await controller.setHarmonicaKey('C');
+      await tester.pumpAndSettle();
+      expect(controller.harmonicaKey, 'C');
+
+      await tester.tap(find.byKey(const Key('harmonica-key-setting')));
+      await tester.pumpAndSettle();
+      final presetId = controller.harmonicaPresets.first.id;
+      await tester.tap(find.byKey(Key('harmonica-preset-$presetId')));
+      await tester.pumpAndSettle();
+      expect(controller.harmonicaKey, 'G');
+    },
+  );
+
+  testWidgets(
+    '48h intro offer uses real firstInstallAt timestamp and falls back to ¥68 after 48h',
+    (tester) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      controller.firstInstallAt = DateTime.now().subtract(
+        const Duration(hours: 10),
+      );
+      await pumpBreathnote(tester, controller: controller, isProUnlocked: false);
+
+      expect(controller.hasActiveIntroOffer, isTrue);
+      await tester.tap(find.text('我的'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('profile-pro-card')));
+      await tester.pumpAndSettle();
+      expect(find.text('¥28'), findsOneWidget);
+      expect(find.textContaining('48h 新手首单特惠'), findsOneWidget);
+
+      Navigator.of(tester.element(find.byKey(const Key('paywall-buy-pro')))).pop();
+      await tester.pumpAndSettle();
+
+      // After 48h -> real regular price ¥68, no fake countdown
+      controller.firstInstallAt = DateTime.now().subtract(
+        const Duration(hours: 50),
+      );
+      expect(controller.hasActiveIntroOffer, isFalse);
+      await tester.tap(find.byKey(const Key('profile-pro-card')));
+      await tester.pumpAndSettle();
+      expect(find.text('¥68'), findsOneWidget);
+      expect(find.text('一次性永久买断'), findsOneWidget);
     },
   );
 }

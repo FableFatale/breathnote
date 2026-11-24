@@ -11,6 +11,7 @@ import '../theme/app_adaptive.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import 'cute_illustrations.dart';
+import 'pro_paywall_sheet.dart';
 import 'shared_widgets.dart';
 
 const _harmonicaKeys = [
@@ -29,6 +30,106 @@ const _harmonicaKeys = [
 ];
 
 const _detectKeySentinel = '__detect_hole4__';
+const _addPresetSentinel = '__add_preset__';
+const _selectPresetPrefix = '__preset__:';
+
+Future<void> _showAddHarmonicaPresetDialog(BuildContext context) async {
+  final controller = AppScope.read(context);
+  if (!controller.isProUnlocked) {
+    final unlocked = await showProPaywallSheet(context);
+    if (!unlocked || !context.mounted) return;
+  }
+  final result = await showDialog<({String name, String key})>(
+    context: context,
+    animationStyle: AppMotion.animationStyle(context),
+    builder: (_) => _AddHarmonicaPresetDialog(
+      initialKey: controller.harmonicaKey,
+    ),
+  );
+  if (result != null && context.mounted) {
+    await controller.addHarmonicaPreset(
+      name: result.name,
+      key: result.key,
+    );
+    if (context.mounted) {
+      unawaited(AppHaptics.success(context));
+    }
+  }
+}
+
+class _AddHarmonicaPresetDialog extends StatefulWidget {
+  const _AddHarmonicaPresetDialog({required this.initialKey});
+
+  final String initialKey;
+
+  @override
+  State<_AddHarmonicaPresetDialog> createState() =>
+      _AddHarmonicaPresetDialogState();
+}
+
+class _AddHarmonicaPresetDialogState extends State<_AddHarmonicaPresetDialog> {
+  final _nameController = TextEditingController();
+  late String _selectedKey = widget.initialKey;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = context.strings;
+    return AlertDialog(
+      title: Text(strings.t('myHarmonicasAdd')),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              key: const Key('preset-name-field'),
+              controller: _nameController,
+              autofocus: true,
+              maxLength: 24,
+              decoration: InputDecoration(
+                labelText: strings.t('myHarmonicasNameLabel'),
+                hintText: strings.t('myHarmonicasNameHint'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: _harmonicaKeys.map((key) {
+                return ChoiceChip(
+                  key: Key('preset-key-$key'),
+                  label: Text(strings.t('keyName', {'key': key})),
+                  selected: _selectedKey == key,
+                  onSelected: (_) => setState(() => _selectedKey = key),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(strings.t('commonCancel')),
+        ),
+        FilledButton(
+          key: const Key('preset-save-btn'),
+          onPressed: () => Navigator.pop(
+            context,
+            (name: _nameController.text, key: _selectedKey),
+          ),
+          child: Text(strings.t('commonSave')),
+        ),
+      ],
+    );
+  }
+}
 
 Future<void> showHarmonicaKeyPicker(BuildContext context) async {
   final controller = AppScope.read(context);
@@ -38,6 +139,9 @@ Future<void> showHarmonicaKeyPicker(BuildContext context) async {
     isScrollControlled: true,
     sheetAnimationStyle: AppMotion.sheetAnimationStyle(context),
     builder: (pickerContext) {
+      final liveController = AppScope.of(pickerContext);
+      final palette = pickerContext.colors;
+      final strings = pickerContext.strings;
       return SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(
@@ -51,9 +155,72 @@ Future<void> showHarmonicaKeyPicker(BuildContext context) async {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                pickerContext.strings.t('chooseHarmonicaKey'),
+                strings.t('chooseHarmonicaKey'),
                 style: Theme.of(pickerContext).textTheme.headlineSmall,
               ),
+              const SizedBox(height: 12),
+              // Pro 多把口琴预设快捷切换
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      strings.t('myHarmonicasTitle'),
+                      style: Theme.of(pickerContext).textTheme.labelLarge
+                          ?.copyWith(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  if (!liveController.isProUnlocked)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: palette.accent.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        strings.t('proBadge'),
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          color: palette.accent,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                key: const Key('key-picker-presets'),
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final preset in liveController.harmonicaPresets)
+                    InputChip(
+                      key: Key('harmonica-preset-${preset.id}'),
+                      label: Text('${preset.name} · ${preset.key}'),
+                      selected: liveController.activePresetId == preset.id,
+                      showCheckmark: false,
+                      onPressed: () => Navigator.pop(
+                        pickerContext,
+                        '$_selectPresetPrefix${preset.id}',
+                      ),
+                      onDeleted: () => unawaited(
+                        liveController.removeHarmonicaPreset(preset.id),
+                      ),
+                    ),
+                  ActionChip(
+                    key: const Key('key-picker-add-preset'),
+                    avatar: const Icon(Icons.add_rounded, size: 16),
+                    label: Text(strings.t('myHarmonicasAdd')),
+                    onPressed: () =>
+                        Navigator.pop(pickerContext, _addPresetSentinel),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Divider(color: palette.outline, height: 1),
               const SizedBox(height: 14),
               Wrap(
                 spacing: 8,
@@ -61,10 +228,10 @@ Future<void> showHarmonicaKeyPicker(BuildContext context) async {
                 children: _harmonicaKeys.map((key) {
                   return ChoiceChip(
                     key: Key('harmonica-key-$key'),
-                    label: Text(
-                      pickerContext.strings.t('keyName', {'key': key}),
-                    ),
-                    selected: controller.harmonicaKey == key,
+                    label: Text(strings.t('keyName', {'key': key})),
+                    selected:
+                        liveController.activePresetId == null &&
+                        liveController.harmonicaKey == key,
                     materialTapTargetSize: MaterialTapTargetSize.padded,
                     onSelected: (_) => Navigator.pop(pickerContext, key),
                   );
@@ -79,7 +246,7 @@ Future<void> showHarmonicaKeyPicker(BuildContext context) async {
                   minimumSize: const Size.fromHeight(44),
                 ),
                 icon: const Icon(Icons.mic_none_rounded, size: 18),
-                label: Text(pickerContext.strings.t('keyPickerDetectAction')),
+                label: Text(strings.t('keyPickerDetectAction')),
               ),
             ],
           ),
@@ -97,9 +264,20 @@ Future<void> showHarmonicaKeyPicker(BuildContext context) async {
     );
     return;
   }
+  if (selected == _addPresetSentinel) {
+    await _showAddHarmonicaPresetDialog(context);
+    return;
+  }
+  if (selected.startsWith(_selectPresetPrefix)) {
+    final presetId = selected.substring(_selectPresetPrefix.length);
+    await controller.selectHarmonicaPreset(presetId);
+    if (!context.mounted) return;
+    unawaited(AppHaptics.selection(context));
+    return;
+  }
   await controller.setHarmonicaKey(selected);
   if (!context.mounted) return;
-  await AppHaptics.selection(context);
+  unawaited(AppHaptics.selection(context));
 }
 
 Future<void> showHarmonicaGuide(
