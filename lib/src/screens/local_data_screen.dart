@@ -94,7 +94,8 @@ class LocalDataScreen extends StatelessWidget {
                 _DataRow(
                   icon: Icons.task_alt_rounded,
                   title: context.strings.t('courseProgress'),
-                  value: '${controller.completedLessons.length}/5',
+                  value:
+                      '${controller.completedLessons.length}/${AppController.totalLessonCount}',
                 ),
                 const Divider(height: 1),
                 _DataRow(

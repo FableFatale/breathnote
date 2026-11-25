@@ -186,7 +186,7 @@ class _ReedPathMeter extends StatelessWidget {
     return Row(
       children: [
         for (var i = 0; i < total; i++) ...[
-          if (i > 0) const SizedBox(width: 6),
+          if (i > 0) SizedBox(width: total > 8 ? 4 : 6),
           Expanded(
             child: AnimatedContainer(
               duration: AppMotion.duration(context, AppMotion.base),
@@ -226,39 +226,6 @@ class _Header extends StatelessWidget {
     final palette = context.colors;
     return Row(
       children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                const Color(0xFF5B93FF),
-                palette.primary,
-              ],
-            ),
-            borderRadius: BorderRadius.circular(13),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.24),
-              width: 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: palette.primary.withValues(alpha: 0.24),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
-              ),
-            ],
-          ),
-          alignment: Alignment.center,
-          child: const HarmonicaBrandIcon(
-            size: 24,
-            color: Colors.white,
-            accentColor: Color(0xFF60F178),
-          ),
-        ),
-        const SizedBox(width: 12),
         Expanded(
           child: Text(
             context.strings.t('appTitle'),

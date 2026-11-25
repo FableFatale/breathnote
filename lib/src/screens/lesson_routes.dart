@@ -18,6 +18,9 @@ enum LessonKind {
   drawNote,
   firstSong,
   chordRhythm,
+  lowRegister,
+  highRegister,
+  masterSong,
 }
 
 @immutable
@@ -37,7 +40,7 @@ class LessonDefinition {
   final bool isPro;
 }
 
-/// 7 节递进式新手课程（第 01–05 课永久免费，第 06–07 课由 Pro 买断解锁）。
+/// 10 节递进式系统课程（第 01–05 课永久免费，第 06–10 课由 Pro 买断解锁）。
 const lessons = [
   LessonDefinition(
     id: 'lesson_1',
@@ -81,6 +84,27 @@ const lessons = [
     number: '07',
     minutes: 6,
     kind: LessonKind.chordRhythm,
+    isPro: true,
+  ),
+  LessonDefinition(
+    id: 'lesson_6',
+    number: '08',
+    minutes: 6,
+    kind: LessonKind.lowRegister,
+    isPro: true,
+  ),
+  LessonDefinition(
+    id: 'lesson_7',
+    number: '09',
+    minutes: 7,
+    kind: LessonKind.highRegister,
+    isPro: true,
+  ),
+  LessonDefinition(
+    id: 'lesson_8',
+    number: '10',
+    minutes: 8,
+    kind: LessonKind.masterSong,
     isPro: true,
   ),
 ];
@@ -127,6 +151,22 @@ Route<void> lessonRoute(BuildContext context, LessonDefinition lesson) {
           lessonId: lesson.id,
         ),
         LessonKind.chordRhythm => const ChordRhythmLessonScreen(),
+        LessonKind.lowRegister => PracticeScreen(
+          target: const PracticeNote(note: 'G', octave: 4, tab: '3↑'),
+          lessonId: lesson.id,
+          instruction: strings.lessonGuidance(lesson.id),
+          step: 8,
+        ),
+        LessonKind.highRegister => PracticeScreen(
+          target: const PracticeNote(note: 'C', octave: 6, tab: '7↑'),
+          lessonId: lesson.id,
+          instruction: strings.lessonGuidance(lesson.id),
+          step: 9,
+        ),
+        LessonKind.masterSong => SongPracticeScreen(
+          song: songs.firstWhere((song) => song.id == 'first_breeze'),
+          lessonId: lesson.id,
+        ),
       };
     },
   );

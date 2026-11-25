@@ -28,7 +28,7 @@ class AppController extends ChangeNotifier {
   static const isProUnlockedKey = 'isProUnlocked';
   static const firstInstallAtKey = 'firstInstallAt';
   static const introOfferDuration = Duration(hours: 48);
-  static const totalLessonCount = 7;
+  static const totalLessonCount = 10;
 
   String displayName = defaultDisplayName;
   String harmonicaKey = 'C';

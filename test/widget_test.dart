@@ -491,11 +491,11 @@ void main() {
     addTearDown(controller.dispose);
     await pumpBreathnote(tester, controller: controller);
 
-    expect(find.text('已完成 0/7 课'), findsOneWidget);
+    expect(find.text('已完成 0/10 课'), findsOneWidget);
     await controller.markLessonComplete('lesson_1');
     await tester.pumpAndSettle();
 
-    expect(find.text('已完成 1/7 课'), findsOneWidget);
+    expect(find.text('已完成 1/10 课'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byKey(const Key('featured-lesson')),
@@ -976,7 +976,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('初鸣'), findsOneWidget);
     expect(find.text('Learning path'), findsOneWidget);
-    expect(find.text('0/7 completed'), findsOneWidget);
+    expect(find.text('0/10 completed'), findsOneWidget);
     expect(find.text('Start with one breath'), findsNothing);
     expect(find.text('LEARNING PATH'), findsNothing);
     expect(find.text('TARGET NOTE'), findsNothing);
@@ -1086,10 +1086,10 @@ void main() {
     await tester.tap(find.text('调音'));
     await tester.pumpAndSettle();
 
-    expect(find.bySemanticsLabel('开始后吹一个稳定的单音，这里会显示音准。'), findsOneWidget);
+    expect(find.bySemanticsLabel('稳吹一个单音，这里会实时显示音准'), findsOneWidget);
     expect(
       find.bySemanticsLabel(
-        RegExp('开始后吹一个稳定的单音，这里会显示音准。\\n开始后吹一个稳定的单音，这里会显示音准。'),
+        RegExp('稳吹一个单音，这里会实时显示音准\\n稳吹一个单音，这里会实时显示音准'),
       ),
       findsNothing,
     );
@@ -1485,8 +1485,15 @@ void main() {
   ) async {
     await pumpBreathnote(tester);
 
-    expect(find.byType(HarmonicaBrandIcon), findsWidgets);
+    expect(find.byType(HarmonicaBrandIcon), findsNothing);
     expect(find.byType(ChumingBird), findsWidgets);
+
+    await tester.tap(find.text('调音'));
+    await tester.pumpAndSettle();
+    expect(find.byType(HarmonicaBrandIcon), findsWidgets);
+
+    await tester.tap(find.text('学习'));
+    await tester.pumpAndSettle();
 
     // Open practice lesson and replay breath gesture guide
     await tester.tap(find.text('吹响第一个音').first);
@@ -1610,7 +1617,7 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('学习路径'), findsOneWidget);
-      expect(find.text('已完成 2/7 课'), findsOneWidget);
+      expect(find.text('已完成 2/10 课'), findsOneWidget);
       expect(find.text('吹响第一个音'), findsOneWidget);
     },
   );
@@ -1848,9 +1855,10 @@ void main() {
         isProUnlocked: false,
       );
 
-      // Lessons 1-5 are free; lessons 6-7 are Pro
+      // Lessons 1-5 are free; lessons 6-10 are Pro
+      expect(lessons, hasLength(10));
       expect(lessons.where((l) => !l.isPro), hasLength(5));
-      expect(lessons.where((l) => l.isPro), hasLength(2));
+      expect(lessons.where((l) => l.isPro), hasLength(5));
 
       // Tapping Pro-gated Lesson 6 opens the Early-Bird buyout paywall
       await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -500));
@@ -2536,6 +2544,68 @@ void main() {
         ),
         findsOneWidget,
       );
+    },
+  );
+
+  testWidgets(
+    'expands curriculum to 10 lessons and opens lessons 8-10 when Pro unlocked',
+    (tester) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      await pumpBreathnote(tester, controller: controller, isProUnlocked: true);
+
+      expect(lessons, hasLength(10));
+      expect(find.text('已完成 0/10 课'), findsOneWidget);
+
+      await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -1000));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('progressive-upcoming-lesson_6')), findsOneWidget);
+      expect(find.byKey(const Key('progressive-upcoming-lesson_7')), findsOneWidget);
+      expect(find.byKey(const Key('progressive-upcoming-lesson_8')), findsOneWidget);
+
+      await tester.ensureVisible(find.byKey(const Key('progressive-upcoming-lesson_6')));
+      await tester.tap(find.byKey(const Key('progressive-upcoming-lesson_6')));
+      await tester.pumpAndSettle();
+      expect(find.text('低音共鸣与同音孔位'), findsOneWidget);
+      expect(find.textContaining('3↑'), findsWidgets);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.byKey(const Key('progressive-upcoming-lesson_8')));
+      await tester.tap(find.byKey(const Key('progressive-upcoming-lesson_8')));
+      await tester.pumpAndSettle();
+      expect(find.text('初鸣微风'), findsOneWidget);
+      expect(find.text('开始曲谱练习'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'tuner keeps primary button above navigation bar on phone viewport',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(390, 844);
+      addTearDown(() {
+        tester.view.resetDevicePixelRatio();
+        tester.view.resetPhysicalSize();
+      });
+
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      await pumpBreathnote(tester, controller: controller);
+
+      await tester.tap(find.text('调音'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('稳吹一个单音，这里会实时显示音准'), findsOneWidget);
+      expect(find.text('吹吸任意孔即可点亮'), findsOneWidget);
+
+      final startBtnBottom =
+          tester.getBottomRight(find.text('开始调音')).dy;
+      final navBarTop =
+          tester.getTopLeft(find.byType(NavigationBar)).dy;
+      expect(startBtnBottom, lessThanOrEqualTo(navBarTop));
     },
   );
 }

@@ -336,7 +336,7 @@ class _TunerScreenState extends State<TunerScreen>
       key: const PageStorageKey('tuner'),
       padding: EdgeInsets.fromLTRB(
         pagePadding,
-        shortViewport ? 12 : 20,
+        shortViewport ? 10 : 12,
         pagePadding,
         108,
       ),
@@ -392,7 +392,7 @@ class _TunerScreenState extends State<TunerScreen>
             ],
           ),
           if (!shortViewport) ...[
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             const ChumingCoachBanner(
               featureId: 'tuner',
               messageKey: 'coachTuner',
@@ -401,19 +401,11 @@ class _TunerScreenState extends State<TunerScreen>
             ),
           ],
           SizedBox(
-            height: shortViewport
-                ? 6
-                : compact
-                ? 12
-                : AppAdaptive.groupGap(context) / 1.6,
+            height: shortViewport ? 6 : compact ? 8 : 10,
           ),
           _StatusLine(status: _status, detected: detected),
           SizedBox(
-            height: shortViewport
-                ? 6
-                : compact
-                ? 12
-                : AppAdaptive.groupGap(context) / 1.6,
+            height: shortViewport ? 6 : compact ? 8 : 10,
           ),
           _NoteDisplay(
             note: detected ? _reading.note : '--',
@@ -428,14 +420,10 @@ class _TunerScreenState extends State<TunerScreen>
             active: detected,
           ),
           SizedBox(
-            height: shortViewport
-                ? 6
-                : compact
-                ? 14
-                : 28,
+            height: shortViewport ? 6 : compact ? 8 : 12,
           ),
           _PitchArc(cents: cents, active: detected),
-          SizedBox(height: shortViewport ? 6 : 14),
+          SizedBox(height: shortViewport ? 6 : 8),
           Semantics(
             key: const Key('tuner-arc-summary'),
             container: true,
@@ -456,11 +444,7 @@ class _TunerScreenState extends State<TunerScreen>
             ),
           ),
           SizedBox(
-            height: shortViewport
-                ? 8
-                : compact
-                ? 12
-                : 16,
+            height: shortViewport ? 6 : compact ? 10 : 12,
           ),
           _TunerLiveHoleStrip(
             key: const Key('tuner-live-hole-strip'),
@@ -470,11 +454,7 @@ class _TunerScreenState extends State<TunerScreen>
             inTune: detected && cents.abs() <= 10,
           ),
           SizedBox(
-            height: shortViewport
-                ? 8
-                : compact
-                ? 12
-                : 18,
+            height: shortViewport ? 8 : compact ? 10 : 12,
           ),
           SizedBox(
             width: double.infinity,
@@ -799,8 +779,8 @@ class _PitchArcPainter extends StatelessWidget {
       builder: (context, animatedCents, _) {
         return SizedBox(
           height: shortViewport
-              ? 74
-              : AppAdaptive.compactValue(context, compact: 104, regular: 128),
+              ? 72
+              : AppAdaptive.compactValue(context, compact: 90, regular: 108),
           child: CustomPaint(
             key: const Key('tuner-segmented-arc'),
             painter: _SegmentedArcPainter(
@@ -1578,8 +1558,8 @@ class _NoteDisplay extends StatelessWidget {
         SizedBox(
           key: const Key('tuner-note-transition'),
           height: shortViewport
-              ? 62
-              : AppAdaptive.compactValue(context, compact: 86, regular: 106),
+              ? 58
+              : AppAdaptive.compactValue(context, compact: 72, regular: 86),
           child: FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.topCenter,
@@ -1602,8 +1582,8 @@ class _NoteDisplay extends StatelessWidget {
                       color: active ? palette.text : palette.muted,
                       fontSize: AppAdaptive.compactValue(
                         context,
-                        compact: shortViewport ? 56 : 76,
-                        regular: 96,
+                        compact: shortViewport ? 54 : 68,
+                        regular: 80,
                       ),
                       height: 1,
                       fontWeight: FontWeight.w700,
@@ -1680,7 +1660,7 @@ class _TunerLiveHoleStrip extends StatelessWidget {
         children: [
           Row(
             children: [
-              Expanded(
+              Flexible(
                 child: Text(
                   strings.t('tunerHoleStripTitle'),
                   maxLines: 1,
@@ -1692,7 +1672,7 @@ class _TunerLiveHoleStrip extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Flexible(
+              Expanded(
                 child: Text(
                   hasActive
                       ? strings.t('tunerHoleStripActive', {
