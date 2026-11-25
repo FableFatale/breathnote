@@ -2584,27 +2584,29 @@ void main() {
   testWidgets(
     'tuner keeps primary button above navigation bar on phone viewport',
     (tester) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = const Size(390, 844);
-      addTearDown(() {
-        tester.view.resetDevicePixelRatio();
-        tester.view.resetPhysicalSize();
-      });
-
       final controller = AppController();
       addTearDown(controller.dispose);
-      await pumpBreathnote(tester, controller: controller);
+      await pumpBreathnote(
+        tester,
+        controller: controller,
+        size: const Size(360, 792),
+      );
 
       await tester.tap(find.text('调音'));
       await tester.pumpAndSettle();
 
+      expect(find.byKey(const Key('tuner-live-hole-strip')), findsOneWidget);
       expect(find.text('稳吹一个单音，这里会实时显示音准'), findsOneWidget);
       expect(find.text('吹吸任意孔即可点亮'), findsOneWidget);
 
-      final startBtnBottom =
-          tester.getBottomRight(find.text('开始调音')).dy;
-      final navBarTop =
-          tester.getTopLeft(find.byType(NavigationBar)).dy;
+      final startButton = find.ancestor(
+        of: find.text('开始调音'),
+        matching: find.byType(FilledButton),
+      );
+      expect(startButton, findsOneWidget);
+
+      final startBtnBottom = tester.getBottomRight(startButton).dy;
+      final navBarTop = tester.getTopLeft(find.byType(NavigationBar)).dy;
       expect(startBtnBottom, lessThanOrEqualTo(navBarTop));
     },
   );

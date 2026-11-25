@@ -332,185 +332,140 @@ class _TunerScreenState extends State<TunerScreen>
     final compact = AppAdaptive.isCompact(context);
     final shortViewport = MediaQuery.sizeOf(context).height <= 600;
 
-    return SingleChildScrollView(
-      key: const PageStorageKey('tuner'),
-      padding: EdgeInsets.fromLTRB(
-        pagePadding,
-        shortViewport ? 10 : 12,
-        pagePadding,
-        108,
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              if (shortViewport ||
-                  AppScope.of(context).seenCoachTips.contains('tuner')) ...[
-                GestureDetector(
-                  onTap: () {
-                    unawaited(AppHaptics.reedResonance(context));
-                    unawaited(AppScope.of(context).reopenCoachTip('tuner'));
-                  },
-                  child: ChumingBird(
-                    size: 36,
-                    mood: detected
-                        ? ChumingMood.celebrating
-                        : ChumingMood.listening,
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            key: const PageStorageKey('tuner'),
+            padding: EdgeInsets.fromLTRB(
+              pagePadding,
+              shortViewport ? 10 : 12,
+              pagePadding,
+              16,
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    if (shortViewport ||
+                        AppScope.of(context).seenCoachTips.contains('tuner')) ...[
+                      GestureDetector(
+                        onTap: () {
+                          unawaited(AppHaptics.reedResonance(context));
+                          unawaited(
+                            AppScope.of(context).reopenCoachTip('tuner'),
+                          );
+                        },
+                        child: ChumingBird(
+                          size: 36,
+                          mood: detected
+                              ? ChumingMood.celebrating
+                              : ChumingMood.listening,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    Expanded(
+                      child: Text(
+                        context.strings.t('tuner'),
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontSize: 22),
+                      ),
+                    ),
+                    ActionChip(
+                      key: const Key('tuner-key-chip'),
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.padded,
+                      avatar: const HarmonicaBrandIcon(size: 16),
+                      label: Text(
+                        context.strings.t('keyName', {'key': key}),
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      onPressed: () {
+                        unawaited(AppHaptics.selection(context));
+                        unawaited(showHarmonicaKeyPicker(context));
+                      },
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton.filledTonal(
+                      tooltip: context.strings.t('tunerSettings'),
+                      onPressed: _showSettings,
+                      icon: const Icon(Icons.tune_rounded),
+                    ),
+                  ],
+                ),
+                if (!shortViewport) ...[
+                  const SizedBox(height: 10),
+                  const ChumingCoachBanner(
+                    featureId: 'tuner',
+                    messageKey: 'coachTuner',
+                    mood: ChumingMood.listening,
+                    bottomSpacing: 4,
+                  ),
+                ],
+                SizedBox(
+                  height: shortViewport ? 6 : compact ? 8 : 10,
+                ),
+                _StatusLine(status: _status, detected: detected),
+                SizedBox(
+                  height: shortViewport ? 6 : compact ? 8 : 10,
+                ),
+                _NoteDisplay(
+                  note: detected ? _reading.note : '--',
+                  octave: detected ? _reading.octave.toString() : '',
+                  subtitle: tab != null
+                      ? context.strings.t(
+                          tab.isBlow ? 'blowTab' : 'drawTab',
+                          {'tab': tab.hole},
+                        )
+                      : detected
+                      ? '${_reading.frequency.toStringAsFixed(1)} Hz'
+                      : context.strings.t('waitingSound'),
+                  active: detected,
+                ),
+                SizedBox(
+                  height: shortViewport ? 6 : compact ? 8 : 12,
+                ),
+                _PitchArc(cents: cents, active: detected),
+                SizedBox(height: shortViewport ? 6 : 8),
+                Semantics(
+                  key: const Key('tuner-arc-summary'),
+                  container: true,
+                  label: detected
+                      ? context.strings.t('pitchArcSummary', {
+                          'note': _reading.noteWithOctave,
+                          'cents': '${cents >= 0 ? '+' : ''}$cents',
+                        })
+                      : _hintText,
+                  excludeSemantics: true,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    child: Text(
+                      _hintText,
+                      style: Theme.of(context).textTheme.titleMedium,
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 12),
-              ],
-              Expanded(
-                child: Text(
-                  context.strings.t('tuner'),
-                  style: Theme.of(context).textTheme.headlineSmall
-                      ?.copyWith(fontSize: 22),
+                SizedBox(
+                  height: shortViewport ? 6 : compact ? 10 : 12,
                 ),
-              ),
-              ActionChip(
-                key: const Key('tuner-key-chip'),
-                visualDensity: VisualDensity.compact,
-                materialTapTargetSize: MaterialTapTargetSize.padded,
-                avatar: const HarmonicaBrandIcon(size: 16),
-                label: Text(
-                  context.strings.t('keyName', {'key': key}),
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                _TunerLiveHoleStrip(
+                  key: const Key('tuner-live-hole-strip'),
+                  harmonicaKey: key,
+                  activeTabs: activeTabs,
+                  detectedNote: detected ? _reading.noteWithOctave : null,
+                  inTune: detected && cents.abs() <= 10,
                 ),
-                onPressed: () {
-                  unawaited(AppHaptics.selection(context));
-                  unawaited(showHarmonicaKeyPicker(context));
-                },
-              ),
-              const SizedBox(width: 6),
-              IconButton.filledTonal(
-                tooltip: context.strings.t('tunerSettings'),
-                onPressed: _showSettings,
-                icon: const Icon(Icons.tune_rounded),
-              ),
-            ],
-          ),
-          if (!shortViewport) ...[
-            const SizedBox(height: 10),
-            const ChumingCoachBanner(
-              featureId: 'tuner',
-              messageKey: 'coachTuner',
-              mood: ChumingMood.listening,
-              bottomSpacing: 4,
-            ),
-          ],
-          SizedBox(
-            height: shortViewport ? 6 : compact ? 8 : 10,
-          ),
-          _StatusLine(status: _status, detected: detected),
-          SizedBox(
-            height: shortViewport ? 6 : compact ? 8 : 10,
-          ),
-          _NoteDisplay(
-            note: detected ? _reading.note : '--',
-            octave: detected ? _reading.octave.toString() : '',
-            subtitle: tab != null
-                ? context.strings.t(tab.isBlow ? 'blowTab' : 'drawTab', {
-                    'tab': tab.hole,
-                  })
-                : detected
-                ? '${_reading.frequency.toStringAsFixed(1)} Hz'
-                : context.strings.t('waitingSound'),
-            active: detected,
-          ),
-          SizedBox(
-            height: shortViewport ? 6 : compact ? 8 : 12,
-          ),
-          _PitchArc(cents: cents, active: detected),
-          SizedBox(height: shortViewport ? 6 : 8),
-          Semantics(
-            key: const Key('tuner-arc-summary'),
-            container: true,
-            label: detected
-                ? context.strings.t('pitchArcSummary', {
-                    'note': _reading.noteWithOctave,
-                    'cents': '${cents >= 0 ? '+' : ''}$cents',
-                  })
-                : _hintText,
-            excludeSemantics: true,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Text(
-                _hintText,
-                style: Theme.of(context).textTheme.titleMedium,
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-          SizedBox(
-            height: shortViewport ? 6 : compact ? 10 : 12,
-          ),
-          _TunerLiveHoleStrip(
-            key: const Key('tuner-live-hole-strip'),
-            harmonicaKey: key,
-            activeTabs: activeTabs,
-            detectedNote: detected ? _reading.noteWithOctave : null,
-            inTune: detected && cents.abs() <= 10,
-          ),
-          SizedBox(
-            height: shortViewport ? 8 : compact ? 10 : 12,
-          ),
-          SizedBox(
-            width: double.infinity,
-            child: TapGesturePulse(
-              enabled: !listening,
-              child: FilledButton.icon(
-                onPressed: _unsupported
-                    ? () => unawaited(showHelpScreen(context))
-                    : _status == _TunerStatus.requestingPermission
-                    ? null
-                    : listening
-                    ? _stopListening
-                    : _startListening,
-                icon: Icon(
-                  _unsupported
-                      ? Icons.help_outline_rounded
-                      : listening
-                      ? Icons.stop_rounded
-                      : Icons.mic_rounded,
+                SizedBox(
+                  height: shortViewport
+                      ? 10
+                      : compact
+                      ? 14
+                      : 16,
                 ),
-                label: Text(
-                  _unsupported
-                      ? context.strings.t('help')
-                      : listening
-                      ? context.strings.t('stopTuning')
-                      : _primaryButtonLabel,
-                ),
-              ),
-            ),
-          ),
-          if (_status == _TunerStatus.permanentlyDenied) ...[
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: _pitchService.openAppSettings,
-              icon: const Icon(Icons.settings_rounded),
-              label: Text(context.strings.t('commonOpenSettings')),
-            ),
-          ],
-          if (_errorMessage != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              _errorMessage!,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: _unsupported ? palette.muted : palette.danger,
-              ),
-            ),
-          ],
-          SizedBox(
-            height: shortViewport
-                ? 10
-                : compact
-                ? 14
-                : 18,
-          ),
-          Card(
+                Card(
             child: Padding(
               padding: EdgeInsets.all(cardPadding),
               child: Column(
@@ -649,8 +604,76 @@ class _TunerScreenState extends State<TunerScreen>
             ),
           ],
           const SizedBox(height: 14),
-        ],
-      ),
+              ],
+            ),
+          ),
+        ),
+        Container(
+          decoration: BoxDecoration(
+            color: palette.background,
+            border: Border(
+              top: BorderSide(color: palette.outline.withValues(alpha: 0.7)),
+            ),
+          ),
+          padding: EdgeInsets.fromLTRB(pagePadding, 10, pagePadding, 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_errorMessage != null) ...[
+                Text(
+                  _errorMessage!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _unsupported ? palette.muted : palette.danger,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 6),
+              ],
+              if (_status == _TunerStatus.permanentlyDenied) ...[
+                TextButton.icon(
+                  onPressed: _pitchService.openAppSettings,
+                  icon: const Icon(Icons.settings_rounded),
+                  label: Text(context.strings.t('commonOpenSettings')),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+                const SizedBox(height: 4),
+              ],
+              SizedBox(
+                width: double.infinity,
+                child: TapGesturePulse(
+                  enabled: !listening,
+                  child: FilledButton.icon(
+                    onPressed: _unsupported
+                        ? () => unawaited(showHelpScreen(context))
+                        : _status == _TunerStatus.requestingPermission
+                        ? null
+                        : listening
+                        ? _stopListening
+                        : _startListening,
+                    icon: Icon(
+                      _unsupported
+                          ? Icons.help_outline_rounded
+                          : listening
+                          ? Icons.stop_rounded
+                          : Icons.mic_rounded,
+                    ),
+                    label: Text(
+                      _unsupported
+                          ? context.strings.t('help')
+                          : listening
+                          ? context.strings.t('stopTuning')
+                          : _primaryButtonLabel,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
