@@ -13,6 +13,7 @@ import '../widgets/cute_illustrations.dart';
 import '../widgets/gesture_guide.dart';
 import '../widgets/harmonica_guide.dart'
     show showHarmonicaGuide, showHarmonicaKeyPicker;
+import '../widgets/liquid_glass_tab_bar.dart';
 import '../widgets/pro_paywall_sheet.dart';
 import 'lesson_routes.dart';
 
@@ -107,7 +108,12 @@ class LearnScreen extends StatelessWidget {
           ),
         ),
         SliverPadding(
-          padding: EdgeInsets.fromLTRB(pagePadding, 0, pagePadding, 32),
+          padding: EdgeInsets.fromLTRB(
+            pagePadding,
+            0,
+            pagePadding,
+            floatingNavBarClearance(context, extra: 40),
+          ),
           sliver: SliverList.builder(
             itemCount: lessons.length,
             itemBuilder: (context, index) {

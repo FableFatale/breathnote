@@ -2606,8 +2606,33 @@ void main() {
       expect(startButton, findsOneWidget);
 
       final startBtnBottom = tester.getBottomRight(startButton).dy;
-      final navBarTop = tester.getTopLeft(find.byType(NavigationBar)).dy;
+      final navBarTop = tester
+          .getTopLeft(find.byKey(const Key('floating-glass-tab-bar')))
+          .dy;
       expect(startBtnBottom, lessThanOrEqualTo(navBarTop));
+      expect(navBarTop - startBtnBottom, inInclusiveRange(8.0, 24.0));
+    },
+  );
+
+  testWidgets(
+    'floating liquid glass tab bar supports direct horizontal scrub across tabs',
+    (tester) async {
+      await pumpBreathnote(tester);
+
+      final glassBar = find.byKey(const Key('floating-glass-tab-bar'));
+      expect(glassBar, findsOneWidget);
+      expect(find.byKey(const Key('floating-glass-indicator')), findsOneWidget);
+
+      final rect = tester.getRect(glassBar);
+      final startPoint = Offset(rect.left + rect.width * 0.12, rect.center.dy);
+      final dragDistance = rect.width * 0.76;
+
+      await tester.dragFrom(startPoint, Offset(dragDistance, 0));
+      await tester.pumpAndSettle();
+
+      // Scrubbing from Learn (left) to Profile (right) switches to Profile tab
+      expect(find.text('本机数据与隐私'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
   );
 }

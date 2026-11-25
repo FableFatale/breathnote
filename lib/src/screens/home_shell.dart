@@ -9,8 +9,8 @@ import '../services/haptics.dart';
 import '../services/pitch_service.dart';
 import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
-import '../theme/app_theme.dart';
 import '../widgets/chuming_launch_splash.dart';
+import '../widgets/liquid_glass_tab_bar.dart';
 import 'harmonica_registration_screen.dart';
 import 'learn_screen.dart';
 import 'profile_screen.dart';
@@ -29,6 +29,7 @@ class _HomeShellState extends State<HomeShell>
   int _index = 0;
   int? _programmaticTarget;
   late final PageController _pageController = PageController();
+  late final ValueNotifier<double> _pagePosition = ValueNotifier<double>(0);
   late final AnimationController _tabBounceController = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 220),
@@ -36,10 +37,26 @@ class _HomeShellState extends State<HomeShell>
   );
 
   @override
+  void initState() {
+    super.initState();
+    _pageController.addListener(_syncPagePosition);
+  }
+
+  @override
   void dispose() {
+    _pageController.removeListener(_syncPagePosition);
+    _pagePosition.dispose();
     _tabBounceController.dispose();
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _syncPagePosition() {
+    if (!_pageController.hasClients) return;
+    final page = _pageController.page;
+    if (page != null && (_pagePosition.value - page).abs() > 0.0005) {
+      _pagePosition.value = page;
+    }
   }
 
   void _triggerNavBounce() {
@@ -49,41 +66,57 @@ class _HomeShellState extends State<HomeShell>
   }
 
   void _handlePageChanged(int value) {
+    if (_programmaticTarget != null) {
+      if (value == _programmaticTarget) {
+        _programmaticTarget = null;
+      }
+      return;
+    }
     if (value == _index) return;
-    final isProgrammatic = _programmaticTarget == value;
-    if (isProgrammatic) _programmaticTarget = null;
     setState(() => _index = value);
     _triggerNavBounce();
     _stopAudio();
-    if (!isProgrammatic) {
-      unawaited(AppHaptics.selection(context));
-    }
+    unawaited(AppHaptics.selection(context));
   }
 
-  void _selectDestination(int value) {
+  void _selectDestination(int value, {bool emitHaptic = true}) {
     if (value == _index) {
-      unawaited(AppHaptics.selection(context));
+      if (emitHaptic) {
+        unawaited(AppHaptics.selection(context));
+      }
       _triggerNavBounce();
       return;
     }
+    final previousIndex = _index;
     _programmaticTarget = value;
+    setState(() => _index = value);
     _stopAudio();
-    unawaited(AppHaptics.selection(context));
+    if (emitHaptic) {
+      unawaited(AppHaptics.selection(context));
+    }
     _triggerNavBounce();
 
     final shouldJump =
-        AppMotion.isReduced(context) || (value - _index).abs() > 1;
+        AppMotion.isReduced(context) || (value - previousIndex).abs() > 1;
     if (shouldJump) {
       _pageController.jumpToPage(value);
+      _pagePosition.value = value.toDouble();
+      _programmaticTarget = null;
       return;
     }
 
     unawaited(
-      _pageController.animateToPage(
-        value,
-        duration: AppMotion.base,
-        curve: AppMotion.standardCurve,
-      ),
+      _pageController
+          .animateToPage(
+            value,
+            duration: AppMotion.base,
+            curve: AppMotion.standardCurve,
+          )
+          .whenComplete(() {
+            if (_programmaticTarget == value) {
+              _programmaticTarget = null;
+            }
+          }),
     );
   }
 
@@ -103,7 +136,6 @@ class _HomeShellState extends State<HomeShell>
   @override
   Widget build(BuildContext context) {
     final controller = AppScope.of(context);
-    final palette = context.colors;
     final showRegistration =
         controller.isLoaded && !controller.hasRegisteredHarmonica;
     final screens = [
@@ -115,75 +147,56 @@ class _HomeShellState extends State<HomeShell>
     final Widget mainContent = showRegistration
         ? const HarmonicaRegistrationScreen()
         : Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: NotificationListener<ScrollStartNotification>(
-          onNotification: _handleScrollStart,
-          child: PageView(
-            key: const Key('main-tab-page-view'),
-            controller: _pageController,
-            onPageChanged: _handlePageChanged,
-            pageSnapping: false,
-            physics: AppMotion.isReduced(context)
-                ? const ReducedMotionPageScrollPhysics(
-                    parent: ClampingScrollPhysics(),
-                  )
-                : const PageScrollPhysics(parent: ClampingScrollPhysics()),
-            children: screens,
-          ),
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border(top: BorderSide(color: palette.outline)),
-          ),
-          child: NavigationBar(
-            selectedIndex: _index,
-            animationDuration: AppMotion.duration(
-              context,
-              const Duration(milliseconds: 260),
+            extendBody: true,
+            body: SafeArea(
+              bottom: false,
+              child: NotificationListener<ScrollStartNotification>(
+                onNotification: _handleScrollStart,
+                child: PageView(
+                  key: const Key('main-tab-page-view'),
+                  controller: _pageController,
+                  onPageChanged: _handlePageChanged,
+                  pageSnapping: false,
+                  physics: AppMotion.isReduced(context)
+                      ? const ReducedMotionPageScrollPhysics(
+                          parent: ClampingScrollPhysics(),
+                        )
+                      : const PageScrollPhysics(
+                          parent: ClampingScrollPhysics(),
+                        ),
+                  children: screens,
+                ),
+              ),
             ),
-            onDestinationSelected: _selectDestination,
-            destinations: [
-              NavigationDestination(
-                icon: const Icon(Icons.home_outlined),
-                selectedIcon: _AnimatedSelectedNavIcon(
-                  animation: _tabBounceController,
-                  icon: Icons.home_rounded,
+            bottomNavigationBar: LiquidGlassTabBar(
+              selectedIndex: _index,
+              pagePosition: _pagePosition,
+              bounceAnimation: _tabBounceController,
+              onSelected: _selectDestination,
+              items: [
+                LiquidGlassTabItem(
+                  icon: Icons.home_outlined,
+                  selectedIcon: Icons.home_rounded,
+                  label: context.strings.t('navLearn'),
                 ),
-                label: context.strings.t('navLearn'),
-              ),
-              NavigationDestination(
-                icon: const Icon(Icons.library_music_outlined),
-                selectedIcon: _AnimatedSelectedNavIcon(
-                  animation: _tabBounceController,
-                  icon: Icons.library_music_rounded,
+                LiquidGlassTabItem(
+                  icon: Icons.library_music_outlined,
+                  selectedIcon: Icons.library_music_rounded,
+                  label: context.strings.t('navSongs'),
                 ),
-                label: context.strings.t('navSongs'),
-              ),
-              NavigationDestination(
-                icon: const Icon(Icons.speed_outlined),
-                selectedIcon: _AnimatedSelectedNavIcon(
-                  animation: _tabBounceController,
-                  icon: Icons.speed_rounded,
+                LiquidGlassTabItem(
+                  icon: Icons.speed_outlined,
+                  selectedIcon: Icons.speed_rounded,
+                  label: context.strings.t('navTuner'),
                 ),
-                label: context.strings.t('navTuner'),
-              ),
-              NavigationDestination(
-                icon: const Icon(Icons.person_outline_rounded),
-                selectedIcon: _AnimatedSelectedNavIcon(
-                  animation: _tabBounceController,
-                  icon: Icons.person_rounded,
+                LiquidGlassTabItem(
+                  icon: Icons.person_outline_rounded,
+                  selectedIcon: Icons.person_rounded,
+                  label: context.strings.t('navProfile'),
                 ),
-                label: context.strings.t('navProfile'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+              ],
+            ),
+          );
     final wrappedScaffold = ChumingLaunchSplashOverlay(child: mainContent);
     if (!kIsWeb) return wrappedScaffold;
 
@@ -195,29 +208,6 @@ class _HomeShellState extends State<HomeShell>
           child: Center(child: SizedBox(width: 720, child: wrappedScaffold)),
         );
       },
-    );
-  }
-}
-
-class _AnimatedSelectedNavIcon extends StatelessWidget {
-  const _AnimatedSelectedNavIcon({
-    required this.animation,
-    required this.icon,
-  });
-
-  final Animation<double> animation;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, child) {
-        final t = Curves.easeOutBack.transform(animation.value.clamp(0.0, 1.0));
-        final scale = 0.86 + 0.14 * t;
-        return Transform.scale(scale: scale, child: child);
-      },
-      child: Icon(icon),
     );
   }
 }

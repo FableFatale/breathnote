@@ -10,6 +10,7 @@ import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 import '../widgets/cute_illustrations.dart';
 import '../widgets/harmonica_guide.dart' show showHarmonicaKeyPicker;
+import '../widgets/liquid_glass_tab_bar.dart';
 import '../widgets/pro_paywall_sheet.dart';
 import 'help_screen.dart';
 import 'local_data_screen.dart';
@@ -244,7 +245,12 @@ class ProfileScreen extends StatelessWidget {
     final pagePadding = AppAdaptive.pagePadding(context);
     return ListView(
       key: const PageStorageKey('profile'),
-      padding: EdgeInsets.fromLTRB(pagePadding, 20, pagePadding, 28),
+      padding: EdgeInsets.fromLTRB(
+        pagePadding,
+        20,
+        pagePadding,
+        floatingNavBarClearance(context, extra: 40),
+      ),
       children: [
         DecoratedBox(
           decoration: BoxDecoration(

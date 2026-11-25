@@ -18,6 +18,7 @@ import '../widgets/chuming_coach.dart';
 import '../widgets/cute_illustrations.dart';
 import '../widgets/gesture_guide.dart';
 import '../widgets/harmonica_guide.dart';
+import '../widgets/liquid_glass_tab_bar.dart';
 import '../widgets/motion_widgets.dart';
 import 'help_screen.dart';
 
@@ -610,12 +611,23 @@ class _TunerScreenState extends State<TunerScreen>
         ),
         Container(
           decoration: BoxDecoration(
-            color: palette.background,
-            border: Border(
-              top: BorderSide(color: palette.outline.withValues(alpha: 0.7)),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              stops: const [0.0, 0.25, 1.0],
+              colors: [
+                palette.background.withValues(alpha: 0.0),
+                palette.background.withValues(alpha: 0.94),
+                palette.background,
+              ],
             ),
           ),
-          padding: EdgeInsets.fromLTRB(pagePadding, 10, pagePadding, 10),
+          padding: EdgeInsets.fromLTRB(
+            pagePadding,
+            8,
+            pagePadding,
+            floatingNavBarClearance(context, extra: 12),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -646,6 +658,11 @@ class _TunerScreenState extends State<TunerScreen>
                 child: TapGesturePulse(
                   enabled: !listening,
                   child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
                     onPressed: _unsupported
                         ? () => unawaited(showHelpScreen(context))
                         : _status == _TunerStatus.requestingPermission

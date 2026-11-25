@@ -13,6 +13,7 @@ import '../widgets/chuming_coach.dart';
 import '../widgets/custom_song_import_sheet.dart';
 import '../widgets/cute_illustrations.dart';
 import '../widgets/harmonica_guide.dart' show showHarmonicaKeyPicker;
+import '../widgets/liquid_glass_tab_bar.dart';
 import '../widgets/pro_paywall_sheet.dart';
 import '../widgets/shared_widgets.dart';
 import 'song_practice_screen.dart';
@@ -310,15 +311,25 @@ class _SongsScreenState extends State<SongsScreen> {
         ),
         if (visible.isEmpty)
           SliverFillRemaining(
-            child: EmptyState(
-              icon: Icons.music_off_rounded,
-              title: context.strings.t('noSongs'),
-              detail: context.strings.t('noSongsDetail'),
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: floatingNavBarClearance(context, extra: 12),
+              ),
+              child: EmptyState(
+                icon: Icons.music_off_rounded,
+                title: context.strings.t('noSongs'),
+                detail: context.strings.t('noSongsDetail'),
+              ),
             ),
           )
         else
           SliverPadding(
-            padding: EdgeInsets.fromLTRB(pagePadding, 0, pagePadding, 28),
+            padding: EdgeInsets.fromLTRB(
+              pagePadding,
+              0,
+              pagePadding,
+              floatingNavBarClearance(context, extra: 40),
+            ),
             sliver: SliverList.separated(
               itemCount: visible.length,
               separatorBuilder: (_, _) => const SizedBox(height: 10),
