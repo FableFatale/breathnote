@@ -2635,6 +2635,58 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'floating glass bar and Option A bottom scrim adapt across resolutions without hazing tuner CTA',
+    (tester) async {
+      final sizes = <(Size, double)>[
+        (const Size(320, 640), 54), // very compact phone
+        (const Size(360, 792), 58), // OnePlus 13 / standard compact phone
+        (const Size(430, 932), 62), // large flagship phone
+        (const Size(780, 360), 50), // landscape viewport
+      ];
+
+      for (final (viewport, expectedBarHeight) in sizes) {
+        final controller = AppController();
+        addTearDown(controller.dispose);
+        await pumpBreathnote(tester, controller: controller, size: viewport);
+
+        final barFinder = find.byKey(const Key('floating-glass-tab-bar'));
+        final scrimFinder = find.byKey(const Key('floating-glass-bottom-scrim'));
+        expect(barFinder, findsOneWidget);
+        expect(scrimFinder, findsOneWidget);
+
+        final barRect = tester.getRect(barFinder);
+        final scrimRect = tester.getRect(scrimFinder);
+        expect(barRect.height, expectedBarHeight);
+        // Option A scrim starts above the floating capsule on list tabs
+        expect(scrimRect.top, lessThan(barRect.top));
+        expect(scrimRect.bottom, viewport.height);
+      }
+
+      // On Tuner tab, scrim retracts above-bar fade so the pinned CTA button is never hazed
+      final tunerController = AppController();
+      addTearDown(tunerController.dispose);
+      await pumpBreathnote(
+        tester,
+        controller: tunerController,
+        size: const Size(360, 792),
+      );
+      await tester.tap(find.text('调音'));
+      await tester.pumpAndSettle();
+
+      final startButton = find.ancestor(
+        of: find.text('开始调音'),
+        matching: find.byType(FilledButton),
+      );
+      final startBtnBottom = tester.getBottomRight(startButton).dy;
+      final scrimTop = tester
+          .getTopLeft(find.byKey(const Key('floating-glass-bottom-scrim')))
+          .dy;
+      expect(scrimTop, greaterThanOrEqualTo(startBtnBottom));
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
 
 class _FakePurchaseService extends PurchaseService {

@@ -10,26 +10,189 @@ import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
 
-/// Height of the floating Apple Liquid Glass capsule tab bar.
+/// Default reference height of the floating Apple Liquid Glass capsule tab bar.
 const double kFloatingNavBarHeight = 62;
 
-/// Vertical lift between the floating capsule and the bottom safe area inset.
+/// Default vertical lift between the floating capsule and the bottom safe area inset.
 const double kFloatingNavBarBottomGap = 10;
 
-/// Total bottom clearance required so content clears the floating Liquid Glass
-/// capsule (plus system gesture inset and breathing room).
+/// Responsive dimensions and scrim clearance for [LiquidGlassTabBar] across
+/// compact phones, standard phones, large flagships, tablets, and landscape
+/// viewports, accounting for system gesture or 3-button bottom insets.
+@immutable
+class LiquidGlassNavMetrics {
+  const LiquidGlassNavMetrics({
+    required this.barHeight,
+    required this.bottomGap,
+    required this.horizontalMargin,
+    required this.maxWidth,
+    required this.scrimFadeAbove,
+    required this.iconSize,
+    required this.labelFontSize,
+  });
+
+  factory LiquidGlassNavMetrics.of(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+
+    // 1. Landscape / ultra-short screens prioritize vertical viewport room.
+    if (size.height < 520) {
+      return LiquidGlassNavMetrics(
+        barHeight: 50,
+        bottomGap: bottomInset > 0 ? 6 : 8,
+        horizontalMargin: 16,
+        maxWidth: 420,
+        scrimFadeAbove: 14,
+        iconSize: 19,
+        labelFontSize: 9.5,
+      );
+    }
+
+    // 2. Very compact phones (e.g., 280x640, 320x640, or large accessibility text).
+    if (size.width <= 340 || size.height <= 660) {
+      return LiquidGlassNavMetrics(
+        barHeight: textScale >= 1.3 ? 56 : 54,
+        bottomGap: bottomInset >= 36 ? 6 : (bottomInset > 0 ? 6 : 10),
+        horizontalMargin: 12,
+        maxWidth: 420,
+        scrimFadeAbove: 18,
+        iconSize: 20,
+        labelFontSize: 10.0,
+      );
+    }
+
+    // 3. Tablets / foldables / wide web viewports.
+    if (size.width >= 600) {
+      return LiquidGlassNavMetrics(
+        barHeight: 64,
+        bottomGap: bottomInset > 0 ? 12 : 16,
+        horizontalMargin: 28,
+        maxWidth: 480,
+        scrimFadeAbove: 28,
+        iconSize: 23,
+        labelFontSize: 11.0,
+      );
+    }
+
+    // 4. Compact & standard phones (e.g., 360x792 OnePlus 13, 375x812, 390x844).
+    if (size.width <= 390 || size.height <= 820) {
+      return LiquidGlassNavMetrics(
+        barHeight: textScale >= 1.3 ? 60 : 58,
+        bottomGap: bottomInset >= 36 ? 6 : (bottomInset > 0 ? 8 : 12),
+        horizontalMargin: 18,
+        maxWidth: 440,
+        scrimFadeAbove: 24,
+        iconSize: 21.5,
+        labelFontSize: 10.5,
+      );
+    }
+
+    // 5. Large flagship phones (e.g., 412x915, 430x932).
+    return LiquidGlassNavMetrics(
+      barHeight: 62,
+      bottomGap: bottomInset >= 36 ? 8 : (bottomInset > 0 ? 10 : 12),
+      horizontalMargin: 22,
+      maxWidth: 460,
+      scrimFadeAbove: 28,
+      iconSize: 22,
+      labelFontSize: 11.0,
+    );
+  }
+
+  final double barHeight;
+  final double bottomGap;
+  final double horizontalMargin;
+  final double maxWidth;
+  final double scrimFadeAbove;
+  final double iconSize;
+  final double labelFontSize;
+
+  double get capsuleRadius => barHeight / 2 + 1;
+  double get pillRadius => (barHeight - 8) / 2;
+
+  double totalReservedHeight(double bottomInset) =>
+      barHeight + bottomGap + bottomInset;
+}
+
+/// Total bottom clearance required so content clears the adaptive floating
+/// Liquid Glass capsule (plus system gesture inset and breathing room).
 ///
 /// Inside [Scaffold] with `extendBody: true`, Flutter already sets
 /// `MediaQuery.paddingOf(context).bottom` on the body to the measured height of
 /// the floating bar (capsule + gap + system gesture inset). Taking the max
 /// with the minimum bar height avoids both double-counting and under-padding.
 double floatingNavBarClearance(BuildContext context, {double extra = 20}) {
+  final metrics = LiquidGlassNavMetrics.of(context);
   final mediaPaddingBottom = MediaQuery.paddingOf(context).bottom;
-  final minBarHeight =
-      kFloatingNavBarHeight +
-      kFloatingNavBarBottomGap +
-      MediaQuery.viewPaddingOf(context).bottom;
+  final minBarHeight = metrics.totalReservedHeight(
+    MediaQuery.viewPaddingOf(context).bottom,
+  );
   return math.max(mediaPaddingBottom, minBarHeight) + extra;
+}
+
+/// Option A bottom gradient scrim placed inside [Scaffold.body] beneath
+/// [LiquidGlassTabBar] so scrolling lists fade softly above the capsule and
+/// never show peek-through text or badges in the bottom gap under the bar.
+class LiquidGlassBottomScrim extends StatelessWidget {
+  const LiquidGlassBottomScrim({
+    required this.pagePosition,
+    this.retractFadeOnPageIndex,
+    super.key,
+  });
+
+  final ValueListenable<double> pagePosition;
+  final int? retractFadeOnPageIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = LiquidGlassNavMetrics.of(context);
+    final palette = context.colors;
+    final systemBottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final reservedHeight = metrics.totalReservedHeight(systemBottomInset);
+
+    return IgnorePointer(
+      child: ValueListenableBuilder<double>(
+        valueListenable: pagePosition,
+        builder: (context, page, _) {
+          final fadeMultiplier = retractFadeOnPageIndex == null
+              ? 1.0
+              : (page - retractFadeOnPageIndex!).abs().clamp(0.0, 1.0);
+          final effectiveFadeAbove = metrics.scrimFadeAbove * fadeMultiplier;
+          final totalHeight = reservedHeight + effectiveFadeAbove;
+
+          final s1 = ((effectiveFadeAbove + 4) / totalHeight).clamp(0.02, 0.55);
+          final s2 =
+              ((effectiveFadeAbove + metrics.barHeight * 0.56) / totalHeight)
+                  .clamp(s1 + 0.02, 0.82);
+          final s3 = ((effectiveFadeAbove + metrics.barHeight - 6) / totalHeight)
+              .clamp(s2 + 0.02, 0.98);
+
+          return SizedBox(
+            key: const Key('floating-glass-bottom-scrim'),
+            width: double.infinity,
+            height: totalHeight,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: [0.0, s1, s2, s3, 1.0],
+                  colors: [
+                    palette.background.withValues(alpha: 0.0),
+                    palette.background.withValues(alpha: 0.68),
+                    palette.background.withValues(alpha: 0.95),
+                    palette.background,
+                    palette.background,
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
 
 @immutable
@@ -71,8 +234,6 @@ class LiquidGlassTabBar extends StatefulWidget {
 class _LiquidGlassTabBarState extends State<LiquidGlassTabBar>
     with SingleTickerProviderStateMixin {
   static const double _innerPadding = 4;
-  static const double _capsuleRadius = 32;
-  static const double _pillRadius = 28;
 
   late final AnimationController _glideController = AnimationController(
     vsync: this,
@@ -213,12 +374,11 @@ class _LiquidGlassTabBarState extends State<LiquidGlassTabBar>
   @override
   Widget build(BuildContext context) {
     final palette = context.colors;
+    final metrics = LiquidGlassNavMetrics.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final highContrast = AppScope.maybeRead(context)?.highContrast ?? false;
     final reducedMotion = AppMotion.isReduced(context);
-    final screenWidth = MediaQuery.sizeOf(context).width;
     final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final horizontalMargin = screenWidth < 340 ? 12.0 : 20.0;
 
     final inactiveColor = highContrast
         ? palette.text.withValues(alpha: 0.78)
@@ -230,18 +390,18 @@ class _LiquidGlassTabBarState extends State<LiquidGlassTabBar>
     final glassTopColor = highContrast
         ? palette.surface.withValues(alpha: 0.96)
         : isDark
-        ? const Color(0xFF33353D).withValues(alpha: 0.74)
-        : Colors.white.withValues(alpha: 0.78);
+        ? const Color(0xFF33353D).withValues(alpha: 0.82)
+        : Colors.white.withValues(alpha: 0.86);
     final glassMidColor = highContrast
         ? palette.surface.withValues(alpha: 0.96)
         : isDark
-        ? const Color(0xFF23252A).withValues(alpha: 0.68)
-        : const Color(0xFFF7FAFF).withValues(alpha: 0.66);
+        ? const Color(0xFF23252A).withValues(alpha: 0.76)
+        : const Color(0xFFF7FAFF).withValues(alpha: 0.78);
     final glassBottomColor = highContrast
         ? palette.surface.withValues(alpha: 0.96)
         : isDark
-        ? const Color(0xFF1B1C20).withValues(alpha: 0.76)
-        : const Color(0xFFEEF3FA).withValues(alpha: 0.74);
+        ? const Color(0xFF1B1C20).withValues(alpha: 0.84)
+        : const Color(0xFFEEF3FA).withValues(alpha: 0.84);
 
     final dropletTopColor = highContrast
         ? palette.primary.withValues(alpha: isDark ? 0.28 : 0.16)
@@ -297,20 +457,20 @@ class _LiquidGlassTabBarState extends State<LiquidGlassTabBar>
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        horizontalMargin,
+        metrics.horizontalMargin,
         0,
-        horizontalMargin,
-        kFloatingNavBarBottomGap + bottomInset,
+        metrics.horizontalMargin,
+        metrics.bottomGap + bottomInset,
       ),
       child: Align(
         alignment: Alignment.bottomCenter,
         heightFactor: 1,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
+          constraints: BoxConstraints(maxWidth: metrics.maxWidth),
           child: DecoratedBox(
             key: const Key('floating-glass-tab-bar'),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(_capsuleRadius),
+              borderRadius: BorderRadius.circular(metrics.capsuleRadius),
               boxShadow: capsuleShadows,
               border: Border.all(
                 color: isDark
@@ -322,14 +482,16 @@ class _LiquidGlassTabBarState extends State<LiquidGlassTabBar>
               ),
             ),
             child: SizedBox(
-              height: kFloatingNavBarHeight,
+              height: metrics.barHeight,
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(_capsuleRadius),
+                borderRadius: BorderRadius.circular(metrics.capsuleRadius),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 26, sigmaY: 26),
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(_capsuleRadius),
+                      borderRadius: BorderRadius.circular(
+                        metrics.capsuleRadius,
+                      ),
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
@@ -418,7 +580,7 @@ class _LiquidGlassTabBarState extends State<LiquidGlassTabBar>
                                               decoration: BoxDecoration(
                                                 borderRadius:
                                                     BorderRadius.circular(
-                                                      _pillRadius,
+                                                      metrics.pillRadius,
                                                     ),
                                                 gradient: LinearGradient(
                                                   begin: Alignment.topCenter,
@@ -481,6 +643,9 @@ class _LiquidGlassTabBarState extends State<LiquidGlassTabBar>
                                                           .clamp(0.0, 1.0),
                                                   activeColor: activeColor,
                                                   inactiveColor: inactiveColor,
+                                                  iconSize: metrics.iconSize,
+                                                  labelFontSize:
+                                                      metrics.labelFontSize,
                                                   scale:
                                                       widget.selectedIndex == i
                                                       ? activeScale
@@ -506,7 +671,7 @@ class _LiquidGlassTabBarState extends State<LiquidGlassTabBar>
                           child: IgnorePointer(
                             child: CustomPaint(
                               painter: _LiquidGlassRimPainter(
-                                radius: _capsuleRadius,
+                                radius: metrics.capsuleRadius,
                                 isDark: isDark,
                               ),
                             ),
@@ -532,6 +697,8 @@ class _GlassTabButton extends StatelessWidget {
     required this.selectionProgress,
     required this.activeColor,
     required this.inactiveColor,
+    required this.iconSize,
+    required this.labelFontSize,
     required this.scale,
     required this.onTap,
   });
@@ -541,6 +708,8 @@ class _GlassTabButton extends StatelessWidget {
   final double selectionProgress;
   final Color activeColor;
   final Color inactiveColor;
+  final double iconSize;
+  final double labelFontSize;
   final double scale;
   final VoidCallback onTap;
 
@@ -570,7 +739,7 @@ class _GlassTabButton extends StatelessWidget {
                     scale: scale,
                     child: Icon(
                       useSelectedIcon ? item.selectedIcon : item.icon,
-                      size: 22,
+                      size: iconSize,
                       color: color,
                     ),
                   ),
@@ -582,7 +751,7 @@ class _GlassTabButton extends StatelessWidget {
                     overflow: TextOverflow.visible,
                     style: TextStyle(
                       color: color,
-                      fontSize: 10.5,
+                      fontSize: labelFontSize,
                       height: 1.15,
                       fontWeight: useSelectedIcon
                           ? FontWeight.w700

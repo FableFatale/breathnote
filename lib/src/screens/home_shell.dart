@@ -148,25 +148,38 @@ class _HomeShellState extends State<HomeShell>
         ? const HarmonicaRegistrationScreen()
         : Scaffold(
             extendBody: true,
-            body: SafeArea(
-              bottom: false,
-              child: NotificationListener<ScrollStartNotification>(
-                onNotification: _handleScrollStart,
-                child: PageView(
-                  key: const Key('main-tab-page-view'),
-                  controller: _pageController,
-                  onPageChanged: _handlePageChanged,
-                  pageSnapping: false,
-                  physics: AppMotion.isReduced(context)
-                      ? const ReducedMotionPageScrollPhysics(
-                          parent: ClampingScrollPhysics(),
-                        )
-                      : const PageScrollPhysics(
-                          parent: ClampingScrollPhysics(),
-                        ),
-                  children: screens,
+            body: Stack(
+              children: [
+                SafeArea(
+                  bottom: false,
+                  child: NotificationListener<ScrollStartNotification>(
+                    onNotification: _handleScrollStart,
+                    child: PageView(
+                      key: const Key('main-tab-page-view'),
+                      controller: _pageController,
+                      onPageChanged: _handlePageChanged,
+                      pageSnapping: false,
+                      physics: AppMotion.isReduced(context)
+                          ? const ReducedMotionPageScrollPhysics(
+                              parent: ClampingScrollPhysics(),
+                            )
+                          : const PageScrollPhysics(
+                              parent: ClampingScrollPhysics(),
+                            ),
+                      children: screens,
+                    ),
+                  ),
                 ),
-              ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: LiquidGlassBottomScrim(
+                    pagePosition: _pagePosition,
+                    retractFadeOnPageIndex: 2,
+                  ),
+                ),
+              ],
             ),
             bottomNavigationBar: LiquidGlassTabBar(
               selectedIndex: _index,
