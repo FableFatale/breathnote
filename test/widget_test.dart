@@ -19,6 +19,7 @@ import 'package:breathnote/src/state/app_controller.dart';
 import 'package:breathnote/src/theme/app_motion.dart';
 import 'package:breathnote/src/theme/app_theme.dart';
 import 'package:breathnote/src/widgets/cute_illustrations.dart';
+import 'package:breathnote/src/widgets/shared_widgets.dart';
 import 'package:breathnote/src/widgets/song_score_report.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -898,6 +899,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
 
+    await tester.drag(find.byType(ListView).first, const Offset(0, -240));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('accessibility-setting')));
     await tester.tap(find.byKey(const Key('accessibility-setting')));
     await tester.pumpAndSettle();
@@ -1390,6 +1393,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('声音只在设备上分析，不会上传或保存。'), findsNothing);
+    await tester.drag(find.byType(ListView).first, const Offset(0, -260));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('help-setting')));
     await tester.tap(find.byKey(const Key('help-setting')));
     await tester.pumpAndSettle();
@@ -3105,6 +3110,433 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('score-pro-locked-card')), findsOneWidget);
       expect(find.byKey(const Key('score-trend-strip')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  test(
+    'supports PracticeNote beats/rest JSON, tabPreview, tab parsing (:2/:0.5/0), MIDI/MusicXML beats, and strictOctave',
+    () {
+      const nHalf = PracticeNote(note: 'C', octave: 5, tab: '4↑', beats: 0.5);
+      const nDouble = PracticeNote(note: 'G', octave: 5, tab: '6↑', beats: 2.0);
+      const nRest = PracticeNote.rest(beats: 1.5);
+
+      expect(nHalf.beatTag, '½');
+      expect(nDouble.beatTag, '2');
+      expect(nRest.isRest, isTrue);
+      expect(nRest.isBlow, isFalse);
+      expect(nRest.beatTag, '1.5');
+      expect(nRest.frequencyForKey('C'), 0);
+
+      final roundTripHalf = PracticeNote.fromJson(
+        jsonDecode(jsonEncode(nHalf.toJson())) as Map<String, Object?>,
+      );
+      final roundTripRest = PracticeNote.fromJson(
+        jsonDecode(jsonEncode(nRest.toJson())) as Map<String, Object?>,
+      );
+      expect(roundTripHalf.beats, 0.5);
+      expect(roundTripHalf.tab, '4↑');
+      expect(roundTripRest.isRest, isTrue);
+      expect(roundTripRest.beats, 1.5);
+
+      final parsedTabs = parseHarmonicaTabs('4↑:0.5 0:1.5 6↑:2');
+      expect(parsedTabs, hasLength(3));
+      expect(parsedTabs[0].beats, 0.5);
+      expect(parsedTabs[1].isRest, isTrue);
+      expect(parsedTabs[1].beats, 1.5);
+      expect(parsedTabs[2].beats, 2.0);
+
+      final song = Song(
+        id: 'beats_preview',
+        title: '节拍测试',
+        subtitle: 'customSongSubtitle',
+        level: 'easy',
+        color: const Color(0xFF1A6BFF),
+        notes: parsedTabs,
+      );
+      expect(song.tabPreview, '4↑:0.5 0:1.5 6↑:2');
+
+      // MIDI & MusicXML beat extraction
+      final trackEvents = <int>[
+        0x00, 0x90, 72, 100, // C5 at tick 0
+        0x30, 0x80, 72, 0, // delta 48 (0.5 beat at div=96)
+        0x00, 0x90, 76, 100, // E5 at tick 48
+        0x60, 0x80, 76, 0, // delta 96
+        0x60, 0x90, 79, 100, // G5 at tick 240 -> delta from 48 = 192 (2 beats)
+        0x00, 0xFF, 0x2F, 0x00,
+      ];
+      final midiBytes = Uint8List.fromList([
+        0x4D, 0x54, 0x68, 0x64,
+        0x00, 0x00, 0x00, 0x06,
+        0x00, 0x00,
+        0x00, 0x01,
+        0x00, 0x60, // 96 ticks per quarter
+        0x4D, 0x54, 0x72, 0x6B,
+        (trackEvents.length >> 24) & 0xFF,
+        (trackEvents.length >> 16) & 0xFF,
+        (trackEvents.length >> 8) & 0xFF,
+        trackEvents.length & 0xFF,
+        ...trackEvents,
+      ]);
+      final midiSource = parseMidiBytes(midiBytes);
+      expect(midiSource.beats, [0.5, 2.0, 1.0]);
+
+      const xml = '''
+<score-partwise>
+  <part id="P1">
+    <measure number="1">
+      <attributes><divisions>2</divisions></attributes>
+      <note><pitch><step>C</step><octave>5</octave></pitch><duration>1</duration></note>
+      <note><pitch><step>G</step><octave>5</octave></pitch><duration>4</duration></note>
+    </measure>
+  </part>
+</score-partwise>
+''';
+      final xmlSource = parseMusicXml(xml);
+      expect(xmlSource.beats, [0.5, 2.0]);
+
+      // strictOctave & octaveDeltaFromFrequency
+      const c5Target = PracticeNote(note: 'C', octave: 5, tab: '4↑');
+      final c5 = c5Target.frequencyForKey('C');
+      final c4 = c5 / 2;
+      final c6 = c5 * 2;
+      expect(c5Target.centsFromFrequency(c4, 'C', strictOctave: false), closeTo(0, 0.1));
+      expect(c5Target.centsFromFrequency(c4, 'C', strictOctave: true), closeTo(-1200, 0.5));
+      expect(c5Target.centsFromFrequency(c6, 'C', strictOctave: true), closeTo(1200, 0.5));
+      expect(c5Target.octaveDeltaFromFrequency(c4, 'C'), -1);
+      expect(c5Target.octaveDeltaFromFrequency(c6, 'C'), 1);
+      expect(c5Target.octaveDeltaFromFrequency(c5, 'C'), 0);
+    },
+  );
+
+  test(
+    'evaluates NoteScoreRecord.forRest and SongScoreSummary with rests separately from pitch average',
+    () {
+      const n1 = PracticeNote(note: 'C', octave: 5, tab: '4↑');
+      const rest = PracticeNote.rest(beats: 1.0);
+      const n2 = PracticeNote(note: 'E', octave: 5, tab: '5↑');
+
+      final cleanRest = NoteScoreRecord.forRest(
+        index: 1,
+        note: rest,
+        bleedFrames: 2,
+      );
+      final bleedRest = NoteScoreRecord.forRest(
+        index: 1,
+        note: rest,
+        bleedFrames: 3,
+      );
+      expect(cleanRest.status, NoteScoreStatus.restClean);
+      expect(cleanRest.isAccurate, isTrue);
+      expect(bleedRest.status, NoteScoreStatus.restBleed);
+      expect(bleedRest.isHit, isFalse);
+
+      final summaryWithCleanRest = SongScoreSummary.evaluate([
+        NoteScoreRecord.fromSamples(
+          index: 0,
+          note: n1,
+          centsSamples: const [0, 0, 0],
+          firstOnsetOffsetMs: 20,
+        ),
+        cleanRest,
+        NoteScoreRecord.fromSamples(
+          index: 2,
+          note: n2,
+          centsSamples: const [0, 0, 0],
+          firstOnsetOffsetMs: 20,
+        ),
+      ]);
+      expect(summaryWithCleanRest.pitchScore, 100);
+      expect(summaryWithCleanRest.timingScore, 100);
+      expect(summaryWithCleanRest.stabilityScore, 100);
+      expect(summaryWithCleanRest.hitCount, 3);
+      expect(summaryWithCleanRest.maxCombo, 3);
+
+      final summaryWithBleedRest = SongScoreSummary.evaluate([
+        NoteScoreRecord.fromSamples(
+          index: 0,
+          note: n1,
+          centsSamples: const [0, 0, 0],
+          firstOnsetOffsetMs: 20,
+        ),
+        bleedRest,
+      ]);
+      expect(summaryWithBleedRest.pitchScore, 100);
+      expect(summaryWithBleedRest.timingScore, lessThan(100));
+      expect(summaryWithBleedRest.hitCount, 1);
+    },
+  );
+
+  testWidgets(
+    'persists metronome & strictOctave on ProfileScreen and fires metronome clicks + toggles in Scoring Mode',
+    (tester) async {
+      final prefs = _DelayedPreferencesService(
+        Completer<Map<String, Object?>>()..complete({
+          'metronomeEnabled': true,
+          'strictOctave': false,
+        }),
+      );
+      final controller = AppController(preferences: prefs);
+      addTearDown(controller.dispose);
+      await controller.load();
+
+      await pumpBreathnote(tester, controller: controller);
+      await tester.tap(find.text('我的'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('profile-metronome-switch')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('profile-strict-octave-switch')));
+      await tester.pumpAndSettle();
+
+      expect(controller.metronomeEnabled, isFalse);
+      expect(controller.strictOctave, isTrue);
+      expect(prefs.savedValues['metronomeEnabled'], isFalse);
+      expect(prefs.savedValues['strictOctave'], isTrue);
+
+      // Verify reload preserves persisted values
+      final reloadPrefs = _DelayedPreferencesService(
+        Completer<Map<String, Object?>>()..complete({
+          'metronomeEnabled': false,
+          'strictOctave': true,
+        }),
+      );
+      final reloaded = AppController(preferences: reloadPrefs);
+      addTearDown(reloaded.dispose);
+      await reloaded.load();
+      expect(reloaded.metronomeEnabled, isFalse);
+      expect(reloaded.strictOctave, isTrue);
+
+      // Test Scoring Mode metronome channel calls & quick toggles
+      const audioChannel = MethodChannel('app.breathnote/audio_control');
+      const pitchChannel = EventChannel('app.breathnote/pitch_events');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      final clickAccents = <bool>[];
+      messenger.setMockMethodCallHandler(audioChannel, (call) async {
+        if (call.method == 'playMetronomeClick') {
+          final args = Map<String, Object?>.from(call.arguments as Map);
+          clickAccents.add(args['accent'] as bool? ?? false);
+          return null;
+        }
+        return switch (call.method) {
+          'requestMicrophonePermission' => 'granted',
+          'startPitchDetection' => true,
+          _ => null,
+        };
+      });
+      messenger.setMockStreamHandler(
+        pitchChannel,
+        MockStreamHandler.inline(onListen: (_, _) {}),
+      );
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(audioChannel, null);
+        messenger.setMockStreamHandler(pitchChannel, null);
+      });
+
+      const miniSong = Song(
+        id: 'metro_song',
+        title: '节拍测试曲',
+        subtitle: 'customSongSubtitle',
+        level: 'easy',
+        color: Color(0xFF1A6BFF),
+        notes: [
+          PracticeNote(note: 'C', octave: 5, tab: '4↑'),
+          PracticeNote.rest(beats: 1.0),
+        ],
+      );
+
+      await tester.pumpWidget(
+        AppScope(
+          key: const ValueKey('metro-score-test'),
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.light(highContrast: false, reduceMotion: false),
+            home: const SongPracticeScreen(
+              song: miniSong,
+              initialMode: SongPracticeMode.score,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Toggle metronome ON & strict octave OFF via quick toggles before start
+      await tester.tap(find.byKey(const Key('scoring-metronome-toggle')));
+      await tester.tap(find.byKey(const Key('scoring-strict-octave-toggle')));
+      await tester.pumpAndSettle();
+      expect(controller.metronomeEnabled, isTrue);
+      expect(controller.strictOctave, isFalse);
+
+      await tester.tap(find.text('开始评分挑战'));
+      await tester.pump(const Duration(milliseconds: 50));
+      // Strict octave toggle must be disabled while scoring is active
+      await tester.tap(find.byKey(const Key('scoring-strict-octave-toggle')));
+      await tester.pump();
+      expect(controller.strictOctave, isFalse);
+
+      // Advance through count-in (4 * 850ms) and first beat -> verify clicks fired
+      await tester.pump(const Duration(milliseconds: 3450));
+      expect(clickAccents, isNotEmpty);
+      expect(clickAccents.first, isTrue);
+      expect(clickAccents.where((a) => !a), isNotEmpty);
+
+      await tester.tap(find.text('停止评分'));
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'achievement sheet shares 3x PNG image via share channel, falls back to clipboard, and supports copy text',
+    (tester) async {
+      const shareChannel = MethodChannel('app.breathnote/share');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      String? sharedFileName;
+      Uint8List? sharedBytes;
+      String? copiedText;
+      var returnShareSuccess = true;
+
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') {
+          final args = Map<String, Object?>.from(call.arguments as Map);
+          copiedText = args['text'] as String?;
+          return null;
+        }
+        return null;
+      });
+      messenger.setMockMethodCallHandler(shareChannel, (call) async {
+        if (call.method == 'shareImage') {
+          final args = Map<String, Object?>.from(call.arguments as Map);
+          sharedFileName = args['fileName'] as String?;
+          sharedBytes = args['bytes'] as Uint8List?;
+          return returnShareSuccess;
+        }
+        return null;
+      });
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(shareChannel, null);
+        messenger.setMockMethodCallHandler(SystemChannels.platform, null);
+      });
+
+      final controller = AppController()..harmonicaKey = 'C';
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        AppScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.light(highContrast: false, reduceMotion: false),
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => Center(
+                  child: FilledButton(
+                    key: const Key('open-share-sheet'),
+                    onPressed: () => showAchievementCardSheet(
+                      context,
+                      title: '小星星',
+                      score: 96,
+                      songId: 'twinkle',
+                      iconId: 'star',
+                      tabPreview: '4↑ 4↑ 6↑',
+                      grade: 'S',
+                      stars: 3,
+                    ),
+                    child: const Text('Open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.byKey(const Key('open-share-sheet')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('achievement-poster-card')), findsOneWidget);
+      expect(find.text('评级 S'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('share-achievement-image')));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 300)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(sharedFileName, 'breathnote_twinkle.png');
+      expect(sharedBytes, isNotNull);
+      expect(sharedBytes!.take(4).toList(), [0x89, 0x50, 0x4E, 0x47]);
+
+      // Copy achievement text button (verify before fallback test too)
+      await tester.tap(find.byKey(const Key('open-share-sheet')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('copy-achievement-text')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('成就战报已复制，快去分享吧'), findsOneWidget);
+      expect(copiedText, contains('小星星'));
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+
+      // Fallback when platform share returns false
+      returnShareSuccess = false;
+      sharedFileName = null;
+      copiedText = null;
+      await tester.tap(find.byKey(const Key('open-share-sheet')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('share-achievement-image')));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 500)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(sharedFileName, 'breathnote_twinkle.png');
+      expect(copiedText, contains('96/100'));
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('当前环境不支持图片分享，已为你复制文字战报'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'scoring mode quick toggles and rest sequence cells fit 280x640 compact viewport without overflow',
+    (tester) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(280, 640);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+
+      const restSong = Song(
+        id: 'compact_rest_song',
+        title: '休止紧凑曲',
+        subtitle: 'customSongSubtitle',
+        level: 'easy',
+        color: Color(0xFF1A6BFF),
+        notes: [
+          PracticeNote(note: 'C', octave: 5, tab: '4↑', beats: 0.5),
+          PracticeNote.rest(beats: 1.5),
+          PracticeNote(note: 'G', octave: 5, tab: '6↑', beats: 2.0),
+        ],
+      );
+
+      await tester.pumpWidget(
+        AppScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.light(highContrast: false, reduceMotion: false),
+            home: const SongPracticeScreen(
+              song: restSong,
+              initialMode: SongPracticeMode.score,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('scoring-metronome-toggle')), findsOneWidget);
+      expect(find.byKey(const Key('scoring-strict-octave-toggle')), findsOneWidget);
+      expect(find.textContaining('休'), findsWidgets);
       expect(tester.takeException(), isNull);
     },
   );

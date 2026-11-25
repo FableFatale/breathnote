@@ -11,11 +11,13 @@ import 'song.dart';
 class ParsedScoreSource {
   const ParsedScoreSource({
     required this.midis,
+    this.beats,
     this.title,
     this.sourceFormat = 'text',
   });
 
   final List<int> midis;
+  final List<double>? beats;
   final String? title;
   final String sourceFormat;
 }
@@ -31,6 +33,7 @@ class ImportedNoteChoice {
     required this.selectedTab,
     required this.alternatives,
     required this.requiresBend,
+    this.beats = 1.0,
   });
 
   final int index;
@@ -44,6 +47,7 @@ class ImportedNoteChoice {
   /// 所有同音可选孔位（例如 `2↓` 与 `3↑`）。
   final List<String> alternatives;
   final bool requiresBend;
+  final double beats;
 
   bool get hasEnharmonicChoice => alternatives.length > 1;
 
@@ -61,6 +65,7 @@ class ImportedNoteChoice {
       selectedTab: selectedTab ?? this.selectedTab,
       alternatives: alternatives,
       requiresBend: requiresBend,
+      beats: beats,
     );
   }
 }
@@ -130,6 +135,7 @@ class ScoreImportPlan {
         octave: octave,
         tab: item.selectedTab,
         requiresBend: item.requiresBend,
+        beats: item.beats,
       );
     }).toList();
   }
@@ -200,10 +206,25 @@ int _holeFromTab(String tab) {
   return int.tryParse(tab.replaceAll(RegExp(r'[^0-9]'), '')) ?? 4;
 }
 
+double _quantizeBeats(double rawBeats) {
+  const choices = [0.5, 1.0, 1.5, 2.0, 3.0, 4.0];
+  var best = 1.0;
+  var bestDist = double.infinity;
+  for (final c in choices) {
+    final d = (rawBeats - c).abs();
+    if (d < bestDist) {
+      bestDist = d;
+      best = c;
+    }
+  }
+  return best;
+}
+
 /// 根据原始 MIDI 序列与目标口琴调号，自动寻找压音最少的最佳移调并生成同音异孔最小移动推荐。
 ScoreImportPlan buildScoreImportPlan({
   required List<int> sourceMidis,
   required String harmonicaKey,
+  List<double>? sourceBeats,
   int? transposeOverride,
   String? suggestedTitle,
 }) {
@@ -288,6 +309,9 @@ ScoreImportPlan buildScoreImportPlan({
         selectedTab: selected,
         alternatives: List.unmodifiable(alternatives),
         requiresBend: requiresBend,
+        beats: (sourceBeats != null && i < sourceBeats.length)
+            ? sourceBeats[i]
+            : 1.0,
       ),
     );
   }
@@ -316,6 +340,10 @@ ParsedScoreSource parseMidiBytes(Uint8List bytes, {String? fallbackTitle}) {
   final data = ByteData.sublistView(bytes);
   final headerLength = data.getUint32(4);
   final trackCount = data.getUint16(10);
+  final division = data.getUint16(12);
+  final ticksPerQuarter = (division & 0x8000) == 0 && division > 0
+      ? division
+      : 480;
   var offset = 8 + headerLength;
 
   String? trackTitle;
@@ -414,13 +442,18 @@ ParsedScoreSource parseMidiBytes(Uint8List bytes, {String? fallbackTitle}) {
   }
 
   final sortedTicks = noteByTick.keys.toList()..sort();
-  final midis = sortedTicks
-      .take(128)
-      .map((tick) => noteByTick[tick]!)
-      .toList();
+  final limitedTicks = sortedTicks.take(128).toList();
+  final midis = limitedTicks.map((tick) => noteByTick[tick]!).toList();
+  final beats = List<double>.generate(limitedTicks.length, (i) {
+    if (i >= limitedTicks.length - 1) return 1.0;
+    final delta = (limitedTicks[i + 1] - limitedTicks[i]).toDouble();
+    if (delta <= 0) return 1.0;
+    return _quantizeBeats(delta / ticksPerQuarter);
+  });
 
   return ParsedScoreSource(
     midis: midis,
+    beats: List.unmodifiable(beats),
     title: trackTitle ?? fallbackTitle,
     sourceFormat: 'midi',
   );
@@ -456,12 +489,17 @@ ParsedScoreSource parseMusicXml(String xmlText, {String? fallbackTitle}) {
     'B': 11,
   };
 
+  final divisionsVal =
+      double.tryParse(extractTag(xmlText, 'divisions') ?? '1') ?? 1.0;
+  final divisions = divisionsVal > 0 ? divisionsVal : 1.0;
+
   final noteMatches = RegExp(
     r'<note\b[^>]*>([\s\S]*?)</note>',
     caseSensitive: false,
   ).allMatches(xmlText);
 
   final midis = <int>[];
+  final beats = <double>[];
   for (final match in noteMatches) {
     if (midis.length >= 128) break;
     final body = match.group(1) ?? '';
@@ -479,6 +517,8 @@ ParsedScoreSource parseMusicXml(String xmlText, {String? fallbackTitle}) {
     final midi = (octave + 1) * 12 + stepOffset + alter;
     if (midi >= 24 && midi <= 108) {
       midis.add(midi);
+      final durVal = double.tryParse(extractTag(body, 'duration') ?? '');
+      beats.add(durVal != null && durVal > 0 ? _quantizeBeats(durVal / divisions) : 1.0);
     }
   }
 
@@ -488,6 +528,7 @@ ParsedScoreSource parseMusicXml(String xmlText, {String? fallbackTitle}) {
 
   return ParsedScoreSource(
     midis: midis,
+    beats: List.unmodifiable(beats),
     title: title,
     sourceFormat: 'musicxml',
   );
@@ -501,9 +542,12 @@ ParsedScoreSource parseTextOrJianpuSource(
   final parsed = parseSongShareOrJianpu(rawInput);
   final notes = parseHarmonicaTabs(parsed.tabs);
   final offset = harmonicaKeyOffset(harmonicaKey);
-  final midis = notes.map((note) => note.midi + offset).toList();
+  final pitched = notes.where((n) => !n.isRest).toList();
+  final midis = pitched.map((note) => note.midi + offset).toList();
+  final beats = pitched.map((note) => note.beats).toList();
   return ParsedScoreSource(
     midis: midis,
+    beats: List.unmodifiable(beats),
     title: parsed.title,
     sourceFormat: 'text',
   );

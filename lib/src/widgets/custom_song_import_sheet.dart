@@ -151,6 +151,7 @@ class _CustomSongImportSheetState extends State<CustomSongImportSheet> {
       final plan = buildScoreImportPlan(
         sourceMidis: source.midis,
         harmonicaKey: widget.appController.harmonicaKey,
+        sourceBeats: source.beats,
         suggestedTitle: source.title ?? fallbackTitle,
       );
       if (_titleValue.trim().isEmpty &&
@@ -186,6 +187,7 @@ class _CustomSongImportSheetState extends State<CustomSongImportSheet> {
       final plan = buildScoreImportPlan(
         sourceMidis: source.midis,
         harmonicaKey: widget.appController.harmonicaKey,
+        sourceBeats: source.beats,
         suggestedTitle: source.title,
       );
       unawaited(AppHaptics.selection(context));
@@ -212,6 +214,7 @@ class _CustomSongImportSheetState extends State<CustomSongImportSheet> {
       _plan = buildScoreImportPlan(
         sourceMidis: current.sourceMidis,
         harmonicaKey: current.harmonicaKey,
+        sourceBeats: current.items.map((item) => item.beats).toList(),
         transposeOverride: nextShift,
         suggestedTitle: current.suggestedTitle,
       );
@@ -226,6 +229,7 @@ class _CustomSongImportSheetState extends State<CustomSongImportSheet> {
       _plan = buildScoreImportPlan(
         sourceMidis: current.sourceMidis,
         harmonicaKey: current.harmonicaKey,
+        sourceBeats: current.items.map((item) => item.beats).toList(),
         suggestedTitle: current.suggestedTitle,
       );
     });

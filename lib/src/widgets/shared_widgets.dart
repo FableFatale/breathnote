@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../localization/app_strings.dart';
 import '../services/haptics.dart';
+import '../services/share_service.dart';
 import '../state/app_controller.dart';
 import '../theme/app_motion.dart';
 import '../theme/app_theme.dart';
@@ -546,8 +549,12 @@ Future<void> showAchievementCardSheet(
   String? iconId,
   String? songId,
   String? tabPreview,
+  String? grade,
+  int? stars,
 }) async {
   final controller = AppScope.read(context);
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final posterKey = GlobalKey();
   unawaited(AppHaptics.reedResonance(context));
   await showModalBottomSheet<void>(
     context: context,
@@ -564,6 +571,54 @@ Future<void> showAchievementCardSheet(
         'days': days,
       });
 
+      Future<void> sharePosterImage() async {
+        Uint8List? pngBytes;
+        try {
+          final boundary =
+              posterKey.currentContext?.findRenderObject()
+                  as RenderRepaintBoundary?;
+          if (boundary != null) {
+            final image = await boundary.toImage(pixelRatio: 3.0);
+            try {
+              final byteData = await image.toByteData(
+                format: ui.ImageByteFormat.png,
+              );
+              pngBytes = byteData?.buffer.asUint8List();
+            } finally {
+              image.dispose();
+            }
+          }
+        } catch (_) {
+          pngBytes = null;
+        }
+
+        final shared = pngBytes != null && pngBytes.isNotEmpty
+            ? await const ShareService().sharePngImage(
+                bytes: pngBytes,
+                fileName: 'breathnote_${songId ?? 'achievement'}.png',
+                text: shareText,
+                subject: strings.t('achievementShareSubject'),
+              )
+            : false;
+
+        if (shared) {
+          if (!sheetContext.mounted) return;
+          unawaited(AppHaptics.success(sheetContext));
+          Navigator.of(sheetContext).pop();
+          return;
+        }
+
+        await Clipboard.setData(ClipboardData(text: shareText));
+        if (!sheetContext.mounted) return;
+        unawaited(AppHaptics.selection(sheetContext));
+        Navigator.of(sheetContext).pop();
+        messenger?.showSnackBar(
+          SnackBar(
+            content: Text(strings.t('achievementImageShareUnavailable')),
+          ),
+        );
+      }
+
       return SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -571,208 +626,293 @@ Future<void> showAchievementCardSheet(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                key: const Key('achievement-poster-card'),
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      palette.primary.withValues(alpha: 0.14),
-                      palette.surface,
-                      palette.accent.withValues(alpha: 0.10),
-                    ],
+              RepaintBoundary(
+                key: posterKey,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: palette.background,
+                    borderRadius: BorderRadius.circular(28),
                   ),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: palette.primary.withValues(alpha: 0.30),
-                    width: 1.4,
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Row(
+                  child: Container(
+                    key: const Key('achievement-poster-card'),
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      color: palette.background,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          palette.primary.withValues(alpha: 0.14),
+                          palette.surface,
+                          palette.accent.withValues(alpha: 0.10),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: palette.primary.withValues(alpha: 0.30),
+                        width: 1.4,
+                      ),
+                    ),
+                    child: Column(
                       children: [
-                        const HarmonicaBrandIcon(size: 22),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                strings.t('achievementCardTitle'),
-                                style: Theme.of(sheetContext)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w800),
+                        Row(
+                          children: [
+                            const HarmonicaBrandIcon(size: 22),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    strings.t('achievementCardTitle'),
+                                    style: Theme.of(sheetContext)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w800),
+                                  ),
+                                  Text(
+                                    strings.t('achievementCardSubtitle'),
+                                    style: Theme.of(sheetContext)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(fontSize: 11),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                strings.t('achievementCardSubtitle'),
-                                style: Theme.of(sheetContext)
-                                    .textTheme
-                                    .bodySmall
-                                    ?.copyWith(fontSize: 11),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: palette.primary.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                strings.t('keyName', {
+                                  'key': controller.harmonicaKey,
+                                }),
+                                style: TextStyle(
+                                  color: palette.primary,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const ChumingBird(
+                              size: 68,
+                              mood: ChumingMood.celebrating,
+                            ),
+                            if (iconId != null) ...[
+                              const SizedBox(width: 14),
+                              SongArtworkBadge(
+                                iconId: iconId,
+                                songId: songId ?? '',
+                                size: 56,
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          title,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(sheetContext).textTheme.headlineSmall,
+                        ),
+                        if (stars != null ||
+                            (grade != null && grade.isNotEmpty)) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: [
+                              if (stars != null)
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: List.generate(3, (index) {
+                                    final earned = index < stars;
+                                    return Icon(
+                                      earned
+                                          ? Icons.star_rounded
+                                          : Icons.star_outline_rounded,
+                                      size: 18,
+                                      color: earned
+                                          ? const Color(0xFFF59E0B)
+                                          : palette.outline,
+                                    );
+                                  }),
+                                ),
+                              if (grade != null && grade.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 9,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: palette.primary.withValues(
+                                      alpha: 0.14,
+                                    ),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    strings.t('scoreGradeLabel', {
+                                      'grade': grade,
+                                    }),
+                                    style: TextStyle(
+                                      color: palette.primary,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                        if (tabPreview != null && tabPreview.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: palette.surfaceHigh,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              tabPreview,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: palette.primary,
+                                fontFamily: 'monospace',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: palette.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: palette.outline),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              Flexible(
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      '$score',
+                                      style: TextStyle(
+                                        color: palette.primary,
+                                        fontFamily: 'monospace',
+                                        fontSize: 26,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    Text(
+                                      strings.t('runScoreLabel'),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(sheetContext)
+                                          .textTheme
+                                          .bodySmall,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                width: 1,
+                                height: 28,
+                                color: palette.outline,
+                              ),
+                              Flexible(
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      strings.t('commonDays', {'count': days}),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: palette.text,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    Text(
+                                      strings.t('practiceDays'),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(sheetContext)
+                                          .textTheme
+                                          .bodySmall,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: palette.primary.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            strings.t('keyName', {
-                              'key': controller.harmonicaKey,
-                            }),
-                            style: TextStyle(
-                              color: palette.primary,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
                       ],
                     ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const ChumingBird(
-                          size: 68,
-                          mood: ChumingMood.celebrating,
-                        ),
-                        if (iconId != null) ...[
-                          const SizedBox(width: 14),
-                          SongArtworkBadge(
-                            iconId: iconId,
-                            songId: songId ?? '',
-                            size: 56,
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      title,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(sheetContext).textTheme.headlineSmall,
-                    ),
-                    if (tabPreview != null && tabPreview.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: palette.surfaceHigh,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          tabPreview,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: palette.primary,
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: palette.surface,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: palette.outline),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          Flexible(
-                            child: Column(
-                              children: [
-                                Text(
-                                  '$score',
-                                  style: TextStyle(
-                                    color: palette.primary,
-                                    fontFamily: 'monospace',
-                                    fontSize: 26,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                Text(
-                                  strings.t('runScoreLabel'),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(sheetContext)
-                                      .textTheme
-                                      .bodySmall,
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            width: 1,
-                            height: 28,
-                            color: palette.outline,
-                          ),
-                          Flexible(
-                            child: Column(
-                              children: [
-                                Text(
-                                  strings.t('commonDays', {'count': days}),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: palette.text,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                Text(
-                                  strings.t('practiceDays'),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(sheetContext)
-                                      .textTheme
-                                      .bodySmall,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
-              FilledButton.icon(
-                key: const Key('copy-achievement-text'),
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: shareText));
-                  if (!sheetContext.mounted) return;
-                  unawaited(AppHaptics.success(sheetContext));
-                  Navigator.of(sheetContext).pop();
-                  ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-                    SnackBar(content: Text(strings.t('achievementCopied'))),
-                  );
-                },
-                icon: const Icon(Icons.copy_rounded, size: 18),
-                label: Text(strings.t('copyAchievementText')),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      key: const Key('copy-achievement-text'),
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: shareText));
+                        if (!sheetContext.mounted) return;
+                        unawaited(AppHaptics.success(sheetContext));
+                        Navigator.of(sheetContext).pop();
+                        messenger?.showSnackBar(
+                          SnackBar(
+                            content: Text(strings.t('achievementCopied')),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.copy_rounded, size: 17),
+                      label: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(strings.t('copyAchievementTextShort')),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      key: const Key('share-achievement-image'),
+                      onPressed: sharePosterImage,
+                      icon: const Icon(Icons.image_outlined, size: 17),
+                      label: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(strings.t('shareAchievementImage')),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

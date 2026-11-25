@@ -444,6 +444,40 @@ class ProfileScreen extends StatelessWidget {
                   }
                 },
               ),
+              const Divider(height: 1, indent: 18, endIndent: 18),
+              SwitchListTile(
+                key: const Key('profile-metronome-switch'),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 2,
+                ),
+                secondary: const Icon(Icons.timer_outlined),
+                title: Text(strings.t('metronomeSetting')),
+                subtitle: Text(strings.t('metronomeSettingSubtitle')),
+                value: controller.metronomeEnabled,
+                onChanged: (value) async {
+                  await controller.setMetronomeEnabled(value);
+                  if (!context.mounted) return;
+                  await AppHaptics.selection(context);
+                },
+              ),
+              const Divider(height: 1, indent: 18, endIndent: 18),
+              SwitchListTile(
+                key: const Key('profile-strict-octave-switch'),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 2,
+                ),
+                secondary: const Icon(Icons.tune_rounded),
+                title: Text(strings.t('strictOctaveSetting')),
+                subtitle: Text(strings.t('strictOctaveSubtitle')),
+                value: controller.strictOctave,
+                onChanged: (value) async {
+                  await controller.setStrictOctave(value);
+                  if (!context.mounted) return;
+                  await AppHaptics.selection(context);
+                },
+              ),
             ],
           ),
         ),

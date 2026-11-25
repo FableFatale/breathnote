@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../localization/app_strings.dart';
 import '../models/harmonica_layout.dart';
 import '../models/pitch_reading.dart';
+import '../models/song_score.dart';
 import '../services/guide_tone_service.dart';
 import '../services/haptics.dart';
 import '../services/pitch_service.dart';
@@ -205,6 +206,9 @@ class _ChordRhythmLessonScreenState extends State<ChordRhythmLessonScreen> {
           }
           unawaited(AppHaptics.success(context));
         }
+        if (AppScope.maybeRead(context)?.metronomeEnabled ?? true) {
+          unawaited(_guideToneService.playMetronomeClick(accent: true));
+        }
         setState(() {
           _currentBeat = 0;
           _blowBeatHit = false;
@@ -213,6 +217,9 @@ class _ChordRhythmLessonScreenState extends State<ChordRhythmLessonScreen> {
           _restBleedThisBeat = false;
         });
       } else {
+        if (AppScope.maybeRead(context)?.metronomeEnabled ?? true) {
+          unawaited(_guideToneService.playMetronomeClick(accent: false));
+        }
         setState(() {
           _currentBeat = nextBeat;
           _lastBeatHitFlash = false;
@@ -603,6 +610,8 @@ class _ChordRhythmLessonScreenState extends State<ChordRhythmLessonScreen> {
                     title: strings.lessonTitle('lesson_chord'),
                     score: _rhythmScore,
                     tabPreview: '1-2-3↑ · 1-2-3↓',
+                    grade: gradeForSongScore(_rhythmScore).label,
+                    stars: starsForSongScore(_rhythmScore),
                   ),
                   style: FilledButton.styleFrom(
                     minimumSize: const Size.fromHeight(50),

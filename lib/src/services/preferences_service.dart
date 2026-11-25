@@ -34,6 +34,8 @@ class PreferencesService {
     'firstInstallAt',
     'activePresetId',
     'harmonicaPresets',
+    'metronomeEnabled',
+    'strictOctave',
   };
 
   Future<Map<String, Object?>> getAll() async {

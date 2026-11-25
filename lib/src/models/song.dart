@@ -161,11 +161,11 @@ class Song {
   final bool isPro;
   final bool skipBendNotes;
 
-  /// 开启「评分时跳过压音」时自动过滤需压音音符（若全部需压音则保留原列表避免空曲）。
+  /// 开启「评分时跳过压音」时自动过滤需压音音符（休止符保留；若全部需压音则保留原列表避免空曲）。
   List<PracticeNote> get playableNotes {
     if (!skipBendNotes) return notes;
-    final direct = notes.where((n) => !n.requiresBend).toList();
-    return direct.isEmpty ? notes : direct;
+    final direct = notes.where((n) => n.isRest || !n.requiresBend).toList();
+    return direct.every((n) => n.isRest) ? notes : direct;
   }
 
   int get bendNoteCount => notes.where((n) => n.requiresBend).length;
@@ -173,7 +173,12 @@ class Song {
   String get defaultIconId =>
       iconId ?? defaultIconIdForSong(id, isCustom: isCustom);
 
-  String get tabPreview => notes.map((note) => note.tab).join(' ');
+  String get tabPreview => notes.map((note) {
+    final base = note.isRest ? '0' : note.tab;
+    final tag = note.beatTag;
+    if (tag.isEmpty) return base;
+    return '$base:${tag == '½' ? '0.5' : tag}';
+  }).join(' ');
 
   Map<String, Object> toJson() {
     return {
@@ -198,22 +203,41 @@ List<PracticeNote> parseHarmonicaTabs(String input) {
   final notes = <PracticeNote>[];
 
   for (final token in tokens) {
-    final match = RegExp(r'^(10|[1-9])([↑↓])$').firstMatch(token);
+    final restMatch = RegExp(
+      r'^(?:0|[Rr])(?::(0\.5|1(?:\.5)?|2|3|4))?$',
+    ).firstMatch(token);
+    if (restMatch != null) {
+      final rawBeats = restMatch.group(1);
+      final beats = rawBeats == null ? 1.0 : double.parse(rawBeats);
+      notes.add(PracticeNote.rest(beats: beats));
+      continue;
+    }
+
+    final match = RegExp(
+      r'^(10|[1-9])([↑↓])(?::(0\.5|1(?:\.5)?|2|3|4))?$',
+    ).firstMatch(token);
     if (match == null) {
       throw HarmonicaTabFormatException('invalidNotation', token: token);
     }
     final hole = int.parse(match.group(1)!);
     final direction = match.group(2)!;
+    final rawBeats = match.group(3);
+    final beats = rawBeats == null ? 1.0 : double.parse(rawBeats);
     final midi = direction == '↑' ? blow[hole - 1] : draw[hole - 1];
     final label = noteLabelForMidi(midi);
     final noteName = label.substring(0, label.length - 1);
     final octave = int.parse(label.substring(label.length - 1));
     notes.add(
-      PracticeNote(note: noteName, octave: octave, tab: '$hole$direction'),
+      PracticeNote(
+        note: noteName,
+        octave: octave,
+        tab: '$hole$direction',
+        beats: beats,
+      ),
     );
   }
 
-  if (notes.isEmpty) {
+  if (notes.isEmpty || notes.every((note) => note.isRest)) {
     throw const HarmonicaTabFormatException('emptyNotation');
   }
   return notes;
@@ -264,33 +288,48 @@ String convertJianpuToTabs(String input) {
   final rawTokens = input
       .replaceAll(RegExp(r'[|｜,，;；/]+'), ' ')
       .split(RegExp(r'\s+'))
-      .where((token) => token.isNotEmpty && token != '-' && token != '—' && token != '0');
+      .where((token) => token.isNotEmpty && token != '-' && token != '—');
 
   final converted = <String>[];
   for (final token in rawTokens) {
-    if (RegExp(r'^(10|[1-9])([↑↓])$').hasMatch(token)) {
-      converted.add(token);
+    final colonIdx = token.indexOf(':');
+    final head = colonIdx >= 0 ? token.substring(0, colonIdx) : token;
+    final suffix = colonIdx >= 0 ? token.substring(colonIdx) : '';
+    if (suffix.isNotEmpty &&
+        !RegExp(r'^:(0\.5|1(?:\.5)?|2|3|4)$').hasMatch(suffix)) {
+      throw HarmonicaTabFormatException('invalidNotation', token: token);
+    }
+    if (RegExp(r'^(?:0|[Rr])$').hasMatch(head)) {
+      converted.add('0$suffix');
       continue;
     }
-    final highMatch = RegExp(r"^([1-7])['’⁺\^]$|^\+([1-7])$").firstMatch(token);
+    if (RegExp(r'^(10|[1-9])([↑↓])$').hasMatch(head)) {
+      converted.add('$head$suffix');
+      continue;
+    }
+    final highMatch = RegExp(r"^([1-7])['’⁺\^]$|^\+([1-7])$").firstMatch(head);
     if (highMatch != null) {
       final digit = highMatch.group(1) ?? highMatch.group(2)!;
-      converted.add(highMap[digit]!);
+      converted.add('${highMap[digit]!}$suffix');
       continue;
     }
-    final lowMatch = RegExp(r'^\.([1-7])$|^([1-7])\.$|^_([1-7])$').firstMatch(token);
+    final lowMatch = RegExp(r'^\.([1-7])$|^([1-7])\.$|^_([1-7])$').firstMatch(head);
     if (lowMatch != null) {
       final digit = lowMatch.group(1) ?? lowMatch.group(2) ?? lowMatch.group(3)!;
-      converted.add(lowMap[digit]!);
+      converted.add('${lowMap[digit]!}$suffix');
       continue;
     }
-    if (RegExp(r'^[1-7]+$').hasMatch(token)) {
-      for (final rune in token.runes) {
+    if (suffix.isEmpty && RegExp(r'^[1-7]+$').hasMatch(head)) {
+      for (final rune in head.runes) {
         final char = String.fromCharCode(rune);
         if (middleMap.containsKey(char)) {
           converted.add(middleMap[char]!);
         }
       }
+      continue;
+    }
+    if (suffix.isNotEmpty && RegExp(r'^[1-7]$').hasMatch(head)) {
+      converted.add('${middleMap[head]!}$suffix');
       continue;
     }
     throw HarmonicaTabFormatException('invalidNotation', token: token);
@@ -340,7 +379,7 @@ const songs = [
       PracticeNote(note: 'G', octave: 5, tab: '6↑'),
       PracticeNote(note: 'A', octave: 5, tab: '6↓'),
       PracticeNote(note: 'A', octave: 5, tab: '6↓'),
-      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
+      PracticeNote(note: 'G', octave: 5, tab: '6↑', beats: 2.0),
     ],
   ),
   Song(
@@ -390,13 +429,13 @@ const songs = [
     notes: [
       // 传统五声调式校对版（好一朵美丽的茉莉花：3 3 5 6 1̇ 1̇ 6 5）
       PracticeNote(note: 'E', octave: 5, tab: '5↑'),
-      PracticeNote(note: 'E', octave: 5, tab: '5↑'),
-      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
-      PracticeNote(note: 'A', octave: 5, tab: '6↓'),
-      PracticeNote(note: 'C', octave: 6, tab: '7↑'),
-      PracticeNote(note: 'C', octave: 6, tab: '7↑'),
-      PracticeNote(note: 'A', octave: 5, tab: '6↓'),
-      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
+      PracticeNote(note: 'E', octave: 5, tab: '5↑', beats: 0.5),
+      PracticeNote(note: 'G', octave: 5, tab: '6↑', beats: 0.5),
+      PracticeNote(note: 'A', octave: 5, tab: '6↓', beats: 0.5),
+      PracticeNote(note: 'C', octave: 6, tab: '7↑', beats: 0.5),
+      PracticeNote(note: 'C', octave: 6, tab: '7↑', beats: 0.5),
+      PracticeNote(note: 'A', octave: 5, tab: '6↓', beats: 0.5),
+      PracticeNote(note: 'G', octave: 5, tab: '6↑', beats: 2.0),
     ],
   ),
   Song(
@@ -408,14 +447,15 @@ const songs = [
     iconId: 'moon',
     isPro: true,
     notes: [
-      // 公版圣咏旋律（5̣ 1 3 1 3 2 1）
+      // 公版圣咏旋律（5̣ 1 3 1 3 2 1 + 气息休止）
       PracticeNote(note: 'G', octave: 4, tab: '3↑'),
-      PracticeNote(note: 'C', octave: 5, tab: '4↑'),
-      PracticeNote(note: 'E', octave: 5, tab: '5↑'),
-      PracticeNote(note: 'C', octave: 5, tab: '4↑'),
-      PracticeNote(note: 'E', octave: 5, tab: '5↑'),
+      PracticeNote(note: 'C', octave: 5, tab: '4↑', beats: 2.0),
+      PracticeNote(note: 'E', octave: 5, tab: '5↑', beats: 0.5),
+      PracticeNote(note: 'C', octave: 5, tab: '4↑', beats: 0.5),
+      PracticeNote(note: 'E', octave: 5, tab: '5↑', beats: 2.0),
       PracticeNote(note: 'D', octave: 5, tab: '4↓'),
-      PracticeNote(note: 'C', octave: 5, tab: '4↑'),
+      PracticeNote(note: 'C', octave: 5, tab: '4↑', beats: 2.0),
+      PracticeNote.rest(beats: 1.0),
     ],
   ),
   Song(
@@ -427,12 +467,12 @@ const songs = [
     iconId: 'campfire',
     isPro: true,
     notes: [
-      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
-      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
+      PracticeNote(note: 'G', octave: 5, tab: '6↑', beats: 0.5),
+      PracticeNote(note: 'G', octave: 5, tab: '6↑', beats: 0.5),
       PracticeNote(note: 'A', octave: 5, tab: '6↓'),
       PracticeNote(note: 'G', octave: 5, tab: '6↑'),
       PracticeNote(note: 'C', octave: 6, tab: '7↑'),
-      PracticeNote(note: 'B', octave: 5, tab: '7↓'),
+      PracticeNote(note: 'B', octave: 5, tab: '7↓', beats: 2.0),
     ],
   ),
   Song(
@@ -445,12 +485,12 @@ const songs = [
     isPro: true,
     notes: [
       PracticeNote(note: 'G', octave: 5, tab: '6↑'),
-      PracticeNote(note: 'E', octave: 5, tab: '5↑'),
-      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
-      PracticeNote(note: 'C', octave: 6, tab: '7↑'),
+      PracticeNote(note: 'E', octave: 5, tab: '5↑', beats: 0.5),
+      PracticeNote(note: 'G', octave: 5, tab: '6↑', beats: 0.5),
+      PracticeNote(note: 'C', octave: 6, tab: '7↑', beats: 2.0),
       PracticeNote(note: 'A', octave: 5, tab: '6↓'),
       PracticeNote(note: 'C', octave: 6, tab: '7↑'),
-      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
+      PracticeNote(note: 'G', octave: 5, tab: '6↑', beats: 2.0),
     ],
   ),
   Song(
@@ -462,16 +502,17 @@ const songs = [
     iconId: 'vinyl',
     isPro: true,
     notes: [
-      // 初鸣原创中音区连奏练习曲（4–7 孔自然音阶起伏）
+      // 初鸣原创中音区连奏练习曲（4–7 孔自然音阶起伏 + 呼吸停顿）
       PracticeNote(note: 'C', octave: 5, tab: '4↑'),
       PracticeNote(note: 'E', octave: 5, tab: '5↑'),
-      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
-      PracticeNote(note: 'A', octave: 5, tab: '6↓'),
-      PracticeNote(note: 'G', octave: 5, tab: '6↑'),
+      PracticeNote(note: 'G', octave: 5, tab: '6↑', beats: 1.5),
+      PracticeNote(note: 'A', octave: 5, tab: '6↓', beats: 0.5),
+      PracticeNote(note: 'G', octave: 5, tab: '6↑', beats: 2.0),
+      PracticeNote.rest(beats: 1.0),
       PracticeNote(note: 'F', octave: 5, tab: '5↓'),
       PracticeNote(note: 'E', octave: 5, tab: '5↑'),
       PracticeNote(note: 'D', octave: 5, tab: '4↓'),
-      PracticeNote(note: 'C', octave: 5, tab: '4↑'),
+      PracticeNote(note: 'C', octave: 5, tab: '4↑', beats: 2.0),
     ],
   ),
 ];

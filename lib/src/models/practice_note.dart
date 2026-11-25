@@ -6,14 +6,31 @@ class PracticeNote {
     required this.octave,
     required this.tab,
     this.requiresBend = false,
+    this.beats = 1.0,
+    this.isRest = false,
   });
 
+  const PracticeNote.rest({this.beats = 1.0})
+    : note = 'R',
+      octave = 0,
+      tab = '0',
+      requiresBend = false,
+      isRest = true;
+
   factory PracticeNote.fromJson(Map<String, Object?> json) {
+    final isRest = json['rest'] as bool? ?? false;
+    final beats = ((json['beats'] as num?)?.toDouble() ?? 1.0)
+        .clamp(0.25, 4.0)
+        .toDouble();
+    if (isRest) {
+      return PracticeNote.rest(beats: beats);
+    }
     return PracticeNote(
       note: json['note'] as String,
       octave: (json['octave'] as num).toInt(),
       tab: json['tab'] as String,
       requiresBend: json['bend'] as bool? ?? false,
+      beats: beats,
     );
   }
 
@@ -21,12 +38,25 @@ class PracticeNote {
   final int octave;
   final String tab;
   final bool requiresBend;
+  final double beats;
+  final bool isRest;
 
-  String get label => '$note$octave';
+  String get label => isRest ? '—' : '$note$octave';
 
-  bool get isBlow => tab.contains('↑');
+  bool get isBlow => !isRest && tab.contains('↑');
+
+  String get beatTag {
+    if ((beats - 1.0).abs() < 0.05) return '';
+    if ((beats - 0.5).abs() < 0.05) return '½';
+    if ((beats - 1.5).abs() < 0.05) return '1.5';
+    if ((beats - beats.roundToDouble()).abs() < 0.05) {
+      return '${beats.round()}';
+    }
+    return beats.toStringAsFixed(1);
+  }
 
   int get midi {
+    if (isRest) return 0;
     const names = [
       'C',
       'C#',
@@ -45,21 +75,35 @@ class PracticeNote {
   }
 
   double frequencyForKey(String key) {
+    if (isRest) return 0;
     final targetMidi = midi + harmonicaKeyOffset(key);
     return (440 * math.pow(2, (targetMidi - 69) / 12)).toDouble();
   }
 
   String labelForKey(String key) {
+    if (isRest) return '—';
     return noteLabelForMidi(midi + harmonicaKeyOffset(key));
   }
 
-  double centsFromFrequency(double frequency, String key) {
-    if (frequency <= 0) return 0;
+  double centsFromFrequency(
+    double frequency,
+    String key, {
+    bool strictOctave = false,
+  }) {
+    if (isRest || frequency <= 0) return 0;
     final rawCents =
         1200 * math.log(frequency / frequencyForKey(key)) / math.ln2;
-    if (rawCents.abs() <= 600) return rawCents;
+    if (strictOctave || rawCents.abs() <= 600) return rawCents;
     final octaveShift = (rawCents / 1200).round().clamp(-3, 3);
     return rawCents - octaveShift * 1200;
+  }
+
+  int octaveDeltaFromFrequency(double frequency, String key) {
+    if (isRest || frequency <= 0) return 0;
+    final rawCents =
+        1200 * math.log(frequency / frequencyForKey(key)) / math.ln2;
+    if (rawCents.abs() <= 600) return 0;
+    return (rawCents / 1200).round().clamp(-3, 3);
   }
 
   Map<String, Object> toJson() {
@@ -68,6 +112,8 @@ class PracticeNote {
       'octave': octave,
       'tab': tab,
       if (requiresBend) 'bend': true,
+      if ((beats - 1.0).abs() >= 0.01) 'beats': beats,
+      if (isRest) 'rest': true,
     };
   }
 }

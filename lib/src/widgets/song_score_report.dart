@@ -57,6 +57,7 @@ class _SongScoreReportCardState extends State<SongScoreReportCard> {
   }
 
   Future<void> _previewNote(NoteScoreRecord record) async {
+    if (record.note.isRest) return;
     final key = AppScope.maybeRead(context)?.harmonicaKey ?? 'C';
     unawaited(AppHaptics.selection(context));
     setState(() => _playingNoteIndex = record.index);
@@ -88,7 +89,9 @@ class _SongScoreReportCardState extends State<SongScoreReportCard> {
       NoteScoreStatus.missed => strings.t('scoringCoachMissed', {'tab': tab}),
       NoteScoreStatus.flat => strings.t('scoringCoachFlat', {'tab': tab}),
       NoteScoreStatus.sharp => strings.t('scoringCoachSharp', {'tab': tab}),
-      NoteScoreStatus.accurate => strings.t('scoringCoachPerfect'),
+      NoteScoreStatus.accurate ||
+      NoteScoreStatus.restClean ||
+      NoteScoreStatus.restBleed => strings.t('scoringCoachPerfect'),
     };
   }
 
@@ -324,6 +327,8 @@ class _SongScoreReportCardState extends State<SongScoreReportCard> {
                   iconId: widget.iconId,
                   songId: widget.song.id,
                   tabPreview: widget.song.tabPreview,
+                  grade: grade.label,
+                  stars: stars,
                 ),
                 icon: const Icon(Icons.workspace_premium_rounded, size: 18),
                 label: Text(strings.t('shareAchievementBtn')),
@@ -707,7 +712,19 @@ class _NoteReviewChip extends StatelessWidget {
         palette.danger,
         strings.t('scoringStatusMissed'),
       ),
+      NoteScoreStatus.restClean => (
+        palette.success,
+        strings.t('restCleanLabel'),
+      ),
+      NoteScoreStatus.restBleed => (
+        palette.warning,
+        strings.t('restBleedLabel'),
+      ),
     };
+
+    final chipTitle = record.note.isRest
+        ? (record.note.beatTag.isEmpty ? '休' : '休:${record.note.beatTag}')
+        : record.note.tab;
 
     return Material(
       color: playing
@@ -715,7 +732,7 @@ class _NoteReviewChip extends StatelessWidget {
           : color.withValues(alpha: 0.10),
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
-        onTap: onTap,
+        onTap: record.note.isRest ? null : onTap,
         borderRadius: BorderRadius.circular(10),
         child: Container(
           constraints: const BoxConstraints(minWidth: 50, minHeight: 44),
@@ -734,7 +751,7 @@ class _NoteReviewChip extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    record.note.tab,
+                    chipTitle,
                     style: TextStyle(
                       fontFamily: 'monospace',
                       fontSize: 13,

@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../localization/app_strings.dart';
 import '../models/harmonica_layout.dart';
 import '../models/pitch_reading.dart';
+import '../models/practice_note.dart';
 import '../models/song.dart';
 import '../models/song_score.dart';
 import '../services/guide_tone_service.dart';
@@ -61,6 +62,9 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   Timer? _guideStepTimer;
   Timer? _countInTimer;
   Timer? _scoreTimer;
+  Timer? _metronomeTimer;
+  Timer? _progressTicker;
+  Timer? _restFollowTimer;
   PitchReading _reading = const PitchReading.silent();
   _SongStatus _status = _SongStatus.idle;
   late SongPracticeMode _mode = widget.initialMode;
@@ -89,6 +93,8 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   DateTime? _noteWindowStartedAt;
   final List<double> _currentNoteCents = [];
   double? _currentNoteFirstOnsetMs;
+  int _currentRestBleedFrames = 0;
+  int _metronomeBeatIndex = 0;
   final List<NoteScoreRecord> _scoreRecords = [];
   int _liveCombo = 0;
   int _liveMaxCombo = 0;
@@ -101,8 +107,24 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _mode == SongPracticeMode.score &&
       (_status == _SongStatus.listening || _countInBeat > 0);
 
-  Duration get _scoreNoteDuration =>
+  Duration get _beatDuration =>
       Duration(milliseconds: _guideSpeed <= 0.6 ? 1300 : 850);
+
+  Duration _noteDurationFor(PracticeNote note) => Duration(
+    milliseconds: (_beatDuration.inMilliseconds * note.beats)
+        .round()
+        .clamp(300, 6000),
+  );
+
+  void _cancelPracticeTimers() {
+    _guideTimer?.cancel();
+    _guideStepTimer?.cancel();
+    _countInTimer?.cancel();
+    _scoreTimer?.cancel();
+    _metronomeTimer?.cancel();
+    _progressTicker?.cancel();
+    _restFollowTimer?.cancel();
+  }
 
   @override
   void initState() {
@@ -119,10 +141,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
 
   @override
   void deactivate() {
-    _guideTimer?.cancel();
-    _guideStepTimer?.cancel();
-    _countInTimer?.cancel();
-    _scoreTimer?.cancel();
+    _cancelPracticeTimers();
     _pausePracticeTimer();
     super.deactivate();
   }
@@ -130,10 +149,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _guideTimer?.cancel();
-    _guideStepTimer?.cancel();
-    _countInTimer?.cancel();
-    _scoreTimer?.cancel();
+    _cancelPracticeTimers();
     _subscription?.cancel();
     _pitchService.stop();
     _guideToneService.stop();
@@ -198,13 +214,91 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       unawaited(AppHaptics.light(context));
       if (_mode == SongPracticeMode.score) {
         _startScoringTimeline();
+      } else {
+        _scheduleRestFollowIfNeeded();
       }
     }
+  }
+
+  void _emitMetronomeBeat({required bool accent}) {
+    final enabled = AppScope.maybeRead(context)?.metronomeEnabled ?? true;
+    if (!enabled) return;
+    unawaited(_guideToneService.playMetronomeClick(accent: accent));
+  }
+
+  void _startProgressTicker() {
+    _progressTicker?.cancel();
+    _progressTicker = Timer.periodic(const Duration(milliseconds: 60), (_) {
+      if (!mounted ||
+          _status != _SongStatus.listening ||
+          _completed ||
+          _finishing ||
+          _mode != SongPracticeMode.score ||
+          _countInBeat > 0) {
+        return;
+      }
+      final startedAt = _noteWindowStartedAt;
+      if (startedAt == null) return;
+      final note = widget.song.playableNotes[_index];
+      final totalMs = _noteDurationFor(note).inMilliseconds;
+      final nextProgress =
+          (DateTime.now().difference(startedAt).inMilliseconds / totalMs)
+              .clamp(0.0, 1.0)
+              .toDouble();
+      if ((nextProgress - _holdProgress).abs() >= 0.01) {
+        setState(() => _holdProgress = nextProgress);
+      }
+    });
+  }
+
+  void _scheduleCurrentNoteTimer() {
+    _scoreTimer?.cancel();
+    if (!mounted ||
+        _status != _SongStatus.listening ||
+        _completed ||
+        _finishing ||
+        _mode != SongPracticeMode.score) {
+      return;
+    }
+    final note = widget.song.playableNotes[_index];
+    _scoreTimer = Timer(_noteDurationFor(note), () {
+      unawaited(_commitCurrentScoringNote());
+    });
+  }
+
+  void _scheduleRestFollowIfNeeded() {
+    _restFollowTimer?.cancel();
+    if (!mounted ||
+        _mode != SongPracticeMode.follow ||
+        _status != _SongStatus.listening ||
+        _completed ||
+        _finishing) {
+      return;
+    }
+    final target = widget.song.playableNotes[_index];
+    if (!target.isRest) return;
+    final waitMs = (_noteDurationFor(target).inMilliseconds * 0.65)
+        .round()
+        .clamp(250, 1500);
+    _restFollowTimer = Timer(Duration(milliseconds: waitMs), () {
+      if (!mounted ||
+          _mode != SongPracticeMode.follow ||
+          _status != _SongStatus.listening ||
+          _completed ||
+          _finishing) {
+        return;
+      }
+      if (widget.song.playableNotes[_index].isRest) {
+        unawaited(_advance(0));
+      }
+    });
   }
 
   void _startScoringTimeline() {
     _countInTimer?.cancel();
     _scoreTimer?.cancel();
+    _metronomeTimer?.cancel();
+    _progressTicker?.cancel();
     _previousSongBest =
         AppScope.maybeRead(context)?.bestScoreForSong(widget.song.id) ?? 0;
     _previousTargetTab = null;
@@ -218,33 +312,51 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _scoreRecords.clear();
       _currentNoteCents.clear();
       _currentNoteFirstOnsetMs = null;
+      _currentRestBleedFrames = 0;
+      _metronomeBeatIndex = 0;
       _noteWindowStartedAt = null;
       _liveCombo = 0;
       _liveMaxCombo = 0;
       _liveScore = 0;
       _countInBeat = 4;
     });
-    _countInTimer = Timer.periodic(_scoreNoteDuration, (timer) {
+    _emitMetronomeBeat(accent: true);
+    _countInTimer = Timer.periodic(_beatDuration, (timer) {
       if (!mounted || _status != _SongStatus.listening) {
         timer.cancel();
         return;
       }
       if (_countInBeat > 1) {
         unawaited(AppHaptics.selection(context));
+        _emitMetronomeBeat(accent: false);
         setState(() => _countInBeat--);
       } else {
         timer.cancel();
         unawaited(AppHaptics.light(context));
+        _metronomeBeatIndex = 0;
+        _emitMetronomeBeat(accent: true);
         setState(() {
           _countInBeat = 0;
           _noteWindowStartedAt = DateTime.now();
           _currentNoteCents.clear();
           _currentNoteFirstOnsetMs = null;
+          _currentRestBleedFrames = 0;
         });
-        _scoreTimer?.cancel();
-        _scoreTimer = Timer.periodic(_scoreNoteDuration, (_) {
-          unawaited(_commitCurrentScoringNote());
+        _metronomeTimer?.cancel();
+        _metronomeTimer = Timer.periodic(_beatDuration, (mTimer) {
+          if (!mounted ||
+              _status != _SongStatus.listening ||
+              _completed ||
+              _finishing ||
+              _mode != SongPracticeMode.score) {
+            mTimer.cancel();
+            return;
+          }
+          _metronomeBeatIndex++;
+          _emitMetronomeBeat(accent: _metronomeBeatIndex % 4 == 0);
         });
+        _startProgressTicker();
+        _scheduleCurrentNoteTimer();
       }
     });
   }
@@ -257,12 +369,18 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       return;
     }
     final note = widget.song.playableNotes[_index];
-    final record = NoteScoreRecord.fromSamples(
-      index: _index,
-      note: note,
-      centsSamples: List<double>.of(_currentNoteCents),
-      firstOnsetOffsetMs: _currentNoteFirstOnsetMs,
-    );
+    final record = note.isRest
+        ? NoteScoreRecord.forRest(
+            index: _index,
+            note: note,
+            bleedFrames: _currentRestBleedFrames,
+          )
+        : NoteScoreRecord.fromSamples(
+            index: _index,
+            note: note,
+            centsSamples: List<double>.of(_currentNoteCents),
+            firstOnsetOffsetMs: _currentNoteFirstOnsetMs,
+          );
     _scoreRecords.add(record);
     if (record.isAccurate) {
       _liveCombo++;
@@ -281,21 +399,25 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
 
     if (_index < widget.song.playableNotes.length - 1) {
       setState(() {
-        _previousTargetTab = note.tab;
+        _previousTargetTab = note.isRest ? null : note.tab;
         _index++;
         _demoNoteIndex = _index;
         _holdProgress = 0;
         _reading = const PitchReading.silent();
         _currentNoteCents.clear();
         _currentNoteFirstOnsetMs = null;
+        _currentRestBleedFrames = 0;
         _noteWindowStartedAt = DateTime.now();
       });
+      _scheduleCurrentNoteTimer();
       return;
     }
 
     // 最后一个音结束，汇总评分报告
     _scoreTimer?.cancel();
     _countInTimer?.cancel();
+    _metronomeTimer?.cancel();
+    _progressTicker?.cancel();
     _finishing = true;
     _completed = true;
     _holdProgress = 1;
@@ -361,10 +483,13 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     final controller = AppScope.maybeRead(context);
     if (controller == null) return;
     final target = widget.song.playableNotes[_index];
-    final cents = target.centsFromFrequency(
-      reading.frequency,
-      controller.harmonicaKey,
-    );
+    final cents = target.isRest
+        ? 0.0
+        : target.centsFromFrequency(
+            reading.frequency,
+            controller.harmonicaKey,
+            strictOctave: controller.strictOctave,
+          );
     final now = DateTime.now();
 
     if (_mode == SongPracticeMode.score) {
@@ -372,15 +497,35 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         setState(() => _reading = reading);
         return;
       }
+      final startedAt = _noteWindowStartedAt;
+      if (target.isRest) {
+        if (reading.detected &&
+            startedAt != null &&
+            now.difference(startedAt).inMilliseconds > 90) {
+          _currentRestBleedFrames++;
+        }
+        if (startedAt != null) {
+          _holdProgress =
+              (now.difference(startedAt).inMilliseconds /
+                      _noteDurationFor(target).inMilliseconds)
+                  .clamp(0.0, 1.0)
+                  .toDouble();
+        }
+        setState(() => _reading = reading);
+        return;
+      }
       if (reading.detected) {
-        final startedAt = _noteWindowStartedAt;
         if (_index > 0 &&
             startedAt != null &&
             _previousTargetTab != null &&
             target.tab != _previousTargetTab &&
             now.difference(startedAt).inMilliseconds <= 70) {
           final prevCents = widget.song.playableNotes[_index - 1]
-              .centsFromFrequency(reading.frequency, controller.harmonicaKey);
+              .centsFromFrequency(
+                reading.frequency,
+                controller.harmonicaKey,
+                strictOctave: controller.strictOctave,
+              );
           if (prevCents.abs() < cents.abs()) {
             setState(() => _reading = reading);
             return;
@@ -399,7 +544,6 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         }
         if (cents.abs() <= 120) {
           if (_currentNoteCents.isEmpty) {
-            final startedAt = _noteWindowStartedAt;
             _currentNoteFirstOnsetMs = startedAt == null
                 ? 0
                 : now.difference(startedAt).inMilliseconds.toDouble();
@@ -410,14 +554,18 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
           _currentNoteCents.add(cents);
         }
       }
-      final startedAt = _noteWindowStartedAt;
       if (startedAt != null) {
         _holdProgress =
             (now.difference(startedAt).inMilliseconds /
-                    _scoreNoteDuration.inMilliseconds)
+                    _noteDurationFor(target).inMilliseconds)
                 .clamp(0.0, 1.0)
                 .toDouble();
       }
+      setState(() => _reading = reading);
+      return;
+    }
+
+    if (target.isRest) {
       setState(() => _reading = reading);
       return;
     }
@@ -477,6 +625,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   Future<void> _advance(double error) async {
     if (_finishing) return;
     _finishing = true;
+    _restFollowTimer?.cancel();
     _matchedError += error;
     if (_index < widget.song.playableNotes.length - 1) {
       await AppHaptics.light(context);
@@ -492,6 +641,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         _lastSampleAt = null;
         _finishing = false;
       });
+      _scheduleRestFollowIfNeeded();
       return;
     }
 
@@ -533,10 +683,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   }
 
   Future<void> _stopAll({required bool resetStatus}) async {
-    _guideTimer?.cancel();
-    _guideStepTimer?.cancel();
-    _countInTimer?.cancel();
-    _scoreTimer?.cancel();
+    _cancelPracticeTimers();
     _pausePracticeTimer();
     await Future.wait([_pitchService.stop(), _guideToneService.stop()]);
     if (!mounted) return;
@@ -546,6 +693,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _holdProgress = 0;
       _missedFrames = 0;
       _countInBeat = 0;
+      _currentRestBleedFrames = 0;
       _noteWindowStartedAt = null;
       _reading = const PitchReading.silent();
       _stableSince = null;
@@ -556,10 +704,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   }
 
   Future<void> _handleReadingError() async {
-    _guideTimer?.cancel();
-    _guideStepTimer?.cancel();
-    _countInTimer?.cancel();
-    _scoreTimer?.cancel();
+    _cancelPracticeTimers();
     _pausePracticeTimer();
     await Future.wait([_pitchService.stop(), _guideToneService.stop()]);
     if (!mounted || _completed) return;
@@ -571,6 +716,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _holdProgress = 0;
       _missedFrames = 0;
       _countInBeat = 0;
+      _currentRestBleedFrames = 0;
       _noteWindowStartedAt = null;
       _reading = const PitchReading.silent();
       _stableSince = null;
@@ -585,6 +731,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       await _stopGuideAndResume();
       return;
     }
+    _restFollowTimer?.cancel();
     _resumeAfterGuide = _status == _SongStatus.listening;
     if (_resumeAfterGuide) {
       _pausePracticeTimer();
@@ -593,7 +740,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     if (!mounted) return;
     setState(() {
       _guidePlaying = true;
-      _demoNoteIndex = _index;
+      _demoNoteIndex = 0;
       _holdProgress = 0;
       _missedFrames = 0;
       _status = _SongStatus.idle;
@@ -606,31 +753,36 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
 
     try {
       final key = AppScope.maybeRead(context)?.harmonicaKey ?? 'C';
+      final notes = widget.song.playableNotes;
       final duration = await _guideToneService.play(
-        frequencies: widget.song.playableNotes
-            .map((note) => note.frequencyForKey(key))
-            .toList(),
+        frequencies: notes.map((note) => note.frequencyForKey(key)).toList(),
+        beats: notes.map((note) => note.beats).toList(),
         speed: _guideSpeed,
         repeat: _guideLoop,
       );
       if (!mounted) return;
-      final stepMs = (duration / widget.song.playableNotes.length)
-          .round()
-          .clamp(160, 1200);
-      _guideStepTimer?.cancel();
-      _guideStepTimer = Timer.periodic(Duration(milliseconds: stepMs), (timer) {
-        if (!mounted || !_guidePlaying) {
-          timer.cancel();
-          return;
-        }
-        setState(() {
-          if (_demoNoteIndex < widget.song.playableNotes.length - 1) {
-            _demoNoteIndex++;
+      final totalBeats = notes.fold<double>(0, (sum, n) => sum + n.beats);
+      void scheduleGuideStep(int idx) {
+        if (!mounted || !_guidePlaying) return;
+        final stepMs = totalBeats > 0
+            ? (duration * (notes[idx].beats / totalBeats))
+                  .round()
+                  .clamp(120, 6000)
+            : (duration / notes.length).round().clamp(160, 1200);
+        _guideStepTimer?.cancel();
+        _guideStepTimer = Timer(Duration(milliseconds: stepMs), () {
+          if (!mounted || !_guidePlaying) return;
+          if (idx < notes.length - 1) {
+            setState(() => _demoNoteIndex = idx + 1);
+            scheduleGuideStep(idx + 1);
           } else if (_guideLoop) {
-            _demoNoteIndex = 0;
+            setState(() => _demoNoteIndex = 0);
+            scheduleGuideStep(0);
           }
         });
-      });
+      }
+
+      scheduleGuideStep(0);
       if (_guideLoop) return;
       _guideTimer = Timer(
         Duration(milliseconds: duration + 120),
@@ -754,9 +906,20 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     final nextNote = activeNoteIndex + 1 < widget.song.playableNotes.length
         ? widget.song.playableNotes[activeNoteIndex + 1]
         : null;
-    final cents = _reading.detected
-        ? target.centsFromFrequency(_reading.frequency, controller.harmonicaKey)
+    final cents = _reading.detected && !target.isRest
+        ? target.centsFromFrequency(
+            _reading.frequency,
+            controller.harmonicaKey,
+            strictOctave: controller.strictOctave,
+          )
         : 0.0;
+    final octaveDelta =
+        _reading.detected && !target.isRest && controller.strictOctave
+        ? target.octaveDeltaFromFrequency(
+            _reading.frequency,
+            controller.harmonicaKey,
+          )
+        : 0;
     final progress = _completed
         ? 1.0
         : _guidePlaying
@@ -771,12 +934,14 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       widget.song.id,
       widget.song.title,
     );
-    final targetHole =
-        int.tryParse(target.tab.replaceAll(RegExp(r'[^0-9]'), '')) ?? 4;
+    final targetHole = target.isRest
+        ? 0
+        : int.tryParse(target.tab.replaceAll(RegExp(r'[^0-9]'), '')) ?? 4;
     final detectedTab = _reading.detected
         ? tabForReading(_reading, controller.harmonicaKey)
         : null;
     final isAdjacentBleed =
+        !target.isRest &&
         detectedTab != null &&
         cents.abs() > 35 &&
         (detectedTab.hole - targetHole).abs() == 1;
@@ -887,6 +1052,54 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                       },
                     ),
                   ),
+                  if (_mode == SongPracticeMode.score && !_completed) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _ScoringQuickToggle(
+                            key: const Key('scoring-metronome-toggle'),
+                            icon: controller.metronomeEnabled
+                                ? Icons.volume_up_rounded
+                                : Icons.volume_off_rounded,
+                            label: context.strings.t(
+                              controller.metronomeEnabled
+                                  ? 'metronomeOn'
+                                  : 'metronomeOff',
+                            ),
+                            selected: controller.metronomeEnabled,
+                            enabled: true,
+                            onTap: () {
+                              unawaited(AppHaptics.selection(context));
+                              unawaited(
+                                controller.setMetronomeEnabled(
+                                  !controller.metronomeEnabled,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _ScoringQuickToggle(
+                            key: const Key('scoring-strict-octave-toggle'),
+                            icon: Icons.tune_rounded,
+                            label: context.strings.t('strictOctaveChip'),
+                            selected: controller.strictOctave,
+                            enabled: !_isScoringActive,
+                            onTap: () {
+                              unawaited(AppHaptics.selection(context));
+                              unawaited(
+                                controller.setStrictOctave(
+                                  !controller.strictOctave,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   SizedBox(height: sectionGap),
                   // 1. 顶部动态进度卡片
                   Container(
@@ -1151,15 +1364,68 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                                 ),
                                                 const SizedBox(width: 6),
                                               ],
-                                              BreathGestureGuide(
-                                                isBlow: target.isBlow,
-                                                label: context.strings.t(
-                                                  target.isBlow
-                                                      ? 'blowAction'
-                                                      : 'drawAction',
+                                              if (target.isRest)
+                                                Flexible(
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 10,
+                                                          vertical: 4,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: palette.surface,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            999,
+                                                          ),
+                                                      border: Border.all(
+                                                        color: palette.outline,
+                                                      ),
+                                                    ),
+                                                    child: FittedBox(
+                                                      fit: BoxFit.scaleDown,
+                                                      child: Row(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        children: [
+                                                          Icon(
+                                                            Icons
+                                                                .pause_circle_outline_rounded,
+                                                            size: 14,
+                                                            color:
+                                                                palette.muted,
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 4,
+                                                          ),
+                                                          Text(
+                                                            context.strings.t(
+                                                              'restActionHint',
+                                                            ),
+                                                            style: TextStyle(
+                                                              color:
+                                                                  palette.muted,
+                                                              fontSize: 11.5,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w700,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                )
+                                              else
+                                                BreathGestureGuide(
+                                                  isBlow: target.isBlow,
+                                                  label: context.strings.t(
+                                                    target.isBlow
+                                                        ? 'blowAction'
+                                                        : 'drawAction',
+                                                  ),
+                                                  compact: true,
                                                 ),
-                                                compact: true,
-                                              ),
                                             ],
                                           ),
                                           SizedBox(
@@ -1183,31 +1449,40 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                                     ),
                                                   );
                                                 },
-                                            child: Row(
+                                            child: FittedBox(
                                               key: ValueKey(
                                                 'target_${activeNoteIndex}_${target.tab}',
                                               ),
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.center,
-                                              children: [
+                                              fit: BoxFit.scaleDown,
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.center,
+                                                children: [
                                                 Text(
-                                                  target.labelForKey(
-                                                    controller.harmonicaKey,
-                                                  ),
+                                                  target.isRest
+                                                      ? context.strings.t(
+                                                          'restNoteLabel',
+                                                        )
+                                                      : target.labelForKey(
+                                                          controller
+                                                              .harmonicaKey,
+                                                        ),
                                                   style: Theme.of(context)
                                                       .textTheme
                                                       .displaySmall
                                                       ?.copyWith(
                                                         fontSize: compactHeight
-                                                            ? 40
-                                                            : 46,
+                                                            ? 38
+                                                            : 44,
                                                         height: 1.05,
-                                                        color: palette.primary,
+                                                        color: target.isRest
+                                                            ? palette.muted
+                                                            : palette.primary,
                                                       ),
                                                 ),
-                                                const SizedBox(width: 12),
+                                                const SizedBox(width: 10),
                                                 Container(
                                                   padding:
                                                       const EdgeInsets.symmetric(
@@ -1215,25 +1490,38 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                                         vertical: 5,
                                                       ),
                                                   decoration: BoxDecoration(
-                                                    color: palette.primary
-                                                        .withValues(
-                                                          alpha: 0.12,
-                                                        ),
+                                                    color:
+                                                        (target.isRest
+                                                                ? palette.muted
+                                                                : palette
+                                                                      .primary)
+                                                            .withValues(
+                                                              alpha: 0.12,
+                                                            ),
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                           10,
                                                         ),
                                                     border: Border.all(
-                                                      color: palette.primary
-                                                          .withValues(
-                                                            alpha: 0.30,
-                                                          ),
+                                                      color:
+                                                          (target.isRest
+                                                                  ? palette
+                                                                        .muted
+                                                                  : palette
+                                                                        .primary)
+                                                              .withValues(
+                                                                alpha: 0.30,
+                                                              ),
                                                     ),
                                                   ),
                                                   child: Text(
-                                                    target.tab,
+                                                    target.isRest
+                                                        ? '休'
+                                                        : target.tab,
                                                     style: TextStyle(
-                                                      color: palette.primary,
+                                                      color: target.isRest
+                                                          ? palette.muted
+                                                          : palette.primary,
                                                       fontSize: 16,
                                                       fontFamily: 'monospace',
                                                       fontWeight:
@@ -1241,6 +1529,43 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                                     ),
                                                   ),
                                                 ),
+                                                if (target
+                                                    .beatTag
+                                                    .isNotEmpty) ...[
+                                                  const SizedBox(width: 6),
+                                                  Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 7,
+                                                          vertical: 3,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: palette.accent
+                                                          .withValues(
+                                                            alpha: 0.14,
+                                                          ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
+                                                    ),
+                                                    child: Text(
+                                                      context.strings.t(
+                                                        'beatUnitShort',
+                                                        {
+                                                          'beats':
+                                                              target.beatTag,
+                                                        },
+                                                      ),
+                                                      style: TextStyle(
+                                                        color: palette.accent,
+                                                        fontSize: 11.5,
+                                                        fontWeight:
+                                                            FontWeight.w800,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
                                                 if (nextNote != null) ...[
                                                   const SizedBox(width: 8),
                                                   Icon(
@@ -1250,7 +1575,11 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                                   ),
                                                   const SizedBox(width: 4),
                                                   Text(
-                                                    nextNote.tab,
+                                                    nextNote.isRest
+                                                        ? context.strings.t(
+                                                            'restNoteLabel',
+                                                          )
+                                                        : nextNote.tab,
                                                     style: TextStyle(
                                                       color: palette.muted,
                                                       fontSize: 13,
@@ -1261,6 +1590,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                                   ),
                                                 ],
                                               ],
+                                            ),
                                             ),
                                           ),
                                           if (_holdProgress > 0) ...[
@@ -1284,7 +1614,11 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                       ),
                                     ),
                                     SizedBox(height: compactHeight ? 10 : 12),
-                                    HarmonicaDiagram(activeTab: target.tab),
+                                    HarmonicaDiagram(
+                                      activeTab: target.isRest
+                                          ? ''
+                                          : target.tab,
+                                    ),
                                     SizedBox(height: compactHeight ? 10 : 12),
                                     _Sequence(
                                       song: widget.song,
@@ -1312,6 +1646,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                           _stableSince = null;
                                           _stableSinceMicros = null;
                                         });
+                                        _scheduleRestFollowIfNeeded();
                                       },
                                     ),
                                   ],
@@ -1403,7 +1738,19 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                           ),
                                           if (_reading.detected)
                                             Text(
-                                              isAdjacentBleed
+                                              target.isRest
+                                                  ? context.strings.t(
+                                                      'restActionHint',
+                                                    )
+                                                  : octaveDelta < 0
+                                                  ? context.strings.t(
+                                                      'wrongOctaveLow',
+                                                    )
+                                                  : octaveDelta > 0
+                                                  ? context.strings.t(
+                                                      'wrongOctaveHigh',
+                                                    )
+                                                  : isAdjacentBleed
                                                   ? context.strings.t(
                                                       'adjacentHoleHint',
                                                       {
@@ -1414,9 +1761,14 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                                     )
                                                   : '${cents >= 0 ? '+' : ''}${cents.round()} '
                                                         '${context.strings.t('cents')}',
-                                              style: Theme.of(
-                                                context,
-                                              ).textTheme.bodySmall,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    color: octaveDelta != 0
+                                                        ? palette.warning
+                                                        : null,
+                                                  ),
                                             ),
                                         ],
                                       ),
@@ -1599,6 +1951,7 @@ class _Sequence extends StatelessWidget {
     final total = song.playableNotes.length;
 
     Widget buildNoteCell(int index, {required bool expanded}) {
+      final note = song.playableNotes[index];
       final complete = index < currentIndex;
       final active = index == currentIndex;
       final fillFraction = complete
@@ -1610,11 +1963,16 @@ class _Sequence extends StatelessWidget {
           ? scoreStatuses![index]
           : null;
       final completeColor = switch (status) {
-        NoteScoreStatus.accurate => palette.success,
-        NoteScoreStatus.flat || NoteScoreStatus.sharp => palette.warning,
+        NoteScoreStatus.accurate || NoteScoreStatus.restClean => palette.success,
+        NoteScoreStatus.flat ||
+        NoteScoreStatus.sharp ||
+        NoteScoreStatus.restBleed => palette.warning,
         NoteScoreStatus.missed => palette.danger,
         null => palette.success,
       };
+      final baseText = note.isRest ? '休' : note.tab;
+      final displayLabel =
+          note.beatTag.isEmpty ? baseText : '$baseText·${note.beatTag}';
 
       final cell = GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -1666,7 +2024,7 @@ class _Sequence extends StatelessWidget {
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        song.playableNotes[index].tab,
+                        displayLabel,
                         style: TextStyle(
                           color: complete
                               ? completeColor
@@ -1687,11 +2045,19 @@ class _Sequence extends StatelessWidget {
         ),
       );
 
-      if (!expanded) return cell;
-      return Expanded(child: cell);
+      if (!expanded) {
+        return SizedBox(
+          width: (44 * note.beats).clamp(32.0, 112.0),
+          child: cell,
+        );
+      }
+      return Expanded(
+        flex: (note.beats * 10).round().clamp(5, 40),
+        child: cell,
+      );
     }
 
-    // 8 个音及以内采用单行等分满宽对齐（与上方 10 孔口琴图左右严格对齐）
+    // 8 个音及以内采用单行按拍宽比例对齐（与上方 10 孔口琴图左右严格对齐）
     if (total <= 8) {
       return Row(
         children: [
@@ -1711,6 +2077,78 @@ class _Sequence extends StatelessWidget {
         itemCount: total,
         separatorBuilder: (_, _) => const SizedBox(width: 6),
         itemBuilder: (context, index) => buildNoteCell(index, expanded: false),
+      ),
+    );
+  }
+}
+
+class _ScoringQuickToggle extends StatelessWidget {
+  const _ScoringQuickToggle({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+    super.key,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.colors;
+    final fg = selected ? palette.primary : palette.muted;
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.55,
+      child: Material(
+        color: selected
+            ? palette.primary.withValues(alpha: 0.12)
+            : palette.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: selected
+                ? palette.primary.withValues(alpha: 0.55)
+                : palette.outline,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          child: SizedBox(
+            height: 36,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 15, color: fg),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: selected
+                              ? FontWeight.w800
+                              : FontWeight.w600,
+                          color: fg,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

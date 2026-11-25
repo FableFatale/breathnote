@@ -17,11 +17,13 @@ import android.provider.Settings
 import android.view.HapticFeedbackConstants
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
 class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
     private val audioControlChannel = "app.breathnote/audio_control"
@@ -29,6 +31,7 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
     private val preferencesChannel = "app.breathnote/preferences"
     private val billingChannel = "app.breathnote/billing"
     private val filePickerChannel = "app.breathnote/file_picker"
+    private val shareChannel = "app.breathnote/share"
     private val permissionRequestCode = 4102
     private val scoreFileRequestCode = 4103
 
@@ -37,6 +40,7 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
     private var pendingFilePickerResult: MethodChannel.Result? = null
     private lateinit var pitchDetector: PitchDetector
     private val guideTonePlayer = GuideTonePlayer()
+    private val metronomePlayer = MetronomePlayer()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -66,6 +70,11 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
             flutterEngine.dartExecutor.binaryMessenger,
             filePickerChannel,
         ).setMethodCallHandler(::handleFilePickerMethod)
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            shareChannel,
+        ).setMethodCallHandler(::handleShareMethod)
     }
 
     @Suppress("DEPRECATION")
@@ -178,9 +187,8 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
                 val frequencies =
                     call.argument<List<Number>>("frequencies")
                         ?.map { it.toDouble() }
-                        ?.filter { it > 0 }
                         .orEmpty()
-                if (frequencies.isEmpty()) {
+                if (frequencies.isEmpty() || frequencies.none { it > 0 }) {
                     result.error(
                         "invalid_guide_sequence",
                         "At least one positive frequency is required.",
@@ -188,11 +196,14 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
                     )
                     return
                 }
+                val beats =
+                    call.argument<List<Number>>("beats")
+                        ?.map { it.toDouble() }
                 val speed = call.argument<Double>("speed") ?: 1.0
                 val repeat = call.argument<Boolean>("repeat") ?: false
                 pitchDetector.stop()
                 try {
-                    result.success(guideTonePlayer.play(frequencies, speed, repeat))
+                    result.success(guideTonePlayer.play(frequencies, speed, repeat, beats))
                 } catch (error: Exception) {
                     result.error(
                         "guide_audio_error",
@@ -200,6 +211,11 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
                         null,
                     )
                 }
+            }
+            "playMetronomeClick" -> {
+                val accent = call.argument<Boolean>("accent") ?: false
+                metronomePlayer.playClick(accent)
+                result.success(null)
             }
             "stopGuideSequence" -> {
                 guideTonePlayer.stop()
@@ -436,7 +452,58 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
     override fun onDestroy() {
         pitchDetector.stop()
         guideTonePlayer.stop()
+        metronomePlayer.release()
         pendingPermissionResult = null
         super.onDestroy()
+    }
+
+    private fun handleShareMethod(call: MethodCall, result: MethodChannel.Result) {
+        when (call.method) {
+            "shareImage" -> {
+                val bytes = call.argument<ByteArray>("bytes")
+                if (bytes == null || bytes.isEmpty()) {
+                    result.error("invalid_image", "Image bytes are required.", null)
+                    return
+                }
+                val rawName = call.argument<String>("fileName") ?: "breathnote_achievement.png"
+                val safeBase =
+                    rawName
+                        .substringAfterLast('/')
+                        .substringAfterLast('\\')
+                        .replace(Regex("[^A-Za-z0-9._-]"), "_")
+                        .ifBlank { "breathnote_achievement.png" }
+                val safeName =
+                    if (safeBase.endsWith(".png", ignoreCase = true)) {
+                        safeBase
+                    } else {
+                        "$safeBase.png"
+                    }
+                val text = call.argument<String>("text")
+                val subject = call.argument<String>("subject")
+                try {
+                    val sharesDir = File(cacheDir, "shares").apply { mkdirs() }
+                    val outFile = File(sharesDir, safeName)
+                    outFile.writeBytes(bytes)
+                    val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", outFile)
+                    val sendIntent =
+                        Intent(Intent.ACTION_SEND).apply {
+                            type = "image/png"
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            if (!text.isNullOrBlank()) putExtra(Intent.EXTRA_TEXT, text)
+                            if (!subject.isNullOrBlank()) putExtra(Intent.EXTRA_SUBJECT, subject)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                    val chooser =
+                        Intent.createChooser(sendIntent, subject ?: text ?: "Share").apply {
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                    startActivity(chooser)
+                    result.success(true)
+                } catch (error: Exception) {
+                    result.error("share_error", error.message ?: "Unable to share image.", null)
+                }
+            }
+            else -> result.notImplemented()
+        }
     }
 }

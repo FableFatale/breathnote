@@ -8,6 +8,7 @@ import '../localization/app_strings.dart';
 import '../models/harmonica_layout.dart';
 import '../models/pitch_reading.dart';
 import '../models/practice_note.dart';
+import '../models/song_score.dart';
 import '../services/guide_tone_service.dart';
 import '../services/haptics.dart';
 import '../services/pitch_service.dart';
@@ -228,6 +229,7 @@ class _PracticeScreenState extends State<PracticeScreen>
     final cents = widget.target.centsFromFrequency(
       reading.frequency,
       controller.harmonicaKey,
+      strictOctave: controller.strictOctave,
     );
     final matches = reading.detected && cents.abs() <= 35;
     final now = DateTime.now();
@@ -534,6 +536,7 @@ class _PracticeScreenState extends State<PracticeScreen>
         ? widget.target.centsFromFrequency(
             _reading.frequency,
             controller.harmonicaKey,
+            strictOctave: controller.strictOctave,
           )
         : 0.0;
     final currentStage = _status == _PracticeStatus.listening || _completed
@@ -847,7 +850,16 @@ class _PracticeScreenState extends State<PracticeScreen>
         return strings.t('keepThisPitch');
       }
       if (_reading.detected) {
-        final key = AppScope.maybeRead(context)?.harmonicaKey ?? 'C';
+        final controller = AppScope.maybeRead(context);
+        final key = controller?.harmonicaKey ?? 'C';
+        if (controller?.strictOctave ?? false) {
+          final octaveDelta = widget.target.octaveDeltaFromFrequency(
+            _reading.frequency,
+            key,
+          );
+          if (octaveDelta < 0) return strings.t('wrongOctaveLow');
+          if (octaveDelta > 0) return strings.t('wrongOctaveHigh');
+        }
         final detectedTab = tabForReading(_reading, key);
         final targetHole =
             int.tryParse(widget.target.tab.replaceAll(RegExp(r'[^0-9]'), '')) ??
@@ -1490,6 +1502,8 @@ class _CompletionDisplay extends StatelessWidget {
             title: title,
             score: score,
             tabPreview: tabPreview,
+            grade: gradeForSongScore(score).label,
+            stars: starsForSongScore(score),
           ),
           icon: const Icon(Icons.workspace_premium_rounded, size: 17),
           label: Text(context.strings.t('shareAchievementBtn')),

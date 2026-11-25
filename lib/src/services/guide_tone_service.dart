@@ -12,12 +12,14 @@ class GuideToneService {
     required List<double> frequencies,
     required double speed,
     required bool repeat,
+    List<double>? beats,
   }) async {
     try {
       return await _channel.invokeMethod<int>('playGuideSequence', {
             'frequencies': frequencies,
             'speed': speed,
             'repeat': repeat,
+            'beats': ?beats,
           }) ??
           0;
     } on MissingPluginException {
@@ -25,6 +27,18 @@ class GuideToneService {
         code: 'unsupported',
         message: 'featureUnavailable',
       );
+    }
+  }
+
+  Future<void> playMetronomeClick({bool accent = false}) async {
+    try {
+      await _channel.invokeMethod<void>('playMetronomeClick', {
+        'accent': accent,
+      });
+    } on MissingPluginException {
+      // Widget tests and unsupported platforms have no native audio channel.
+    } on PlatformException {
+      // Ignore transient audio focus errors while playing a metronome click.
     }
   }
 

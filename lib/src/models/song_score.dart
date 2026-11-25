@@ -17,6 +17,12 @@ enum NoteScoreStatus {
 
   /// 漏吹（该拍窗口内未检测到有效发声）
   missed,
+
+  /// 休止拍干净停顿
+  restClean,
+
+  /// 休止拍漏气/杂音抢拍
+  restBleed,
 }
 
 /// 根据总分计算 1–3 星级（用于评分模式与跟练模式统一展示）。
@@ -75,8 +81,25 @@ class NoteScoreRecord {
   /// 窗口内采集的有效音高帧数（0 表示旧构造/单测未传入）。
   final int sampleCount;
 
-  bool get isHit => status != NoteScoreStatus.missed;
-  bool get isAccurate => status == NoteScoreStatus.accurate;
+  bool get isHit =>
+      status != NoteScoreStatus.missed && status != NoteScoreStatus.restBleed;
+  bool get isAccurate =>
+      status == NoteScoreStatus.accurate || status == NoteScoreStatus.restClean;
+
+  /// 构建休止符拍点记录（前序尾音容忍 2 帧，超过则判休止抢拍）。
+  factory NoteScoreRecord.forRest({
+    required int index,
+    required PracticeNote note,
+    required int bleedFrames,
+  }) {
+    final clean = bleedFrames <= 2;
+    return NoteScoreRecord(
+      index: index,
+      note: note,
+      status: clean ? NoteScoreStatus.restClean : NoteScoreStatus.restBleed,
+      sampleCount: bleedFrames,
+    );
+  }
 
   /// 由窗口内采样点构建单音结果（准音阈值 ±25¢）。
   factory NoteScoreRecord.fromSamples({
@@ -190,6 +213,7 @@ class SongScoreSummary {
     }
 
     var pitchSum = 0.0;
+    var pitchedCount = 0;
     var timingSum = 0.0;
     var stabilitySum = 0.0;
     var hitCount = 0;
@@ -206,8 +230,26 @@ class SongScoreSummary {
         }
       } else {
         currentCombo = 0;
-        tabIssues.putIfAbsent(record.note.tab, () => []).add(record);
+        if (!record.note.isRest) {
+          tabIssues.putIfAbsent(record.note.tab, () => []).add(record);
+        }
       }
+
+      if (record.note.isRest ||
+          record.status == NoteScoreStatus.restClean ||
+          record.status == NoteScoreStatus.restBleed) {
+        if (record.status == NoteScoreStatus.restClean) {
+          hitCount++;
+          timingSum += 100.0;
+          stabilitySum += 100.0;
+        } else {
+          timingSum += 55.0;
+          stabilitySum += 55.0;
+        }
+        continue;
+      }
+
+      pitchedCount++;
 
       if (!record.isHit) {
         continue;
@@ -266,7 +308,9 @@ class SongScoreSummary {
     }
 
     final n = notes.length;
-    final pitchScore = (pitchSum / n).round().clamp(0, 100);
+    final pitchScore = pitchedCount == 0
+        ? 100
+        : (pitchSum / pitchedCount).round().clamp(0, 100);
     final timingScore = (timingSum / n).round().clamp(0, 100);
     final stabilityScore = (stabilitySum / n).round().clamp(0, 100);
     final totalScore =
@@ -296,7 +340,10 @@ class SongScoreSummary {
           case NoteScoreStatus.sharp:
             sharp++;
             severity += (rec.medianCents ?? 30).abs();
+          case NoteScoreStatus.restBleed:
+            severity += 35;
           case NoteScoreStatus.accurate:
+          case NoteScoreStatus.restClean:
             break;
         }
       }

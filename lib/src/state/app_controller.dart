@@ -35,6 +35,8 @@ class AppController extends ChangeNotifier {
   String harmonicaKey = 'C';
   String? activePresetId;
   bool hapticsEnabled = true;
+  bool metronomeEnabled = true;
+  bool strictOctave = false;
   bool highContrast = false;
   bool reduceMotion = false;
   ThemeMode themeMode = ThemeMode.system;
@@ -185,6 +187,8 @@ class AppController extends ChangeNotifier {
           : savedDisplayName;
       harmonicaKey = values['harmonicaKey'] as String? ?? harmonicaKey;
       hapticsEnabled = values['hapticsEnabled'] as bool? ?? hapticsEnabled;
+      metronomeEnabled = values['metronomeEnabled'] as bool? ?? metronomeEnabled;
+      strictOctave = values['strictOctave'] as bool? ?? strictOctave;
       highContrast = values['highContrast'] as bool? ?? highContrast;
       reduceMotion = values['reduceMotion'] as bool? ?? reduceMotion;
       sawHarmonicaGuide =
@@ -399,6 +403,20 @@ class AppController extends ChangeNotifier {
     hapticsEnabled = value;
     notifyListeners();
     await _persist('hapticsEnabled', value);
+  }
+
+  Future<void> setMetronomeEnabled(bool value) async {
+    if (value == metronomeEnabled) return;
+    metronomeEnabled = value;
+    notifyListeners();
+    await _persist('metronomeEnabled', value);
+  }
+
+  Future<void> setStrictOctave(bool value) async {
+    if (value == strictOctave) return;
+    strictOctave = value;
+    notifyListeners();
+    await _persist('strictOctave', value);
   }
 
   Future<void> setHighContrast(bool value) async {
@@ -695,6 +713,8 @@ class AppController extends ChangeNotifier {
     activePresetId = null;
     harmonicaPresets.clear();
     hapticsEnabled = true;
+    metronomeEnabled = true;
+    strictOctave = false;
     highContrast = false;
     reduceMotion = false;
     sawHarmonicaGuide = false;
