@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -29,6 +30,7 @@ class PracticeScreen extends StatefulWidget {
     required this.lessonId,
     required this.instruction,
     this.step = 1,
+    this.completeLessonOnFinish = true,
     super.key,
   });
 
@@ -36,6 +38,7 @@ class PracticeScreen extends StatefulWidget {
   final String lessonId;
   final String instruction;
   final int step;
+  final bool completeLessonOnFinish;
 
   @override
   State<PracticeScreen> createState() => _PracticeScreenState();
@@ -74,6 +77,7 @@ class _PracticeScreenState extends State<PracticeScreen>
   double _holdProgress = 0;
   int _missedFrames = 0;
   int _score = 0;
+  final List<double> _holdCentsSamples = [];
 
   @override
   void initState() {
@@ -174,6 +178,7 @@ class _PracticeScreenState extends State<PracticeScreen>
       _holdProgress = 0;
       _missedFrames = 0;
       _lastSampleAt = null;
+      _holdCentsSamples.clear();
     });
   }
 
@@ -192,6 +197,7 @@ class _PracticeScreenState extends State<PracticeScreen>
       _holdProgress = 0;
       _missedFrames = 0;
       _lastSampleAt = null;
+      _holdCentsSamples.clear();
       _errorMessage = context.strings.t('microphoneReadError');
     });
   }
@@ -210,6 +216,7 @@ class _PracticeScreenState extends State<PracticeScreen>
       _holdProgress = 0;
       _missedFrames = 0;
       _lastSampleAt = null;
+      _holdCentsSamples.clear();
       if (resetStatus && !_completed) _status = _PracticeStatus.idle;
     });
   }
@@ -241,6 +248,7 @@ class _PracticeScreenState extends State<PracticeScreen>
       if (_stableSince == null && _stableSinceMicros == null) {
         unawaited(AppHaptics.reedResonance(context));
       }
+      _holdCentsSamples.add(cents);
       final stableLongEnough = reading.timestampMicros > 0
           ? _isStableForMicros(reading.timestampMicros)
           : _isStableForWallClock(now);
@@ -254,6 +262,7 @@ class _PracticeScreenState extends State<PracticeScreen>
         _stableSince = null;
         _stableSinceMicros = null;
         _holdProgress = 0;
+        _holdCentsSamples.clear();
       }
     }
     setState(() => _reading = reading);
@@ -282,12 +291,34 @@ class _PracticeScreenState extends State<PracticeScreen>
     _completed = true;
     _holdProgress = 1;
     _pausePracticeTimer();
-    _score = (100 - cents.abs() * 1.2).round().clamp(0, 100).toInt();
+    if (_holdCentsSamples.isEmpty) {
+      _score = (100 - cents.abs() * 1.2).round().clamp(0, 100).toInt();
+    } else {
+      final sortedAbs = _holdCentsSamples.map((c) => c.abs()).toList()..sort();
+      final mid = sortedAbs.length ~/ 2;
+      final medianAbs = sortedAbs.length.isOdd
+          ? sortedAbs[mid]
+          : (sortedAbs[mid - 1] + sortedAbs[mid]) / 2.0;
+      final mean = _holdCentsSamples.reduce((a, b) => a + b) /
+          _holdCentsSamples.length;
+      var varianceSum = 0.0;
+      for (final sample in _holdCentsSamples) {
+        final d = sample - mean;
+        varianceSum += d * d;
+      }
+      final stdDev = math.sqrt(varianceSum / _holdCentsSamples.length);
+      final stabilityPenalty = stdDev > 8.0 ? (stdDev - 8.0) * 0.6 : 0.0;
+      _score = (100.0 - medianAbs * 1.2 - stabilityPenalty)
+          .round()
+          .clamp(0, 100)
+          .toInt();
+    }
     final seconds = _activePracticeDuration.inSeconds.clamp(0, 3600).toInt();
     await Future.wait([
       _pitchService.stop(),
       _guideToneService.stop(),
-      controller.markLessonComplete(widget.lessonId),
+      if (widget.completeLessonOnFinish)
+        controller.markLessonComplete(widget.lessonId),
       controller.recordPractice(
         seconds: seconds == 0 ? 1 : seconds,
         score: _score,
@@ -426,6 +457,7 @@ class _PracticeScreenState extends State<PracticeScreen>
       _holdProgress = 0;
       _missedFrames = 0;
       _score = 0;
+      _holdCentsSamples.clear();
       _listeningStartedAt = null;
       _activePracticeDuration = Duration.zero;
       _lastSampleAt = null;
@@ -508,12 +540,17 @@ class _PracticeScreenState extends State<PracticeScreen>
         ? 3
         : 2;
 
+    final rawLessonTitle = strings.lessonTitle(widget.lessonId);
+    final resolvedTitle = rawLessonTitle == '${widget.lessonId}Title'
+        ? strings.t('scoreDrillWeakNote', {'tab': widget.target.tab})
+        : rawLessonTitle;
+
     return Scaffold(
       appBar: AppBar(
         toolbarHeight: 56,
         titleSpacing: 4,
         title: Text(
-          strings.lessonTitle(widget.lessonId),
+          resolvedTitle,
           style: Theme.of(context).textTheme.titleMedium,
         ),
         actions: [
@@ -608,7 +645,7 @@ class _PracticeScreenState extends State<PracticeScreen>
                                 key: const ValueKey('practice-completion'),
                                 score: _score,
                                 visible: _completionVisible,
-                                title: strings.lessonTitle(widget.lessonId),
+                                title: resolvedTitle,
                                 tabPreview:
                                     '${widget.target.tab} · $noteWithOctave',
                               )

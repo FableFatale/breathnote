@@ -19,6 +19,7 @@ import 'package:breathnote/src/state/app_controller.dart';
 import 'package:breathnote/src/theme/app_motion.dart';
 import 'package:breathnote/src/theme/app_theme.dart';
 import 'package:breathnote/src/widgets/cute_illustrations.dart';
+import 'package:breathnote/src/widgets/song_score_report.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -2048,6 +2049,7 @@ void main() {
 
       await tester.pumpWidget(
         AppScope(
+          key: const ValueKey('compact-report-test'),
           controller: controller,
           child: MaterialApp(
             theme: AppTheme.light(highContrast: false, reduceMotion: false),
@@ -2067,8 +2069,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
       expect(find.byKey(const Key('scoring-count-in-banner')), findsOneWidget);
 
-      // Advance past 4 count-in beats (4 * 450ms = 1800ms)
-      await tester.pump(const Duration(milliseconds: 1850));
+      // Advance past 4 count-in beats (4 * 850ms = 3400ms)
+      await tester.pump(const Duration(milliseconds: 3450));
 
       // Note 1: 4↑ (C5) accurate
       harness.emitPitch(miniSong.notes[0].frequencyForKey('C'));
@@ -2079,8 +2081,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 900));
       await tester.pumpAndSettle();
 
-      // Free user sees stars + total score + Pro locked teaser
+      // Free user sees stars + grade badge + total score + Pro locked teaser
       expect(find.byKey(const Key('score-stars-row')), findsOneWidget);
+      expect(find.byKey(const Key('score-grade-badge')), findsOneWidget);
       expect(find.byKey(const Key('score-pro-locked-card')), findsOneWidget);
       expect(find.byKey(const Key('score-pro-diagnostics')), findsNothing);
       expect(controller.bestStarsForSong('mini_score_song'), 3);
@@ -2684,6 +2687,424 @@ void main() {
           .getTopLeft(find.byKey(const Key('floating-glass-bottom-scrim')))
           .dy;
       expect(scrimTop, greaterThanOrEqualTo(startBtnBottom));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  test(
+    'caps stability on 1-2 frame notes, maps S/A/B/C grades, and round-trips SongScoreAttempt JSON',
+    () {
+      const note = PracticeNote(note: 'C', octave: 5, tab: '4↑');
+
+      final singleFrame = NoteScoreRecord.fromSamples(
+        index: 0,
+        note: note,
+        centsSamples: const [0.0],
+        firstOnsetOffsetMs: 20,
+      );
+      expect(singleFrame.sampleCount, 1);
+      final singleSummary = SongScoreSummary.evaluate([singleFrame]);
+      expect(singleSummary.stabilityScore, lessThanOrEqualTo(60));
+
+      final dualFrame = NoteScoreRecord.fromSamples(
+        index: 0,
+        note: note,
+        centsSamples: const [0.0, 0.0],
+        firstOnsetOffsetMs: 20,
+      );
+      expect(dualFrame.sampleCount, 2);
+      final dualSummary = SongScoreSummary.evaluate([dualFrame]);
+      expect(dualSummary.stabilityScore, lessThanOrEqualTo(80));
+
+      expect(gradeForSongScore(95), SongScoreGrade.s);
+      expect(gradeForSongScore(92), SongScoreGrade.s);
+      expect(gradeForSongScore(85), SongScoreGrade.a);
+      expect(gradeForSongScore(80), SongScoreGrade.a);
+      expect(gradeForSongScore(70), SongScoreGrade.b);
+      expect(gradeForSongScore(65), SongScoreGrade.b);
+      expect(gradeForSongScore(50), SongScoreGrade.c);
+      expect(SongScoreGrade.s.label, 'S');
+      expect(SongScoreGrade.c.label, 'C');
+
+      const attempt = SongScoreAttempt(
+        songId: 'twinkle',
+        timestampMs: 1700000000000,
+        totalScore: 93,
+        pitchScore: 96,
+        timingScore: 90,
+        stabilityScore: 89,
+        stars: 3,
+        maxCombo: 6,
+        hitCount: 6,
+        totalNotes: 6,
+        speed: 0.5,
+        mode: 'score',
+        weakestTab: '5↑',
+      );
+      final decoded = SongScoreAttempt.fromJson(
+        jsonDecode(jsonEncode(attempt.toJson())),
+      );
+      expect(decoded, isNotNull);
+      expect(decoded!.songId, 'twinkle');
+      expect(decoded.totalScore, 93);
+      expect(decoded.grade, SongScoreGrade.s);
+      expect(decoded.speed, 0.5);
+      expect(decoded.weakestTab, '5↑');
+      expect(SongScoreAttempt.fromJson('invalid'), isNull);
+    },
+  );
+
+  testWidgets(
+    'blocks sequence tap and speed change during active scoring mode',
+    (tester) async {
+      installPitchCompletionHarness();
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(412, 915);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      const miniSong = Song(
+        id: 'guard_song',
+        title: '防作弊测试曲',
+        subtitle: 'customSongSubtitle',
+        level: 'easy',
+        color: Color(0xFF1A6BFF),
+        notes: [
+          PracticeNote(note: 'C', octave: 5, tab: '4↑'),
+          PracticeNote(note: 'E', octave: 5, tab: '5↑'),
+          PracticeNote(note: 'G', octave: 5, tab: '6↑'),
+        ],
+      );
+
+      await tester.pumpWidget(
+        AppScope(
+          key: const ValueKey('compact-report-test'),
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.light(highContrast: false, reduceMotion: false),
+            home: const SongPracticeScreen(
+              song: miniSong,
+              initialMode: SongPracticeMode.score,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('开始评分挑战'));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Attempt to tap the last note (6↑) and change speed (0.5×) during count-in/scoring
+      await tester.tap(find.text('6↑').last);
+      await tester.tap(find.text('0.5×'));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // Must still be in active scoring, not completed, and still on first note (4↑)
+      expect(find.byKey(const Key('score-stars-row')), findsNothing);
+      expect(find.text('停止评分'), findsOneWidget);
+      expect(find.byKey(const Key('scoring-count-in-banner')), findsOneWidget);
+
+      await tester.tap(find.text('停止评分'));
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'persists songScoreHistory, shows SongsScreen history sheet, and displays New Best & trend strip',
+    (tester) async {
+      final preferences = _DelayedPreferencesService(
+        Completer<Map<String, Object?>>()..complete(const {}),
+      );
+      final controller = AppController(preferences: preferences);
+      addTearDown(controller.dispose);
+      await controller.load();
+
+      await controller.recordSongResult(
+        songId: 'twinkle',
+        score: 76,
+        stars: 2,
+        attempt: const SongScoreAttempt(
+          songId: 'twinkle',
+          timestampMs: 1000,
+          totalScore: 76,
+          pitchScore: 78,
+          timingScore: 75,
+          stabilityScore: 72,
+          stars: 2,
+          maxCombo: 3,
+          hitCount: 5,
+          totalNotes: 6,
+          speed: 0.5,
+          mode: 'score',
+        ),
+      );
+      await controller.recordSongResult(
+        songId: 'twinkle',
+        score: 94,
+        stars: 3,
+        attempt: const SongScoreAttempt(
+          songId: 'twinkle',
+          timestampMs: 2000,
+          totalScore: 94,
+          pitchScore: 96,
+          timingScore: 92,
+          stabilityScore: 91,
+          stars: 3,
+          maxCombo: 6,
+          hitCount: 6,
+          totalNotes: 6,
+          speed: 1.0,
+          mode: 'score',
+        ),
+      );
+
+      expect(preferences.savedValues.containsKey('songScoreHistory'), isTrue);
+      expect(controller.songHistoryFor('twinkle'), hasLength(2));
+      expect(controller.latestScoredAttempt('twinkle')?.totalScore, 94);
+
+      await pumpBreathnote(tester, controller: controller);
+      await tester.tap(find.text('曲谱'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('song-history-twinkle')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('song-history-twinkle')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('小星星'), findsWidgets);
+      expect(find.textContaining('94'), findsWidgets);
+      expect(find.textContaining('76'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'lesson_breath preserves bestScore at 0 and chord_rhythm rest-beat bleed lowers score below 100',
+    (tester) async {
+      const audioChannel = MethodChannel('app.breathnote/audio_control');
+      const pitchChannel = EventChannel('app.breathnote/pitch_events');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      MockStreamHandlerEventSink? eventSink;
+
+      messenger.setMockMethodCallHandler(audioChannel, (call) async {
+        return switch (call.method) {
+          'requestMicrophonePermission' => 'granted',
+          'startPitchDetection' => true,
+          _ => null,
+        };
+      });
+      messenger.setMockStreamHandler(
+        pitchChannel,
+        MockStreamHandler.inline(
+          onListen: (_, events) {
+            eventSink = events;
+          },
+        ),
+      );
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(audioChannel, null);
+        messenger.setMockStreamHandler(pitchChannel, null);
+      });
+
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      await pumpBreathnote(tester, controller: controller, isProUnlocked: true);
+
+      // Complete lesson_breath -> bestScore must stay 0
+      await controller.markLessonComplete('lesson_1');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('featured-lesson')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('breath-complete-btn')));
+      await tester.tap(find.byKey(const Key('breath-complete-btn')));
+      await tester.pumpAndSettle();
+      expect(controller.completedLessons, contains('lesson_breath'));
+      expect(controller.bestScore, 0);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      // Open chord_rhythm and emit breath during rest beat (beat 2)
+      await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -700));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('progressive-upcoming-lesson_chord')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('chord-start-practice')));
+      await tester.tap(find.byKey(const Key('chord-start-practice')));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      void emitChordBreath() {
+        eventSink?.success(<String, Object?>{
+          'detected': false,
+          'frequency': 0.0,
+          'note': '',
+          'octave': 0,
+          'cents': 0.0,
+          'confidence': 0.0,
+          'levelDb': -22.0,
+          'timestampMicros': 1000000,
+        });
+      }
+
+      emitChordBreath(); // Bar 1 Beat 1 (blow)
+      await tester.pump(const Duration(milliseconds: 850)); // -> Beat 2 (rest)
+      emitChordBreath(); // Rest bleed! (-12 => 88)
+      await tester.pump(const Duration(milliseconds: 850)); // -> Beat 3 (draw)
+      emitChordBreath();
+      await tester.pump(const Duration(milliseconds: 850)); // -> Beat 4 (rest)
+      await tester.pump(const Duration(milliseconds: 850)); // -> Bar 2 Beat 1
+      emitChordBreath();
+      await tester.pump(const Duration(milliseconds: 850));
+      await tester.pump(const Duration(milliseconds: 850));
+      emitChordBreath();
+      await tester.pumpAndSettle();
+
+      expect(controller.completedLessons, contains('lesson_chord'));
+      expect(controller.bestScore, lessThan(100));
+      expect(controller.bestScore, 88);
+    },
+  );
+
+  testWidgets(
+    'weak-note drill button launches PracticeScreen without changing completedLessons and report handles 280x640 at 1.5x textScale',
+    (tester) async {
+      final harness = installPitchCompletionHarness();
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      const miniSong = Song(
+        id: 'drill_song',
+        title: '弱音练习曲',
+        subtitle: 'customSongSubtitle',
+        level: 'easy',
+        color: Color(0xFF1A6BFF),
+        notes: [
+          PracticeNote(note: 'C', octave: 5, tab: '4↑'),
+          PracticeNote(note: 'E', octave: 5, tab: '5↑'),
+        ],
+      );
+
+      controller.sawHarmonicaGuide = true;
+      controller.hasRegisteredHarmonica = true;
+      controller.isProUnlocked = true;
+
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(412, 915);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        AppScope(
+          key: const ValueKey('compact-report-test'),
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.light(highContrast: false, reduceMotion: false),
+            home: const SongPracticeScreen(
+              song: miniSong,
+              initialMode: SongPracticeMode.score,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('开始评分挑战'));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 3450));
+
+      // Hit note 1 (4↑) accurately, miss note 2 (5↑) -> weakestTab == 5↑
+      harness.emitPitch(miniSong.notes[0].frequencyForKey('C'));
+      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('score-new-best-badge')), findsOneWidget);
+      expect(find.byKey(const Key('score-drill-weak-note-btn')), findsOneWidget);
+
+      final beforeLessons = controller.completedLessons.length;
+      await tester.ensureVisible(
+        find.byKey(const Key('score-drill-weak-note-btn')),
+      );
+      await tester.tap(find.byKey(const Key('score-drill-weak-note-btn')));
+      await tester.pumpAndSettle();
+
+      // Complete the drill note on PracticeScreen
+      await tester.tap(find.byKey(const Key('practice-primary-control')));
+      await tester.pump(const Duration(milliseconds: 80));
+      final e5Freq = miniSong.notes[1].frequencyForKey('C');
+      harness.emitPitch(e5Freq);
+      await tester.pump(const Duration(milliseconds: 20));
+      harness.emitPitch(e5Freq);
+      await tester.pump(const Duration(milliseconds: 520));
+      harness.emitPitch(e5Freq);
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(controller.completedLessons.length, beforeLessons);
+      expect(controller.completedLessons, isNot(contains('drill_5↑')));
+
+      // Verify compact 280x640 at 1.5x text scale with Pro locked blurred teaser & trend strip
+      controller.isProUnlocked = false;
+      await controller.recordSongResult(
+        songId: 'drill_song',
+        score: 82,
+        stars: 2,
+        attempt: const SongScoreAttempt(
+          songId: 'drill_song',
+          timestampMs: 999999,
+          totalScore: 82,
+          pitchScore: 84,
+          timingScore: 80,
+          stabilityScore: 79,
+          stars: 2,
+          maxCombo: 2,
+          hitCount: 2,
+          totalNotes: 2,
+          speed: 1.0,
+          mode: 'score',
+        ),
+      );
+      tester.view.physicalSize = const Size(280, 640);
+      tester.platformDispatcher.textScaleFactorTestValue = 1.5;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      await tester.pumpWidget(
+        AppScope(
+          key: const ValueKey('compact-report-test-2'),
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.light(highContrast: false, reduceMotion: false),
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: SongScoreReportCard(
+                  score: 82,
+                  song: miniSong,
+                  title: '弱音练习曲',
+                  iconId: 'star',
+                  previousBestScore: 70,
+                  speed: 0.5,
+                  recentAttempts: controller.songHistoryFor('drill_song'),
+                  summary: SongScoreSummary.evaluate([
+                    NoteScoreRecord.fromSamples(
+                      index: 0,
+                      note: miniSong.notes[0],
+                      centsSamples: const [2.0, 1.0, 3.0],
+                      firstOnsetOffsetMs: 40,
+                    ),
+                    NoteScoreRecord.fromSamples(
+                      index: 1,
+                      note: miniSong.notes[1],
+                      centsSamples: const [],
+                      firstOnsetOffsetMs: null,
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('score-pro-locked-card')), findsOneWidget);
+      expect(find.byKey(const Key('score-trend-strip')), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

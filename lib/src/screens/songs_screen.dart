@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../localization/app_strings.dart';
 import '../models/song.dart';
+import '../models/song_score.dart';
 import '../services/haptics.dart';
 import '../state/app_controller.dart';
 import '../theme/app_adaptive.dart';
@@ -97,6 +98,21 @@ class _SongsScreenState extends State<SongsScreen> {
       builder: (_) => _SongIconPickerSheet(
         song: song,
         appController: appController,
+      ),
+    );
+  }
+
+  Future<void> _showSongHistory(Song song) async {
+    final appController = AppScope.read(context);
+    unawaited(AppHaptics.selection(context));
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      sheetAnimationStyle: AppMotion.sheetAnimationStyle(context),
+      builder: (_) => _SongScoreHistorySheet(
+        song: song,
+        attempts: appController.songHistoryFor(song.id),
+        isProUnlocked: appController.isProUnlocked,
       ),
     );
   }
@@ -342,8 +358,10 @@ class _SongsScreenState extends State<SongsScreen> {
                   proLocked: proLocked,
                   bestStars: controller.bestStarsForSong(song.id),
                   bestScore: controller.bestScoreForSong(song.id),
+                  attemptCount: controller.songHistoryFor(song.id).length,
                   isFavorite: controller.isSongFavorite(song.id),
                   onPickIcon: () => _pickSongIcon(song),
+                  onShowHistory: () => _showSongHistory(song),
                   onToggleFavorite: () {
                     unawaited(AppHaptics.selection(context));
                     unawaited(controller.toggleFavoriteSong(song.id));
@@ -496,9 +514,11 @@ class _SongTile extends StatelessWidget {
     required this.proLocked,
     required this.bestStars,
     required this.bestScore,
+    required this.attemptCount,
     required this.isFavorite,
     required this.onTap,
     required this.onPickIcon,
+    required this.onShowHistory,
     required this.onToggleFavorite,
     this.onDelete,
   });
@@ -508,9 +528,11 @@ class _SongTile extends StatelessWidget {
   final bool proLocked;
   final int bestStars;
   final int bestScore;
+  final int attemptCount;
   final bool isFavorite;
   final VoidCallback onTap;
   final VoidCallback onPickIcon;
+  final VoidCallback onShowHistory;
   final VoidCallback onToggleFavorite;
   final VoidCallback? onDelete;
 
@@ -636,6 +658,29 @@ class _SongTile extends StatelessWidget {
                                         ),
                                       if (bestScore > 0) ...[
                                         const SizedBox(width: 4),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 5,
+                                            vertical: 1,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: palette.primary.withValues(
+                                              alpha: 0.12,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            gradeForSongScore(bestScore).label,
+                                            style: TextStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.w900,
+                                              color: palette.primary,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
                                         Text(
                                           context.strings.t('songBestBadge', {
                                             'score': bestScore,
@@ -657,6 +702,44 @@ class _SongTile extends StatelessWidget {
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
                                       color: palette.muted,
+                                    ),
+                                  ),
+                                if (attemptCount > 0)
+                                  InkWell(
+                                    key: Key('song-history-${song.id}'),
+                                    borderRadius: BorderRadius.circular(999),
+                                    onTap: onShowHistory,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 7,
+                                        vertical: 2,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: palette.surfaceHigh,
+                                        borderRadius: BorderRadius.circular(999),
+                                        border: Border.all(
+                                          color: palette.outline,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.history_rounded,
+                                            size: 12,
+                                            color: palette.primary,
+                                          ),
+                                          const SizedBox(width: 3),
+                                          Text(
+                                            '${context.strings.t('scoreHistoryBtn')} ($attemptCount)',
+                                            style: TextStyle(
+                                              fontSize: 10.5,
+                                              fontWeight: FontWeight.w700,
+                                              color: palette.primary,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
                               ],
@@ -712,6 +795,133 @@ class _SongTile extends StatelessWidget {
           else
             const SizedBox(width: 4),
         ],
+      ),
+    );
+  }
+}
+
+class _SongScoreHistorySheet extends StatelessWidget {
+  const _SongScoreHistorySheet({
+    required this.song,
+    required this.attempts,
+    required this.isProUnlocked,
+  });
+
+  final Song song;
+  final List<SongScoreAttempt> attempts;
+  final bool isProUnlocked;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.colors;
+    final strings = context.strings;
+    final title = strings.songTitle(song.id, song.title);
+    final sorted = [...attempts]
+      ..sort((a, b) => b.timestampMs.compareTo(a.timestampMs));
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              strings.t('scoreHistoryTitle', {'title': title}),
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 14),
+            if (sorted.isEmpty)
+              Text(
+                strings.t('scoreHistoryEmpty'),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: palette.muted,
+                ),
+              )
+            else
+              for (var i = 0; i < sorted.length; i++) ...[
+                if (i > 0) const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: palette.surfaceHigh.withValues(alpha: 0.65),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: palette.outline),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: palette.primary.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              sorted[i].grade.label,
+                              style: TextStyle(
+                                color: palette.primary,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${sorted[i].totalScore}',
+                            style: TextStyle(
+                              color: palette.text,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 18,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          for (var s = 0; s < 3; s++)
+                            Icon(
+                              s < sorted[i].stars
+                                  ? Icons.star_rounded
+                                  : Icons.star_outline_rounded,
+                              size: 15,
+                              color: s < sorted[i].stars
+                                  ? const Color(0xFFF59E0B)
+                                  : palette.outline,
+                            ),
+                          const Spacer(),
+                          Text(
+                            sorted[i].speed <= 0.6 ? '0.5×' : '1×',
+                            style: TextStyle(
+                              fontFamily: 'monospace',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: palette.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (isProUnlocked && sorted[i].mode == 'score') ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          '${strings.t('scoringDimPitch')} ${sorted[i].pitchScore} · '
+                          '${strings.t('scoringDimTiming')} ${sorted[i].timingScore} · '
+                          '${strings.t('scoringDimStability')} ${sorted[i].stabilityScore}',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: palette.muted),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+          ],
+        ),
       ),
     );
   }

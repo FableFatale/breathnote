@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 
 import '../localization/app_strings.dart';
+import '../models/practice_note.dart';
 import '../models/song.dart';
 import '../models/song_score.dart';
 import '../services/guide_tone_service.dart';
@@ -23,6 +25,10 @@ class SongScoreReportCard extends StatefulWidget {
     required this.title,
     required this.iconId,
     this.summary,
+    this.previousBestScore,
+    this.speed,
+    this.recentAttempts = const [],
+    this.onDrillNote,
     super.key,
   });
 
@@ -31,6 +37,10 @@ class SongScoreReportCard extends StatefulWidget {
   final String title;
   final String iconId;
   final SongScoreSummary? summary;
+  final int? previousBestScore;
+  final double? speed;
+  final List<SongScoreAttempt> recentAttempts;
+  final ValueChanged<PracticeNote>? onDrillNote;
 
   @override
   State<SongScoreReportCard> createState() => _SongScoreReportCardState();
@@ -94,6 +104,24 @@ class _SongScoreReportCardState extends State<SongScoreReportCard> {
     final summary = widget.summary;
     final totalScore = summary?.totalScore ?? widget.score;
     final stars = summary?.stars ?? starsForSongScore(totalScore);
+    final grade = summary?.grade ?? gradeForSongScore(totalScore);
+    final gradeColor = switch (grade) {
+      SongScoreGrade.s => const Color(0xFFF59E0B),
+      SongScoreGrade.a => palette.primary,
+      SongScoreGrade.b => palette.success,
+      SongScoreGrade.c => palette.muted,
+    };
+    final prevBest = widget.previousBestScore;
+    final isNewBest = summary != null && prevBest != null && totalScore > prevBest;
+    final chronologicalAttempts = widget.recentAttempts.length >= 2
+        ? (([...widget.recentAttempts]
+              ..sort((a, b) => a.timestampMs.compareTo(b.timestampMs)))
+            .reversed
+            .take(5)
+            .toList()
+            .reversed
+            .toList())
+        : const <SongScoreAttempt>[];
 
     return Card(
       child: Padding(
@@ -136,7 +164,9 @@ class _SongScoreReportCardState extends State<SongScoreReportCard> {
             ),
             const SizedBox(height: 6),
             Text(
-              strings.t('pitchScore', {'score': totalScore}),
+              summary != null
+                  ? strings.t('scoringTotalScoreValue', {'score': totalScore})
+                  : strings.t('pitchScore', {'score': totalScore}),
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: palette.primary,
@@ -144,6 +174,71 @@ class _SongScoreReportCardState extends State<SongScoreReportCard> {
                 fontWeight: FontWeight.w800,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                Container(
+                  key: const Key('score-grade-badge'),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: gradeColor.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: gradeColor.withValues(alpha: 0.40),
+                    ),
+                  ),
+                  child: Text(
+                    strings.t('scoreGradeLabel', {'grade': grade.label}),
+                    style: TextStyle(
+                      color: gradeColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                if (isNewBest)
+                  Container(
+                    key: const Key('score-new-best-badge'),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: palette.success.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: palette.success.withValues(alpha: 0.36),
+                      ),
+                    ),
+                    child: Text(
+                      prevBest > 0
+                          ? strings.t('scoreNewBestDelta', {
+                              'delta': totalScore - prevBest,
+                            })
+                          : strings.t('scoreNewBest'),
+                      style: TextStyle(
+                        color: palette.success,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                if (widget.speed != null)
+                  _MiniStatChip(
+                    icon: Icons.speed_rounded,
+                    label: strings.t('scoreSpeedTag', {
+                      'speed': widget.speed! <= 0.6 ? '0.5×' : '1×',
+                    }),
+                    color: palette.muted,
+                  ),
+              ],
             ),
             if (summary != null) ...[
               const SizedBox(height: 6),
@@ -165,6 +260,57 @@ class _SongScoreReportCardState extends State<SongScoreReportCard> {
                     color: palette.accent,
                   ),
                 ],
+              ),
+            ],
+            if (chronologicalAttempts.length >= 2) ...[
+              const SizedBox(height: 10),
+              Container(
+                key: const Key('score-trend-strip'),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: palette.surfaceHigh.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: palette.outline),
+                ),
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    Text(
+                      strings.t('scoreRecentTrend'),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: palette.muted,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    for (var i = 0; i < chronologicalAttempts.length; i++) ...[
+                      if (i > 0)
+                        Icon(
+                          Icons.arrow_forward_rounded,
+                          size: 12,
+                          color: palette.muted,
+                        ),
+                      Text(
+                        '${chronologicalAttempts[i].totalScore}',
+                        style: TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                          fontWeight: i == chronologicalAttempts.length - 1
+                              ? FontWeight.w900
+                              : FontWeight.w700,
+                          color: i == chronologicalAttempts.length - 1
+                              ? palette.primary
+                              : palette.text,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ],
             const SizedBox(height: 14),
@@ -311,6 +457,31 @@ class _SongScoreReportCardState extends State<SongScoreReportCard> {
                   ),
                 ),
               ],
+              if (summary.weakestTab != null && widget.onDrillNote != null) ...[
+                const SizedBox(height: 10),
+                Builder(
+                  builder: (context) {
+                    PracticeNote? drillNote;
+                    for (final note in widget.song.notes) {
+                      if (note.tab == summary.weakestTab) {
+                        drillNote = note;
+                        break;
+                      }
+                    }
+                    if (drillNote == null) return const SizedBox.shrink();
+                    return FilledButton.tonalIcon(
+                      key: const Key('score-drill-weak-note-btn'),
+                      onPressed: () => widget.onDrillNote!(drillNote!),
+                      icon: const Icon(Icons.gps_fixed_rounded, size: 16),
+                      label: Text(
+                        strings.t('scoreDrillWeakNote', {
+                          'tab': summary.weakestTab!,
+                        }),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ],
           ),
         ),
@@ -333,6 +504,42 @@ class _SongScoreReportCardState extends State<SongScoreReportCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: ExcludeSemantics(
+              child: ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 4.5, sigmaY: 4.5),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _DimensionScoreCard(
+                        label: strings.t('scoringDimPitch'),
+                        score: 88,
+                        color: palette.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _DimensionScoreCard(
+                        label: strings.t('scoringDimTiming'),
+                        score: 82,
+                        color: palette.accent,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: _DimensionScoreCard(
+                        label: strings.t('scoringDimStability'),
+                        score: 79,
+                        color: palette.success,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Icon(Icons.lock_outline_rounded, size: 18, color: palette.accent),

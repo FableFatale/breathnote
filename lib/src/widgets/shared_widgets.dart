@@ -714,7 +714,7 @@ Future<void> showAchievementCardSheet(
                                   ),
                                 ),
                                 Text(
-                                  strings.t('bestScore'),
+                                  strings.t('runScoreLabel'),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: Theme.of(sheetContext)

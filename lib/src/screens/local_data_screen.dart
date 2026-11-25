@@ -105,6 +105,13 @@ class LocalDataScreen extends StatelessWidget {
                     'count': controller.customSongs.length,
                   }),
                 ),
+                const Divider(height: 1),
+                _DataRow(
+                  icon: Icons.leaderboard_rounded,
+                  title: context.strings.t('localDataSongScores'),
+                  value:
+                      '${controller.songBestScores.length} / ${controller.songScoreHistory.length}',
+                ),
               ],
             ),
           ),

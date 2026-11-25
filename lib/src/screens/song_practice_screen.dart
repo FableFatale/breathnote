@@ -23,6 +23,7 @@ import '../widgets/shared_widgets.dart';
 import '../widgets/song_score_report.dart';
 import 'help_screen.dart';
 import 'lesson_routes.dart';
+import 'practice_screen.dart';
 
 enum SongPracticeMode { follow, score }
 
@@ -93,6 +94,12 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   int _liveMaxCombo = 0;
   int _liveScore = 0;
   SongScoreSummary? _scoreSummary;
+  int _previousSongBest = 0;
+  String? _previousTargetTab;
+
+  bool get _isScoringActive =>
+      _mode == SongPracticeMode.score &&
+      (_status == _SongStatus.listening || _countInBeat > 0);
 
   Duration get _scoreNoteDuration =>
       Duration(milliseconds: _guideSpeed <= 0.6 ? 1300 : 850);
@@ -198,6 +205,9 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
   void _startScoringTimeline() {
     _countInTimer?.cancel();
     _scoreTimer?.cancel();
+    _previousSongBest =
+        AppScope.maybeRead(context)?.bestScoreForSong(widget.song.id) ?? 0;
+    _previousTargetTab = null;
     setState(() {
       _index = 0;
       _demoNoteIndex = 0;
@@ -214,7 +224,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _liveScore = 0;
       _countInBeat = 4;
     });
-    _countInTimer = Timer.periodic(const Duration(milliseconds: 450), (timer) {
+    _countInTimer = Timer.periodic(_scoreNoteDuration, (timer) {
       if (!mounted || _status != _SongStatus.listening) {
         timer.cancel();
         return;
@@ -271,6 +281,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
 
     if (_index < widget.song.playableNotes.length - 1) {
       setState(() {
+        _previousTargetTab = note.tab;
         _index++;
         _demoNoteIndex = _index;
         _holdProgress = 0;
@@ -298,6 +309,21 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
     final controller = AppScope.maybeRead(context);
     if (controller == null) return;
     final seconds = _activePracticeDuration.inSeconds.clamp(0, 3600).toInt();
+    final attempt = SongScoreAttempt(
+      songId: widget.song.id,
+      timestampMs: DateTime.now().millisecondsSinceEpoch,
+      totalScore: summary.totalScore,
+      pitchScore: summary.pitchScore,
+      timingScore: summary.timingScore,
+      stabilityScore: summary.stabilityScore,
+      stars: summary.stars,
+      maxCombo: summary.maxCombo,
+      hitCount: summary.hitCount,
+      totalNotes: summary.totalNotes,
+      speed: _guideSpeed,
+      mode: 'score',
+      weakestTab: summary.weakestTab,
+    );
     final futures = <Future<void>>[
       _pitchService.stop(),
       _guideToneService.stop(),
@@ -309,6 +335,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         songId: widget.song.id,
         score: summary.totalScore,
         stars: summary.stars,
+        attempt: attempt,
       ),
     ];
     if (widget.lessonId != null) {
@@ -346,6 +373,19 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
         return;
       }
       if (reading.detected) {
+        final startedAt = _noteWindowStartedAt;
+        if (_index > 0 &&
+            startedAt != null &&
+            _previousTargetTab != null &&
+            target.tab != _previousTargetTab &&
+            now.difference(startedAt).inMilliseconds <= 70) {
+          final prevCents = widget.song.playableNotes[_index - 1]
+              .centsFromFrequency(reading.frequency, controller.harmonicaKey);
+          if (prevCents.abs() < cents.abs()) {
+            setState(() => _reading = reading);
+            return;
+          }
+        }
         if (_lastSampleAt == null ||
             now.difference(_lastSampleAt!).inMilliseconds >= 500) {
           _lastSampleAt = now;
@@ -649,6 +689,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _liveMaxCombo = 0;
       _liveScore = 0;
       _scoreSummary = null;
+      _previousTargetTab = null;
     });
   }
 
@@ -676,6 +717,7 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       _liveMaxCombo = 0;
       _liveScore = 0;
       _scoreSummary = null;
+      _previousTargetTab = null;
     });
   }
 
@@ -1030,6 +1072,25 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                             title: localizedSongTitle,
                             iconId: controller.iconIdForSong(widget.song),
                             summary: _scoreSummary,
+                            previousBestScore: _mode == SongPracticeMode.score
+                                ? _previousSongBest
+                                : null,
+                            speed: _guideSpeed,
+                            recentAttempts:
+                                controller.songHistoryFor(widget.song.id),
+                            onDrillNote: (note) => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (routeContext) => PracticeScreen(
+                                  target: note,
+                                  lessonId: 'drill_${note.tab}',
+                                  instruction: routeContext.strings.t(
+                                    'scoreDrillInstruction',
+                                    {'tab': note.tab},
+                                  ),
+                                  completeLessonOnFinish: false,
+                                ),
+                              ),
+                            ),
                           )
                         : Column(
                             key: const ValueKey('song-active'),
@@ -1231,8 +1292,16 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                                       holdProgress: _guidePlaying
                                           ? 1.0
                                           : _holdProgress,
+                                      scoreStatuses:
+                                          _mode == SongPracticeMode.score
+                                          ? _scoreRecords
+                                                .map((r) => r.status)
+                                                .toList()
+                                          : null,
                                       onNoteTap: (tappedIndex) {
-                                        if (_completed) return;
+                                        if (_completed || _isScoringActive) {
+                                          return;
+                                        }
                                         unawaited(
                                           AppHaptics.selection(context),
                                         );
@@ -1393,8 +1462,10 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
                       speed: _guideSpeed,
                       loop: _guideLoop,
                       enabled: !_unsupported,
+                      speedLocked: _isScoringActive,
                       onPlay: _toggleGuide,
                       onSpeedChanged: (value) async {
+                        if (_isScoringActive) return;
                         if (_guidePlaying) await _stopGuideAndResume();
                         if (!context.mounted) return;
                         setState(() => _guideSpeed = value);
@@ -1512,12 +1583,14 @@ class _Sequence extends StatelessWidget {
     required this.song,
     required this.currentIndex,
     this.holdProgress = 0,
+    this.scoreStatuses,
     this.onNoteTap,
   });
 
   final Song song;
   final int currentIndex;
   final double holdProgress;
+  final List<NoteScoreStatus>? scoreStatuses;
   final ValueChanged<int>? onNoteTap;
 
   @override
@@ -1533,6 +1606,15 @@ class _Sequence extends StatelessWidget {
           : active
           ? holdProgress.clamp(0.0, 1.0)
           : 0.0;
+      final status = (scoreStatuses != null && index < scoreStatuses!.length)
+          ? scoreStatuses![index]
+          : null;
+      final completeColor = switch (status) {
+        NoteScoreStatus.accurate => palette.success,
+        NoteScoreStatus.flat || NoteScoreStatus.sharp => palette.warning,
+        NoteScoreStatus.missed => palette.danger,
+        null => palette.success,
+      };
 
       final cell = GestureDetector(
         behavior: HitTestBehavior.opaque,
@@ -1548,7 +1630,7 @@ class _Sequence extends StatelessWidget {
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               color: complete
-                  ? palette.success.withValues(alpha: 0.12)
+                  ? completeColor.withValues(alpha: 0.12)
                   : active
                   ? palette.primary.withValues(alpha: 0.14)
                   : palette.surfaceHigh,
@@ -1557,7 +1639,7 @@ class _Sequence extends StatelessWidget {
                 color: active
                     ? palette.primary
                     : complete
-                    ? palette.success.withValues(alpha: 0.45)
+                    ? completeColor.withValues(alpha: 0.45)
                     : palette.outline,
                 width: active ? 1.6 : 1.0,
               ),
@@ -1574,7 +1656,7 @@ class _Sequence extends StatelessWidget {
                       alignment: Alignment.centerLeft,
                       widthFactor: fillFraction,
                       child: ColoredBox(
-                        color: complete ? palette.success : palette.primary,
+                        color: complete ? completeColor : palette.primary,
                       ),
                     ),
                   ),
@@ -1587,7 +1669,7 @@ class _Sequence extends StatelessWidget {
                         song.playableNotes[index].tab,
                         style: TextStyle(
                           color: complete
-                              ? palette.success
+                              ? completeColor
                               : active
                               ? palette.primary
                               : palette.muted,
@@ -1640,6 +1722,7 @@ class _SongGuideControls extends StatelessWidget {
     required this.speed,
     required this.loop,
     required this.enabled,
+    this.speedLocked = false,
     required this.onPlay,
     required this.onSpeedChanged,
     required this.onLoopChanged,
@@ -1649,6 +1732,7 @@ class _SongGuideControls extends StatelessWidget {
   final double speed;
   final bool loop;
   final bool enabled;
+  final bool speedLocked;
   final VoidCallback onPlay;
   final ValueChanged<double> onSpeedChanged;
   final ValueChanged<bool> onLoopChanged;
@@ -1698,60 +1782,63 @@ class _SongGuideControls extends StatelessWidget {
           // 2. 0.5× / 1× 速度切换器（等高 42px，圆角 12px）
           Expanded(
             flex: 4,
-            child: Container(
-              height: 42,
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                color: palette.surfaceHigh,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: palette.outline),
-              ),
-              child: Row(
-                children: [
-                  for (final option in const [
-                    (0.5, '0.5×'),
-                    (1.0, '1×'),
-                  ])
-                    Expanded(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: enabled
-                            ? () => onSpeedChanged(option.$1)
-                            : null,
-                        child: AnimatedContainer(
-                          duration: AppMotion.duration(context, AppMotion.fast),
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: speed == option.$1
-                                ? palette.primary.withValues(alpha: 0.16)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(9),
-                            border: Border.all(
+            child: Opacity(
+              opacity: speedLocked ? 0.55 : 1.0,
+              child: Container(
+                height: 42,
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: palette.surfaceHigh,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: palette.outline),
+                ),
+                child: Row(
+                  children: [
+                    for (final option in const [
+                      (0.5, '0.5×'),
+                      (1.0, '1×'),
+                    ])
+                      Expanded(
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: enabled && !speedLocked
+                              ? () => onSpeedChanged(option.$1)
+                              : null,
+                          child: AnimatedContainer(
+                            duration: AppMotion.duration(context, AppMotion.fast),
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
                               color: speed == option.$1
-                                  ? palette.primary
+                                  ? palette.primary.withValues(alpha: 0.16)
                                   : Colors.transparent,
-                            ),
-                          ),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              option.$2,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontFamily: 'monospace',
-                                fontWeight: speed == option.$1
-                                    ? FontWeight.w800
-                                    : FontWeight.w600,
+                              borderRadius: BorderRadius.circular(9),
+                              border: Border.all(
                                 color: speed == option.$1
                                     ? palette.primary
-                                    : palette.muted,
+                                    : Colors.transparent,
+                              ),
+                            ),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                option.$2,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontFamily: 'monospace',
+                                  fontWeight: speed == option.$1
+                                      ? FontWeight.w800
+                                      : FontWeight.w600,
+                                  color: speed == option.$1
+                                      ? palette.primary
+                                      : palette.muted,
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

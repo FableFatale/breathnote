@@ -27,6 +27,25 @@ int starsForSongScore(int score) {
   return 0;
 }
 
+/// 曲目综合评级（S / A / B / C）。
+enum SongScoreGrade { s, a, b, c }
+
+SongScoreGrade gradeForSongScore(int score) {
+  if (score >= 92) return SongScoreGrade.s;
+  if (score >= 80) return SongScoreGrade.a;
+  if (score >= 65) return SongScoreGrade.b;
+  return SongScoreGrade.c;
+}
+
+extension SongScoreGradeLabel on SongScoreGrade {
+  String get label => switch (this) {
+    SongScoreGrade.s => 'S',
+    SongScoreGrade.a => 'A',
+    SongScoreGrade.b => 'B',
+    SongScoreGrade.c => 'C',
+  };
+}
+
 /// 单个音符在评分时间线上的采样与判定结果。
 @immutable
 class NoteScoreRecord {
@@ -37,6 +56,7 @@ class NoteScoreRecord {
     this.medianCents,
     this.timingOffsetMs,
     this.stabilityStdDevCents,
+    this.sampleCount = 0,
   });
 
   final int index;
@@ -51,6 +71,9 @@ class NoteScoreRecord {
 
   /// 窗口内音分波动标准差（越小越稳）；漏吹时为 null。
   final double? stabilityStdDevCents;
+
+  /// 窗口内采集的有效音高帧数（0 表示旧构造/单测未传入）。
+  final int sampleCount;
 
   bool get isHit => status != NoteScoreStatus.missed;
   bool get isAccurate => status == NoteScoreStatus.accurate;
@@ -107,6 +130,7 @@ class NoteScoreRecord {
       medianCents: median,
       timingOffsetMs: firstOnsetOffsetMs ?? 0.0,
       stabilityStdDevCents: stdDev,
+      sampleCount: centsSamples.length,
     );
   }
 }
@@ -143,6 +167,8 @@ class SongScoreSummary {
   final NoteScoreStatus? weakestStatus;
 
   int get totalNotes => notes.length;
+
+  SongScoreGrade get grade => gradeForSongScore(totalScore);
 
   /// 汇总逐音采样结果，输出三维细分评分与诊断要点。
   /// 权重：音准 50% · 节奏 25% · 稳定度 25%（±25¢ 为准音阈值）。
@@ -216,17 +242,25 @@ class SongScoreSummary {
       }
       timingSum += noteTiming;
 
-      // 3. 气息稳定分
+      // 3. 气息稳定分（单/双帧样本封顶，避免极短起音虚高）
       final stdDev = (record.stabilityStdDevCents ?? 0).abs();
-      final double noteStability;
+      final double rawStability;
       if (stdDev <= 6) {
-        noteStability = 100.0;
+        rawStability = 100.0;
       } else if (stdDev <= 15) {
-        noteStability = 100.0 - ((stdDev - 6) / 9.0) * 25.0;
+        rawStability = 100.0 - ((stdDev - 6) / 9.0) * 25.0;
       } else if (stdDev <= 30) {
-        noteStability = 75.0 - ((stdDev - 15) / 15.0) * 30.0;
+        rawStability = 75.0 - ((stdDev - 15) / 15.0) * 30.0;
       } else {
-        noteStability = 35.0;
+        rawStability = 35.0;
+      }
+      final double noteStability;
+      if (record.sampleCount == 1) {
+        noteStability = math.min(60.0, rawStability);
+      } else if (record.sampleCount == 2) {
+        noteStability = math.min(80.0, rawStability);
+      } else {
+        noteStability = rawStability;
       }
       stabilitySum += noteStability;
     }
@@ -292,6 +326,88 @@ class SongScoreSummary {
       notes: List.unmodifiable(notes),
       weakestTab: weakestTab,
       weakestStatus: weakestStatus,
+    );
+  }
+}
+
+/// 单次曲谱练习/评分的历史记录条目。
+@immutable
+class SongScoreAttempt {
+  const SongScoreAttempt({
+    required this.songId,
+    required this.timestampMs,
+    required this.totalScore,
+    required this.pitchScore,
+    required this.timingScore,
+    required this.stabilityScore,
+    required this.stars,
+    required this.maxCombo,
+    required this.hitCount,
+    required this.totalNotes,
+    required this.speed,
+    required this.mode,
+    this.weakestTab,
+  });
+
+  final String songId;
+  final int timestampMs;
+  final int totalScore;
+  final int pitchScore;
+  final int timingScore;
+  final int stabilityScore;
+  final int stars;
+  final int maxCombo;
+  final int hitCount;
+  final int totalNotes;
+  final double speed;
+  final String mode;
+  final String? weakestTab;
+
+  SongScoreGrade get grade => gradeForSongScore(totalScore);
+
+  Map<String, Object?> toJson() => {
+    'songId': songId,
+    'timestampMs': timestampMs,
+    'totalScore': totalScore,
+    'pitchScore': pitchScore,
+    'timingScore': timingScore,
+    'stabilityScore': stabilityScore,
+    'stars': stars,
+    'maxCombo': maxCombo,
+    'hitCount': hitCount,
+    'totalNotes': totalNotes,
+    'speed': speed,
+    'mode': mode,
+    if (weakestTab != null) 'weakestTab': weakestTab,
+  };
+
+  static SongScoreAttempt? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final map = Map<String, Object?>.from(raw);
+    final songId = map['songId'];
+    final timestampMs = map['timestampMs'];
+    final totalScore = map['totalScore'];
+    if (songId is! String ||
+        songId.isEmpty ||
+        timestampMs is! num ||
+        totalScore is! num) {
+      return null;
+    }
+    return SongScoreAttempt(
+      songId: songId,
+      timestampMs: timestampMs.toInt(),
+      totalScore: totalScore.toInt().clamp(0, 100),
+      pitchScore: (map['pitchScore'] as num?)?.toInt().clamp(0, 100) ?? 0,
+      timingScore: (map['timingScore'] as num?)?.toInt().clamp(0, 100) ?? 0,
+      stabilityScore:
+          (map['stabilityScore'] as num?)?.toInt().clamp(0, 100) ?? 0,
+      stars: (map['stars'] as num?)?.toInt().clamp(0, 3) ?? 0,
+      maxCombo: (map['maxCombo'] as num?)?.toInt() ?? 0,
+      hitCount: (map['hitCount'] as num?)?.toInt() ?? 0,
+      totalNotes: (map['totalNotes'] as num?)?.toInt() ?? 0,
+      speed: (map['speed'] as num?)?.toDouble() ?? 1.0,
+      mode: map['mode'] as String? ?? 'score',
+      weakestTab: map['weakestTab'] as String?,
     );
   }
 }

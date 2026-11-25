@@ -80,7 +80,11 @@ class _BreathLessonScreenState extends State<BreathLessonScreen> {
     _timer?.cancel();
     final controller = AppScope.read(context);
     await controller.markLessonComplete('lesson_breath');
-    await controller.recordPractice(seconds: 30, score: 100);
+    await controller.recordPractice(
+      seconds: 30,
+      score: 0,
+      updateBestScore: false,
+    );
     if (!mounted) return;
     await AppHaptics.success(context);
   }

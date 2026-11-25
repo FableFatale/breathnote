@@ -7,6 +7,7 @@ import '../models/harmonica_layout.dart';
 import '../models/pitch_reading.dart';
 import '../models/practice_note.dart';
 import '../models/song.dart';
+import '../models/song_score.dart';
 import '../services/preferences_service.dart';
 import '../services/purchase_service.dart';
 import '../version.dart';
@@ -55,11 +56,13 @@ class AppController extends ChangeNotifier {
   final Map<String, String> songIconOverrides = {};
   final Map<String, int> songBestScores = {};
   final Map<String, int> songBestStars = {};
+  final List<SongScoreAttempt> songScoreHistory = [];
   final List<HarmonicaPreset> harmonicaPresets = [];
   final List<Song> customSongs = [];
   final List<PitchAttempt> pitchAttempts = [];
 
   static const _maxPitchAttempts = 400;
+  static const _maxSongScoreHistory = 60;
 
   List<Song> get allSongs => [...customSongs, ...songs];
 
@@ -87,6 +90,24 @@ class AppController extends ChangeNotifier {
   int bestScoreForSong(String songId) => songBestScores[songId] ?? 0;
 
   int bestStarsForSong(String songId) => songBestStars[songId] ?? 0;
+
+  List<SongScoreAttempt> songHistoryFor(String songId) {
+    return songScoreHistory
+        .where((attempt) => attempt.songId == songId)
+        .toList()
+        .reversed
+        .toList();
+  }
+
+  SongScoreAttempt? latestScoredAttempt(String songId) {
+    for (var i = songScoreHistory.length - 1; i >= 0; i--) {
+      final attempt = songScoreHistory[i];
+      if (attempt.songId == songId && attempt.mode == 'score') {
+        return attempt;
+      }
+    }
+    return null;
+  }
 
   bool isSongCompleted(String songId) =>
       bestStarsForSong(songId) > 0 || bestScoreForSong(songId) > 0;
@@ -192,6 +213,13 @@ class AppController extends ChangeNotifier {
       songIconOverrides.addAll(_decodeStringMap(values['songIconOverrides']));
       songBestScores.addAll(_decodeIntMap(values['songBestScores']));
       songBestStars.addAll(_decodeIntMap(values['songBestStars']));
+      songScoreHistory.addAll(_decodeSongScoreHistory(values['songScoreHistory']));
+      if (songScoreHistory.length > _maxSongScoreHistory) {
+        songScoreHistory.removeRange(
+          0,
+          songScoreHistory.length - _maxSongScoreHistory,
+        );
+      }
       pitchAttempts.addAll(_decodePitchAttempts(values['pitchAttempts']));
       final rawSongs = values['customSongs'];
       if (rawSongs is String && rawSongs.isNotEmpty) {
@@ -447,16 +475,20 @@ class AppController extends ChangeNotifier {
   Future<void> recordPractice({
     required int seconds,
     required int score,
+    bool updateBestScore = true,
   }) async {
     final safeSeconds = seconds.clamp(1, 3600);
     final safeScore = score.clamp(0, 100);
     practiceSeconds += safeSeconds;
-    bestScore = safeScore > bestScore ? safeScore : bestScore;
+    final bestChanged = updateBestScore && safeScore > bestScore;
+    if (bestChanged) {
+      bestScore = safeScore;
+    }
     practiceDates.add(_dateKey(DateTime.now()));
     notifyListeners();
     await Future.wait([
       _persist('practiceSeconds', practiceSeconds),
-      _persist('bestScore', bestScore),
+      if (bestChanged) _persist('bestScore', bestScore),
       _persist('practiceDates', jsonEncode(practiceDates.toList())),
     ]);
   }
@@ -584,23 +616,43 @@ class AppController extends ChangeNotifier {
     required String songId,
     required int score,
     required int stars,
+    SongScoreAttempt? attempt,
   }) async {
     final safeScore = score.clamp(0, 100);
     final safeStars = stars.clamp(0, 3);
-    var changed = false;
+    var bestScoreChanged = false;
+    var bestStarsChanged = false;
     if (safeScore > (songBestScores[songId] ?? 0)) {
       songBestScores[songId] = safeScore;
-      changed = true;
+      bestScoreChanged = true;
     }
     if (safeStars > (songBestStars[songId] ?? 0)) {
       songBestStars[songId] = safeStars;
-      changed = true;
+      bestStarsChanged = true;
     }
-    if (!changed) return;
+    var historyChanged = false;
+    if (attempt != null) {
+      songScoreHistory.add(attempt);
+      if (songScoreHistory.length > _maxSongScoreHistory) {
+        songScoreHistory.removeRange(
+          0,
+          songScoreHistory.length - _maxSongScoreHistory,
+        );
+      }
+      historyChanged = true;
+    }
+    if (!bestScoreChanged && !bestStarsChanged && !historyChanged) return;
     notifyListeners();
     await Future.wait([
-      _persist('songBestScores', jsonEncode(songBestScores)),
-      _persist('songBestStars', jsonEncode(songBestStars)),
+      if (bestScoreChanged)
+        _persist('songBestScores', jsonEncode(songBestScores)),
+      if (bestStarsChanged)
+        _persist('songBestStars', jsonEncode(songBestStars)),
+      if (historyChanged)
+        _persist(
+          'songScoreHistory',
+          jsonEncode(songScoreHistory.map((item) => item.toJson()).toList()),
+        ),
     ]);
   }
 
@@ -610,6 +662,9 @@ class AppController extends ChangeNotifier {
     final removedFavorite = favoriteSongs.remove(id);
     final removedScore = songBestScores.remove(id) != null;
     final removedStars = songBestStars.remove(id) != null;
+    final beforeHistory = songScoreHistory.length;
+    songScoreHistory.removeWhere((attempt) => attempt.songId == id);
+    final removedHistory = songScoreHistory.length != beforeHistory;
     notifyListeners();
     await Future.wait([
       _persistCustomSongs(),
@@ -621,6 +676,11 @@ class AppController extends ChangeNotifier {
         _persist('songBestScores', jsonEncode(songBestScores)),
       if (removedStars)
         _persist('songBestStars', jsonEncode(songBestStars)),
+      if (removedHistory)
+        _persist(
+          'songScoreHistory',
+          jsonEncode(songScoreHistory.map((item) => item.toJson()).toList()),
+        ),
     ]);
   }
 
@@ -652,6 +712,7 @@ class AppController extends ChangeNotifier {
     songIconOverrides.clear();
     songBestScores.clear();
     songBestStars.clear();
+    songScoreHistory.clear();
     customSongs.clear();
     pitchAttempts.clear();
     notifyListeners();
@@ -716,6 +777,22 @@ class AppController extends ChangeNotifier {
       return result;
     } catch (_) {
       return {};
+    }
+  }
+
+  static List<SongScoreAttempt> _decodeSongScoreHistory(Object? value) {
+    if (value is! String || value.isEmpty) return [];
+    try {
+      final raw = jsonDecode(value);
+      if (raw is! List) return [];
+      final result = <SongScoreAttempt>[];
+      for (final item in raw) {
+        final attempt = SongScoreAttempt.fromJson(item);
+        if (attempt != null) result.add(attempt);
+      }
+      return result;
+    } catch (_) {
+      return [];
     }
   }
 

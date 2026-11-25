@@ -27,7 +27,6 @@ class ChordRhythmLessonScreen extends StatefulWidget {
 
 class _ChordRhythmLessonScreenState extends State<ChordRhythmLessonScreen> {
   static const _targetBars = 2;
-  static const _envelopeThresholdDb = -38.0;
 
   final _pitchService = PitchService();
   final _guideToneService = GuideToneService();
@@ -49,6 +48,13 @@ class _ChordRhythmLessonScreenState extends State<ChordRhythmLessonScreen> {
   int _completedBars = 0;
   double _liveLevelDb = -60;
   bool _lastBeatHitFlash = false;
+  double _activeThresholdDb = -37.9;
+  int _restBleedCount = 0;
+  bool _restBleedThisBeat = false;
+  int _rhythmScore = 96;
+
+  static double _envelopeThresholdDbFor(double sensitivity) =>
+      -26.0 - sensitivity * 17.5;
 
   @override
   void dispose() {
@@ -143,6 +149,7 @@ class _ChordRhythmLessonScreenState extends State<ChordRhythmLessonScreen> {
 
     final sensitivity =
         AppScope.maybeRead(context)?.microphoneSensitivity ?? 0.68;
+    _activeThresholdDb = _envelopeThresholdDbFor(sensitivity);
     _subscription ??= _pitchService.readings.listen(
       _onReading,
       onError: (Object _) => unawaited(_handleAudioError()),
@@ -173,6 +180,9 @@ class _ChordRhythmLessonScreenState extends State<ChordRhythmLessonScreen> {
       _completedBars = 0;
       _liveLevelDb = -60;
       _lastBeatHitFlash = false;
+      _restBleedCount = 0;
+      _restBleedThisBeat = false;
+      _rhythmScore = 96;
     });
 
     _startBeatClock();
@@ -200,11 +210,13 @@ class _ChordRhythmLessonScreenState extends State<ChordRhythmLessonScreen> {
           _blowBeatHit = false;
           _drawBeatHit = false;
           _lastBeatHitFlash = false;
+          _restBleedThisBeat = false;
         });
       } else {
         setState(() {
           _currentBeat = nextBeat;
           _lastBeatHitFlash = false;
+          _restBleedThisBeat = false;
         });
       }
     });
@@ -212,7 +224,7 @@ class _ChordRhythmLessonScreenState extends State<ChordRhythmLessonScreen> {
 
   void _onReading(PitchReading reading) {
     if (!mounted || !_listening || _completed) return;
-    final hasEnvelope = reading.levelDb >= _envelopeThresholdDb;
+    final hasEnvelope = reading.levelDb >= _activeThresholdDb;
     var hitNow = false;
 
     if (hasEnvelope) {
@@ -222,6 +234,10 @@ class _ChordRhythmLessonScreenState extends State<ChordRhythmLessonScreen> {
       } else if (_currentBeat == 2 && !_drawBeatHit) {
         _drawBeatHit = true;
         hitNow = true;
+      } else if ((_currentBeat == 1 || _currentBeat == 3) &&
+          !_restBleedThisBeat) {
+        _restBleedThisBeat = true;
+        _restBleedCount++;
       }
     }
 
@@ -244,9 +260,10 @@ class _ChordRhythmLessonScreenState extends State<ChordRhythmLessonScreen> {
     _beatTimer?.cancel();
     await _pitchService.stop();
     if (!mounted) return;
+    _rhythmScore = (100 - _restBleedCount * 12).clamp(60, 100).toInt();
     final controller = AppScope.read(context);
     await controller.markLessonComplete('lesson_chord');
-    await controller.recordPractice(seconds: 45, score: 96);
+    await controller.recordPractice(seconds: 45, score: _rhythmScore);
     if (!mounted) return;
     setState(() {
       _listening = false;
@@ -584,7 +601,7 @@ class _ChordRhythmLessonScreenState extends State<ChordRhythmLessonScreen> {
                   onPressed: () => showAchievementCardSheet(
                     context,
                     title: strings.lessonTitle('lesson_chord'),
-                    score: 96,
+                    score: _rhythmScore,
                     tabPreview: '1-2-3↑ · 1-2-3↓',
                   ),
                   style: FilledButton.styleFrom(

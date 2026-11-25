@@ -25,6 +25,15 @@ class PreferencesService {
     'sawHarmonicaGuide',
     'hasRegisteredHarmonica',
     'isProUnlocked',
+    'songBestScores',
+    'songBestStars',
+    'songScoreHistory',
+    'favoriteSongs',
+    'songIconOverrides',
+    'seenCoachTips',
+    'firstInstallAt',
+    'activePresetId',
+    'harmonicaPresets',
   };
 
   Future<Map<String, Object?>> getAll() async {
