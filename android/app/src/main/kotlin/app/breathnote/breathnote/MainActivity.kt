@@ -34,6 +34,7 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
     private val shareChannel = "app.breathnote/share"
     private val permissionRequestCode = 4102
     private val scoreFileRequestCode = 4103
+    private val backupFileRequestCode = 4104
 
     private var eventSink: EventChannel.EventSink? = null
     private var pendingPermissionResult: MethodChannel.Result? = null
@@ -80,42 +81,60 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
     @Suppress("DEPRECATION")
     private fun handleFilePickerMethod(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
-            "pickScoreFile" -> {
-                if (pendingFilePickerResult != null) {
-                    result.error("file_picker_active", "A file picker request is already active.", null)
-                    return
-                }
-                pendingFilePickerResult = result
-                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "*/*"
-                    putExtra(
-                        Intent.EXTRA_MIME_TYPES,
-                        arrayOf(
-                            "audio/midi",
-                            "audio/x-midi",
-                            "application/xml",
-                            "text/xml",
-                            "application/vnd.recordare.musicxml+xml",
-                            "application/octet-stream",
-                        ),
-                    )
-                }
-                try {
-                    startActivityForResult(intent, scoreFileRequestCode)
-                } catch (error: Exception) {
-                    pendingFilePickerResult = null
-                    result.error("file_picker_unavailable", error.message, null)
-                }
-            }
+            "pickScoreFile" -> launchDocumentPicker(
+                requestCode = scoreFileRequestCode,
+                mimeTypes = arrayOf(
+                    "audio/midi",
+                    "audio/x-midi",
+                    "application/xml",
+                    "text/xml",
+                    "application/vnd.recordare.musicxml+xml",
+                    "application/octet-stream",
+                ),
+                result = result,
+            )
+            "pickJsonFile" -> launchDocumentPicker(
+                requestCode = backupFileRequestCode,
+                mimeTypes = arrayOf(
+                    "application/json",
+                    "text/json",
+                    "text/plain",
+                    "application/octet-stream",
+                ),
+                result = result,
+            )
             else -> result.notImplemented()
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun launchDocumentPicker(
+        requestCode: Int,
+        mimeTypes: Array<String>,
+        result: MethodChannel.Result,
+    ) {
+        if (pendingFilePickerResult != null) {
+            result.error("file_picker_active", "A file picker request is already active.", null)
+            return
+        }
+        pendingFilePickerResult = result
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+            putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes)
+        }
+        try {
+            startActivityForResult(intent, requestCode)
+        } catch (error: Exception) {
+            pendingFilePickerResult = null
+            result.error("file_picker_unavailable", error.message, null)
         }
     }
 
     @Suppress("DEPRECATION")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode != scoreFileRequestCode) return
+        if (requestCode != scoreFileRequestCode && requestCode != backupFileRequestCode) return
         val pending = pendingFilePickerResult ?: return
         pendingFilePickerResult = null
         if (resultCode != Activity.RESULT_OK || data?.data == null) {
@@ -124,7 +143,12 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
         }
         val uri = data.data!!
         try {
-            var fileName = "imported.mid"
+            var fileName =
+                if (requestCode == backupFileRequestCode) {
+                    "breathnote_backup.json"
+                } else {
+                    "imported.mid"
+                }
             contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
                 if (cursor.moveToFirst()) {
                     val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
@@ -501,6 +525,49 @@ class MainActivity : FlutterActivity(), EventChannel.StreamHandler {
                     result.success(true)
                 } catch (error: Exception) {
                     result.error("share_error", error.message ?: "Unable to share image.", null)
+                }
+            }
+            "shareTextFile" -> {
+                val content = call.argument<String>("content")
+                if (content.isNullOrEmpty()) {
+                    result.error("invalid_file", "File content is required.", null)
+                    return
+                }
+                val rawName = call.argument<String>("fileName") ?: "breathnote_backup.json"
+                val mimeType = call.argument<String>("mimeType") ?: "application/json"
+                val subject = call.argument<String>("subject")
+                val safeBase =
+                    rawName
+                        .substringAfterLast('/')
+                        .substringAfterLast('\\')
+                        .replace(Regex("[^A-Za-z0-9._-]"), "_")
+                        .ifBlank { "breathnote_backup.json" }
+                val safeName =
+                    if (mimeType == "application/json" && !safeBase.endsWith(".json", ignoreCase = true)) {
+                        "$safeBase.json"
+                    } else {
+                        safeBase
+                    }
+                try {
+                    val sharesDir = File(cacheDir, "shares").apply { mkdirs() }
+                    val outFile = File(sharesDir, safeName)
+                    outFile.writeText(content, Charsets.UTF_8)
+                    val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", outFile)
+                    val sendIntent =
+                        Intent(Intent.ACTION_SEND).apply {
+                            type = mimeType
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            if (!subject.isNullOrBlank()) putExtra(Intent.EXTRA_SUBJECT, subject)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                    val chooser =
+                        Intent.createChooser(sendIntent, subject ?: safeName).apply {
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                    startActivity(chooser)
+                    result.success(true)
+                } catch (error: Exception) {
+                    result.error("share_error", error.message ?: "Unable to share file.", null)
                 }
             }
             else -> result.notImplemented()

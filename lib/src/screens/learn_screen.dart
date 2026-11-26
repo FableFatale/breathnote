@@ -132,6 +132,8 @@ class LearnScreen extends StatelessWidget {
                 complete: controller.completedLessons.contains(lesson.id),
                 active: lesson.id == nextLesson.id,
                 proLocked: lesson.isPro && !controller.isProUnlocked,
+                bestScore: controller.bestScoreForLesson(lesson.id),
+                bestStars: controller.bestStarsForLesson(lesson.id),
                 first: index == 0,
                 last: index == lessons.length - 1,
                 onTap: () => _openLesson(context, lesson),
@@ -226,6 +228,8 @@ class _TimelineLesson extends StatelessWidget {
     required this.complete,
     required this.active,
     required this.proLocked,
+    required this.bestScore,
+    required this.bestStars,
     required this.first,
     required this.last,
     required this.onTap,
@@ -237,6 +241,8 @@ class _TimelineLesson extends StatelessWidget {
   final bool complete;
   final bool active;
   final bool proLocked;
+  final int bestScore;
+  final int bestStars;
   final bool first;
   final bool last;
   final VoidCallback onTap;
@@ -507,6 +513,12 @@ class _TimelineLesson extends StatelessWidget {
                                 fontWeight: FontWeight.w600,
                               ),
                         ),
+                        if (bestScore > 0)
+                          _LessonScoreBadge(
+                            key: Key('lesson-score-badge-${lesson.id}'),
+                            score: bestScore,
+                            stars: bestStars,
+                          ),
                       ],
                     ),
                     const SizedBox(height: 11),
@@ -630,9 +642,22 @@ class _TimelineLesson extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    if (bestScore > 0) ...[
+                      const SizedBox(height: 5),
+                      _LessonScoreBadge(
+                        key: Key('lesson-score-badge-${lesson.id}'),
+                        score: bestScore,
+                        stars: bestStars,
+                      ),
+                    ],
+                  ],
                 ),
               ),
               const SizedBox(width: 8),
@@ -792,6 +817,51 @@ class _TimelineLesson extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _LessonScoreBadge extends StatelessWidget {
+  const _LessonScoreBadge({
+    required this.score,
+    required this.stars,
+    super.key,
+  });
+
+  final int score;
+  final int stars;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.colors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+      decoration: BoxDecoration(
+        color: palette.accent.withValues(alpha: 0.11),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: palette.accent.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < 3; i++)
+            Icon(
+              i < stars ? Icons.star_rounded : Icons.star_border_rounded,
+              size: 13,
+              color: i < stars ? palette.accent : palette.muted,
+            ),
+          const SizedBox(width: 4),
+          Text(
+            '$score',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: palette.text,
+              fontWeight: FontWeight.w800,
+              fontFamily: 'monospace',
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
       ),
     );
   }

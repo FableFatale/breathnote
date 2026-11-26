@@ -20,6 +20,7 @@ class PreferencesService {
     'bestScore',
     'practiceDates',
     'completedLessons',
+    'lessonBestScores',
     'customSongs',
     'pitchAttempts',
     'sawHarmonicaGuide',

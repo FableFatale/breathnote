@@ -269,7 +269,7 @@ class _ChordRhythmLessonScreenState extends State<ChordRhythmLessonScreen> {
     if (!mounted) return;
     _rhythmScore = (100 - _restBleedCount * 12).clamp(60, 100).toInt();
     final controller = AppScope.read(context);
-    await controller.markLessonComplete('lesson_chord');
+    await controller.markLessonComplete('lesson_chord', score: _rhythmScore);
     await controller.recordPractice(seconds: 45, score: _rhythmScore);
     if (!mounted) return;
     setState(() {

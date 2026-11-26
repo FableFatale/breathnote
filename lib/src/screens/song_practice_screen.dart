@@ -461,7 +461,12 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       ),
     ];
     if (widget.lessonId != null) {
-      futures.add(controller.markLessonComplete(widget.lessonId!));
+      futures.add(
+        controller.markLessonComplete(
+          widget.lessonId!,
+          score: summary.totalScore,
+        ),
+      );
     }
     await Future.wait(futures);
     if (!mounted) return;
@@ -669,7 +674,12 @@ class _SongPracticeScreenState extends State<SongPracticeScreen>
       ),
     ];
     if (widget.lessonId != null) {
-      futures.add(controller.markLessonComplete(widget.lessonId!));
+      futures.add(
+        controller.markLessonComplete(
+          widget.lessonId!,
+          score: _score,
+        ),
+      );
     }
     await Future.wait(futures);
     if (!mounted) return;

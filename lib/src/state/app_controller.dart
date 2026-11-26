@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -53,6 +54,7 @@ class AppController extends ChangeNotifier {
   String appVersionLabel = kAppDisplayVersion;
   final Set<String> practiceDates = {};
   final Set<String> completedLessons = {};
+  final Map<String, int> lessonBestScores = {};
   final Set<String> seenCoachTips = {};
   final Set<String> favoriteSongs = {};
   final Map<String, String> songIconOverrides = {};
@@ -65,6 +67,8 @@ class AppController extends ChangeNotifier {
 
   static const _maxPitchAttempts = 400;
   static const _maxSongScoreHistory = 60;
+  static const backupFormatId = 'breathnote.backup';
+  static const backupSchemaVersion = 1;
 
   List<Song> get allSongs => [...customSongs, ...songs];
 
@@ -92,6 +96,23 @@ class AppController extends ChangeNotifier {
   int bestScoreForSong(String songId) => songBestScores[songId] ?? 0;
 
   int bestStarsForSong(String songId) => songBestStars[songId] ?? 0;
+
+  int bestScoreForLesson(String lessonId) {
+    final stored = lessonBestScores[lessonId] ?? 0;
+    final linkedSongId = switch (lessonId) {
+      'lesson_5' => 'twinkle',
+      'lesson_8' => 'first_breeze',
+      _ => null,
+    };
+    if (linkedSongId == null) return stored;
+    return math.max(stored, bestScoreForSong(linkedSongId));
+  }
+
+  int bestStarsForLesson(String lessonId) {
+    final score = bestScoreForLesson(lessonId);
+    if (score <= 0) return 0;
+    return starsForSongScore(score);
+  }
 
   List<SongScoreAttempt> songHistoryFor(String songId) {
     return songScoreHistory
@@ -212,6 +233,7 @@ class AppController extends ChangeNotifier {
       bestScore = (values['bestScore'] as num?)?.toInt() ?? bestScore;
       practiceDates.addAll(_decodeStringList(values['practiceDates']));
       completedLessons.addAll(_decodeStringList(values['completedLessons']));
+      lessonBestScores.addAll(_decodeIntMap(values['lessonBestScores']));
       seenCoachTips.addAll(_decodeStringList(values['seenCoachTips']));
       favoriteSongs.addAll(_decodeStringList(values['favoriteSongs']));
       songIconOverrides.addAll(_decodeStringMap(values['songIconOverrides']));
@@ -484,10 +506,22 @@ class AppController extends ChangeNotifier {
     await _persist('textScale', next);
   }
 
-  Future<void> markLessonComplete(String lessonId) async {
-    if (!completedLessons.add(lessonId)) return;
+  Future<void> markLessonComplete(String lessonId, {int? score}) async {
+    final added = completedLessons.add(lessonId);
+    var scoreChanged = false;
+    if (score != null) {
+      final safeScore = score.clamp(0, 100);
+      if (safeScore > (lessonBestScores[lessonId] ?? 0)) {
+        lessonBestScores[lessonId] = safeScore;
+        scoreChanged = true;
+      }
+    }
+    if (!added && !scoreChanged) return;
     notifyListeners();
-    await _persist('completedLessons', jsonEncode(completedLessons.toList()));
+    await Future.wait([
+      if (added) _persist('completedLessons', jsonEncode(completedLessons.toList())),
+      if (scoreChanged) _persist('lessonBestScores', jsonEncode(lessonBestScores)),
+    ]);
   }
 
   Future<void> recordPractice({
@@ -727,6 +761,7 @@ class AppController extends ChangeNotifier {
     bestScore = 0;
     practiceDates.clear();
     completedLessons.clear();
+    lessonBestScores.clear();
     seenCoachTips.clear();
     favoriteSongs.clear();
     songIconOverrides.clear();
@@ -736,6 +771,382 @@ class AppController extends ChangeNotifier {
     customSongs.clear();
     pitchAttempts.clear();
     notifyListeners();
+  }
+
+  String exportBackupJson({DateTime? now}) {
+    final timestamp = (now ?? DateTime.now()).toUtc();
+    final payload = <String, Object?>{
+      'format': backupFormatId,
+      'schemaVersion': backupSchemaVersion,
+      'exportedAt': timestamp.toIso8601String(),
+      'appVersion': appVersionLabel,
+      'data': <String, Object?>{
+        'displayName': displayName,
+        'harmonicaKey': harmonicaKey,
+        'activePresetId': activePresetId,
+        'harmonicaPresets':
+            harmonicaPresets.map((item) => item.toJson()).toList(),
+        'hapticsEnabled': hapticsEnabled,
+        'metronomeEnabled': metronomeEnabled,
+        'strictOctave': strictOctave,
+        'highContrast': highContrast,
+        'reduceMotion': reduceMotion,
+        'themeMode': themeMode.name,
+        'languageCode': languageCode,
+        'microphoneSensitivity': microphoneSensitivity,
+        'textScale': textScale,
+        'practiceSeconds': practiceSeconds,
+        'bestScore': bestScore,
+        'sawHarmonicaGuide': sawHarmonicaGuide,
+        'hasRegisteredHarmonica': hasRegisteredHarmonica,
+        'practiceDates': practiceDates.toList(),
+        'completedLessons': completedLessons.toList(),
+        'lessonBestScores': lessonBestScores,
+        'seenCoachTips': seenCoachTips.toList(),
+        'favoriteSongs': favoriteSongs.toList(),
+        'songIconOverrides': songIconOverrides,
+        'songBestScores': songBestScores,
+        'songBestStars': songBestStars,
+        'songScoreHistory':
+            songScoreHistory.map((item) => item.toJson()).toList(),
+        'customSongs': customSongs.map((item) => item.toJson()).toList(),
+        'pitchAttempts': pitchAttempts.map((item) => item.toJson()).toList(),
+      },
+    };
+    return const JsonEncoder.withIndent('  ').convert(payload);
+  }
+
+  static _ParsedBackup _decodeAndValidateBackup(String rawJson) {
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(rawJson);
+    } catch (_) {
+      throw const FormatException('backupInvalidFormat');
+    }
+    if (decoded is! Map) {
+      throw const FormatException('backupInvalidFormat');
+    }
+    final root = Map<String, Object?>.from(decoded);
+    if (root['format'] != backupFormatId) {
+      throw const FormatException('backupInvalidFormat');
+    }
+    final schemaVersion = (root['schemaVersion'] as num?)?.toInt();
+    if (schemaVersion == null || schemaVersion != backupSchemaVersion) {
+      throw const FormatException('backupUnsupportedVersion');
+    }
+    final rawData = root['data'];
+    if (rawData is! Map) {
+      throw const FormatException('backupInvalidFormat');
+    }
+    final data = Map<String, Object?>.from(rawData);
+
+    final rawDisplayName = data['displayName'] as String?;
+    final nextDisplayName =
+        (rawDisplayName == null ||
+            rawDisplayName.trim().isEmpty ||
+            rawDisplayName == legacyDefaultDisplayName)
+        ? defaultDisplayName
+        : rawDisplayName.trim();
+    final rawKey = data['harmonicaKey'] as String?;
+    final nextKey =
+        (rawKey != null && kAllHarmonicaKeys.contains(rawKey)) ? rawKey : 'C';
+
+    final nextPresets = <HarmonicaPreset>[];
+    final rawPresets = data['harmonicaPresets'];
+    if (rawPresets is List) {
+      for (final item in rawPresets) {
+        if (item is Map) {
+          try {
+            final preset = HarmonicaPreset.fromJson(
+              Map<String, Object?>.from(item),
+            );
+            if (preset.id.isNotEmpty && kAllHarmonicaKeys.contains(preset.key)) {
+              nextPresets.add(preset);
+            }
+          } catch (_) {}
+        }
+      }
+    }
+    final rawPresetId = data['activePresetId'] as String?;
+    final nextActivePresetId =
+        (rawPresetId != null &&
+            nextPresets.any((preset) => preset.id == rawPresetId))
+        ? rawPresetId
+        : null;
+
+    final nextHaptics = data['hapticsEnabled'] as bool? ?? true;
+    final nextMetronome = data['metronomeEnabled'] as bool? ?? true;
+    final nextStrictOctave = data['strictOctave'] as bool? ?? false;
+    final nextHighContrast = data['highContrast'] as bool? ?? false;
+    final nextReduceMotion = data['reduceMotion'] as bool? ?? false;
+    final nextThemeMode = _decodeThemeMode(data['themeMode']);
+    final rawLang = data['languageCode'] as String?;
+    final nextLanguage =
+        const {'zh', 'en', 'ja'}.contains(rawLang) ? rawLang! : 'zh';
+    final nextSensitivity =
+        ((data['microphoneSensitivity'] as num?)?.toDouble() ?? 0.68)
+            .clamp(0.0, 1.0)
+            .toDouble();
+    final nextTextScale =
+        ((data['textScale'] as num?)?.toDouble() ?? 1.0)
+            .clamp(0.9, 1.2)
+            .toDouble();
+    final nextPracticeSeconds =
+        math.max(0, (data['practiceSeconds'] as num?)?.toInt() ?? 0);
+    final nextBestScore =
+        ((data['bestScore'] as num?)?.toInt() ?? 0).clamp(0, 100);
+    final nextSawGuide = data['sawHarmonicaGuide'] as bool? ?? false;
+    final nextRegistered = data['hasRegisteredHarmonica'] as bool? ?? false;
+
+    final nextPracticeDates = _decodeStringCollection(data['practiceDates']);
+    final nextCompletedLessons =
+        _decodeStringCollection(data['completedLessons']);
+    final nextLessonBestScores =
+        _decodeClampedScoreMap(data['lessonBestScores'], max: 100);
+    final nextSeenCoachTips = _decodeStringCollection(data['seenCoachTips']);
+    final nextFavoriteSongs = _decodeStringCollection(data['favoriteSongs']);
+    final nextSongIconOverrides = _decodeStringPairMap(
+      data['songIconOverrides'],
+    );
+    final nextSongBestScores = _decodeClampedScoreMap(
+      data['songBestScores'],
+      max: 100,
+    );
+    final nextSongBestStars = _decodeClampedScoreMap(
+      data['songBestStars'],
+      max: 3,
+    );
+
+    final nextHistory = <SongScoreAttempt>[];
+    final rawHistory = data['songScoreHistory'];
+    if (rawHistory is List) {
+      for (final item in rawHistory) {
+        final attempt = SongScoreAttempt.fromJson(item);
+        if (attempt != null) nextHistory.add(attempt);
+      }
+      if (nextHistory.length > _maxSongScoreHistory) {
+        nextHistory.removeRange(0, nextHistory.length - _maxSongScoreHistory);
+      }
+    }
+
+    final nextCustomSongs = <Song>[];
+    final rawSongs = data['customSongs'];
+    if (rawSongs is List) {
+      for (final item in rawSongs) {
+        if (item is Map) {
+          try {
+            nextCustomSongs.add(
+              Song.fromJson(Map<String, Object?>.from(item)),
+            );
+          } catch (_) {}
+        }
+      }
+    }
+
+    final nextPitchAttempts = <PitchAttempt>[];
+    final rawPitch = data['pitchAttempts'];
+    if (rawPitch is List) {
+      for (final item in rawPitch) {
+        if (item is Map) {
+          try {
+            final parsed = PitchAttempt.fromJson(
+              Map<String, Object?>.from(item),
+            );
+            if (parsed.absoluteCents.isFinite) {
+              nextPitchAttempts.add(parsed);
+            }
+          } catch (_) {}
+        }
+      }
+      if (nextPitchAttempts.length > _maxPitchAttempts) {
+        nextPitchAttempts.removeRange(
+          0,
+          nextPitchAttempts.length - _maxPitchAttempts,
+        );
+      }
+    }
+
+    final exportedAt = DateTime.tryParse(root['exportedAt'] as String? ?? '');
+    final appVersion = (root['appVersion'] as String?)?.trim() ?? '';
+
+    final preview = BackupPreview(
+      schemaVersion: schemaVersion,
+      exportedAt: exportedAt,
+      appVersion: appVersion,
+      displayName: nextDisplayName,
+      harmonicaKey: nextKey,
+      completedLessonCount: nextCompletedLessons.length,
+      customSongCount: nextCustomSongs.length,
+      practiceMinutes: nextPracticeSeconds ~/ 60,
+      scoreHistoryCount: nextHistory.length,
+      presetCount: nextPresets.length,
+    );
+
+    return _ParsedBackup(
+      preview: preview,
+      displayName: nextDisplayName,
+      harmonicaKey: nextKey,
+      activePresetId: nextActivePresetId,
+      harmonicaPresets: nextPresets,
+      hapticsEnabled: nextHaptics,
+      metronomeEnabled: nextMetronome,
+      strictOctave: nextStrictOctave,
+      highContrast: nextHighContrast,
+      reduceMotion: nextReduceMotion,
+      themeMode: nextThemeMode,
+      languageCode: nextLanguage,
+      microphoneSensitivity: nextSensitivity,
+      textScale: nextTextScale,
+      practiceSeconds: nextPracticeSeconds,
+      bestScore: nextBestScore,
+      sawHarmonicaGuide: nextSawGuide,
+      hasRegisteredHarmonica: nextRegistered,
+      practiceDates: nextPracticeDates,
+      completedLessons: nextCompletedLessons,
+      lessonBestScores: nextLessonBestScores,
+      seenCoachTips: nextSeenCoachTips,
+      favoriteSongs: nextFavoriteSongs,
+      songIconOverrides: nextSongIconOverrides,
+      songBestScores: nextSongBestScores,
+      songBestStars: nextSongBestStars,
+      songScoreHistory: nextHistory,
+      customSongs: nextCustomSongs,
+      pitchAttempts: nextPitchAttempts,
+    );
+  }
+
+  static BackupPreview parseBackupPreview(String rawJson) {
+    return _decodeAndValidateBackup(rawJson).preview;
+  }
+
+  Future<BackupPreview> importBackupJson(String rawJson) async {
+    final parsed = _decodeAndValidateBackup(rawJson);
+    displayName = parsed.displayName;
+    harmonicaKey = parsed.harmonicaKey;
+    activePresetId = parsed.activePresetId;
+    harmonicaPresets
+      ..clear()
+      ..addAll(parsed.harmonicaPresets);
+    hapticsEnabled = parsed.hapticsEnabled;
+    metronomeEnabled = parsed.metronomeEnabled;
+    strictOctave = parsed.strictOctave;
+    highContrast = parsed.highContrast;
+    reduceMotion = parsed.reduceMotion;
+    themeMode = parsed.themeMode;
+    languageCode = parsed.languageCode;
+    microphoneSensitivity = parsed.microphoneSensitivity;
+    textScale = parsed.textScale;
+    practiceSeconds = parsed.practiceSeconds;
+    bestScore = parsed.bestScore;
+    sawHarmonicaGuide = parsed.sawHarmonicaGuide;
+    hasRegisteredHarmonica = parsed.hasRegisteredHarmonica;
+    practiceDates
+      ..clear()
+      ..addAll(parsed.practiceDates);
+    completedLessons
+      ..clear()
+      ..addAll(parsed.completedLessons);
+    lessonBestScores
+      ..clear()
+      ..addAll(parsed.lessonBestScores);
+    seenCoachTips
+      ..clear()
+      ..addAll(parsed.seenCoachTips);
+    favoriteSongs
+      ..clear()
+      ..addAll(parsed.favoriteSongs);
+    songIconOverrides
+      ..clear()
+      ..addAll(parsed.songIconOverrides);
+    songBestScores
+      ..clear()
+      ..addAll(parsed.songBestScores);
+    songBestStars
+      ..clear()
+      ..addAll(parsed.songBestStars);
+    songScoreHistory
+      ..clear()
+      ..addAll(parsed.songScoreHistory);
+    customSongs
+      ..clear()
+      ..addAll(parsed.customSongs);
+    pitchAttempts
+      ..clear()
+      ..addAll(parsed.pitchAttempts);
+    notifyListeners();
+
+    await Future.wait([
+      _persist('displayName', displayName),
+      _persist('harmonicaKey', harmonicaKey),
+      _persist('activePresetId', activePresetId ?? ''),
+      _persist(
+        'harmonicaPresets',
+        jsonEncode(harmonicaPresets.map((item) => item.toJson()).toList()),
+      ),
+      _persist('hapticsEnabled', hapticsEnabled),
+      _persist('metronomeEnabled', metronomeEnabled),
+      _persist('strictOctave', strictOctave),
+      _persist('highContrast', highContrast),
+      _persist('reduceMotion', reduceMotion),
+      _persist('themeMode', themeMode.name),
+      _persist('languageCode', languageCode),
+      _persist('microphoneSensitivity', microphoneSensitivity),
+      _persist('textScale', textScale),
+      _persist('practiceSeconds', practiceSeconds),
+      _persist('bestScore', bestScore),
+      _persist(sawHarmonicaGuideKey, sawHarmonicaGuide),
+      _persist(hasRegisteredHarmonicaKey, hasRegisteredHarmonica),
+      _persist('practiceDates', jsonEncode(practiceDates.toList())),
+      _persist('completedLessons', jsonEncode(completedLessons.toList())),
+      _persist('lessonBestScores', jsonEncode(lessonBestScores)),
+      _persist('seenCoachTips', jsonEncode(seenCoachTips.toList())),
+      _persist('favoriteSongs', jsonEncode(favoriteSongs.toList())),
+      _persist('songIconOverrides', jsonEncode(songIconOverrides)),
+      _persist('songBestScores', jsonEncode(songBestScores)),
+      _persist('songBestStars', jsonEncode(songBestStars)),
+      _persist(
+        'songScoreHistory',
+        jsonEncode(songScoreHistory.map((item) => item.toJson()).toList()),
+      ),
+      _persistCustomSongs(),
+      _persist(
+        'pitchAttempts',
+        jsonEncode(pitchAttempts.map((item) => item.toJson()).toList()),
+      ),
+    ]);
+    return parsed.preview;
+  }
+
+  static Set<String> _decodeStringCollection(Object? raw) {
+    if (raw is! List) return {};
+    return raw.whereType<String>().toSet();
+  }
+
+  static Map<String, String> _decodeStringPairMap(Object? raw) {
+    if (raw is! Map) return {};
+    final result = <String, String>{};
+    for (final entry in raw.entries) {
+      if (entry.key is String && entry.value is String) {
+        result[entry.key as String] = entry.value as String;
+      }
+    }
+    return result;
+  }
+
+  static Map<String, int> _decodeClampedScoreMap(
+    Object? raw, {
+    required int max,
+  }) {
+    if (raw is! Map) return {};
+    final result = <String, int>{};
+    for (final entry in raw.entries) {
+      if (entry.key is String && entry.value is num) {
+        result[entry.key as String] = (entry.value as num)
+            .toInt()
+            .clamp(0, max);
+      }
+    }
+    return result;
   }
 
   Future<void> _persistCustomSongs() {
@@ -844,6 +1255,96 @@ class AppController extends ChangeNotifier {
       _ => ThemeMode.system,
     };
   }
+}
+
+class BackupPreview {
+  const BackupPreview({
+    required this.schemaVersion,
+    required this.exportedAt,
+    required this.appVersion,
+    required this.displayName,
+    required this.harmonicaKey,
+    required this.completedLessonCount,
+    required this.customSongCount,
+    required this.practiceMinutes,
+    required this.scoreHistoryCount,
+    required this.presetCount,
+  });
+
+  final int schemaVersion;
+  final DateTime? exportedAt;
+  final String appVersion;
+  final String displayName;
+  final String harmonicaKey;
+  final int completedLessonCount;
+  final int customSongCount;
+  final int practiceMinutes;
+  final int scoreHistoryCount;
+  final int presetCount;
+}
+
+class _ParsedBackup {
+  const _ParsedBackup({
+    required this.preview,
+    required this.displayName,
+    required this.harmonicaKey,
+    required this.activePresetId,
+    required this.harmonicaPresets,
+    required this.hapticsEnabled,
+    required this.metronomeEnabled,
+    required this.strictOctave,
+    required this.highContrast,
+    required this.reduceMotion,
+    required this.themeMode,
+    required this.languageCode,
+    required this.microphoneSensitivity,
+    required this.textScale,
+    required this.practiceSeconds,
+    required this.bestScore,
+    required this.sawHarmonicaGuide,
+    required this.hasRegisteredHarmonica,
+    required this.practiceDates,
+    required this.completedLessons,
+    required this.lessonBestScores,
+    required this.seenCoachTips,
+    required this.favoriteSongs,
+    required this.songIconOverrides,
+    required this.songBestScores,
+    required this.songBestStars,
+    required this.songScoreHistory,
+    required this.customSongs,
+    required this.pitchAttempts,
+  });
+
+  final BackupPreview preview;
+  final String displayName;
+  final String harmonicaKey;
+  final String? activePresetId;
+  final List<HarmonicaPreset> harmonicaPresets;
+  final bool hapticsEnabled;
+  final bool metronomeEnabled;
+  final bool strictOctave;
+  final bool highContrast;
+  final bool reduceMotion;
+  final ThemeMode themeMode;
+  final String languageCode;
+  final double microphoneSensitivity;
+  final double textScale;
+  final int practiceSeconds;
+  final int bestScore;
+  final bool sawHarmonicaGuide;
+  final bool hasRegisteredHarmonica;
+  final Set<String> practiceDates;
+  final Set<String> completedLessons;
+  final Map<String, int> lessonBestScores;
+  final Set<String> seenCoachTips;
+  final Set<String> favoriteSongs;
+  final Map<String, String> songIconOverrides;
+  final Map<String, int> songBestScores;
+  final Map<String, int> songBestStars;
+  final List<SongScoreAttempt> songScoreHistory;
+  final List<Song> customSongs;
+  final List<PitchAttempt> pitchAttempts;
 }
 
 class PitchAttempt {

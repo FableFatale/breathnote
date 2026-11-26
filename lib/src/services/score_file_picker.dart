@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
 
 class PickedScoreFile {
@@ -37,6 +39,24 @@ class ScoreFilePickerService {
       return null;
     } on PlatformException {
       return null;
+    }
+  }
+
+  Future<String?> pickJsonBackupFile() async {
+    try {
+      final raw = await _channel.invokeMapMethod<String, Object?>(
+        'pickJsonFile',
+      );
+      if (raw == null) return null;
+      final bytes = raw['bytes'];
+      if (bytes is! Uint8List || bytes.isEmpty) return null;
+      return utf8.decode(bytes, allowMalformed: false);
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      return null;
+    } on FormatException {
+      rethrow;
     }
   }
 }

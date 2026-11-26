@@ -13,6 +13,7 @@ import '../widgets/harmonica_guide.dart' show showHarmonicaKeyPicker;
 import '../widgets/liquid_glass_tab_bar.dart';
 import '../widgets/pro_paywall_sheet.dart';
 import 'help_screen.dart';
+import 'legal_document_screen.dart';
 import 'local_data_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
@@ -532,6 +533,29 @@ class ProfileScreen extends StatelessWidget {
                     AppPageRoute<void>(
                       reduceMotion: AppMotion.isReduced(context),
                       builder: (_) => const LocalDataScreen(),
+                    ),
+                  );
+                },
+              ),
+              const Divider(height: 1, indent: 18, endIndent: 18),
+              ListTile(
+                key: const Key('legal-privacy-setting'),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 2,
+                ),
+                leading: const Icon(Icons.policy_outlined),
+                title: Text(strings.t('legalPrivacyTermsTitle')),
+                trailing: Icon(
+                  Icons.chevron_right_rounded,
+                  color: palette.muted,
+                ),
+                onTap: () {
+                  unawaited(AppHaptics.selection(context));
+                  unawaited(
+                    showLegalDocumentScreen(
+                      context,
+                      initialTab: LegalDocumentType.privacyPolicy,
                     ),
                   );
                 },

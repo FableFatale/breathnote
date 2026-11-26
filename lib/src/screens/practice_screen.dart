@@ -320,7 +320,7 @@ class _PracticeScreenState extends State<PracticeScreen>
       _pitchService.stop(),
       _guideToneService.stop(),
       if (widget.completeLessonOnFinish)
-        controller.markLessonComplete(widget.lessonId),
+        controller.markLessonComplete(widget.lessonId, score: _score),
       controller.recordPractice(
         seconds: seconds == 0 ? 1 : seconds,
         score: _score,

@@ -26,4 +26,25 @@ class ShareService {
       return false;
     }
   }
+
+  Future<bool> shareJsonBackup({
+    required String content,
+    required String fileName,
+    String? subject,
+  }) async {
+    if (content.isEmpty) return false;
+    try {
+      final shared = await _channel.invokeMethod<bool>('shareTextFile', {
+        'content': content,
+        'fileName': fileName,
+        'mimeType': 'application/json',
+        'subject': ?subject,
+      });
+      return shared ?? false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
 }

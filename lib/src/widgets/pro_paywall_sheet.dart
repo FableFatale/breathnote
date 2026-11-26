@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../localization/app_strings.dart';
+import '../screens/legal_document_screen.dart';
 import '../services/haptics.dart';
 import '../services/purchase_service.dart';
 import '../state/app_controller.dart';
@@ -318,6 +319,36 @@ class _ProPaywallSheetBodyState extends State<_ProPaywallSheetBody> {
                 color: palette.muted,
                 height: 1.4,
               ),
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                TextButton(
+                  key: const Key('paywall-privacy-policy'),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: () => showLegalDocumentScreen(
+                    context,
+                    initialTab: LegalDocumentType.privacyPolicy,
+                  ),
+                  child: Text(strings.t('legalTabPrivacy')),
+                ),
+                TextButton(
+                  key: const Key('paywall-terms'),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: () => showLegalDocumentScreen(
+                    context,
+                    initialTab: LegalDocumentType.termsOfService,
+                  ),
+                  child: Text(strings.t('legalTabTerms')),
+                ),
+              ],
             ),
           ],
         ),

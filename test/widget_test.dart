@@ -12,7 +12,9 @@ import 'package:breathnote/src/models/song_score.dart';
 import 'package:breathnote/src/services/preferences_service.dart';
 import 'package:breathnote/src/services/pitch_service.dart';
 import 'package:breathnote/src/services/purchase_service.dart';
+import 'package:breathnote/src/screens/legal_document_screen.dart';
 import 'package:breathnote/src/screens/lesson_routes.dart';
+import 'package:breathnote/src/screens/local_data_screen.dart';
 import 'package:breathnote/src/screens/song_practice_screen.dart';
 import 'package:breathnote/src/screens/tuner_screen.dart';
 import 'package:breathnote/src/state/app_controller.dart';
@@ -3732,6 +3734,423 @@ void main() {
         FlutterError.onError = previousOnError;
         expect(errors, isEmpty, reason: errors.join('\n\n'));
       }
+    },
+  );
+
+  test(
+    'exports and imports JSON backup faithfully while preserving local Pro state',
+    () async {
+      final source = AppController();
+      addTearDown(source.dispose);
+
+      source.displayName = 'BlueReed';
+      source.harmonicaKey = 'G';
+      source.harmonicaPresets.addAll([
+        const HarmonicaPreset(id: 'preset_g', name: 'Folk G', key: 'G'),
+        const HarmonicaPreset(id: 'preset_c', name: 'Daily C', key: 'C'),
+      ]);
+      source.activePresetId = 'preset_g';
+      source.metronomeEnabled = false;
+      source.strictOctave = true;
+      source.completedLessons.add('lesson_1');
+      await source.markLessonComplete('lesson_2', score: 94);
+      source.practiceDates.addAll(['2026-11-24', '2026-11-25']);
+      source.practiceSeconds = 780;
+      source.bestScore = 96;
+      source.songBestScores['twinkle'] = 91;
+      source.songBestStars['twinkle'] = 3;
+      source.songScoreHistory.add(
+        const SongScoreAttempt(
+          songId: 'twinkle',
+          timestampMs: 1764050000000,
+          totalScore: 91,
+          pitchScore: 93,
+          timingScore: 89,
+          stabilityScore: 90,
+          stars: 3,
+          maxCombo: 12,
+          hitCount: 12,
+          totalNotes: 12,
+          speed: 1.0,
+          mode: 'score',
+          weakestTab: '6↑',
+        ),
+      );
+      await source.addCustomSong(title: 'Harbor Tune', notation: '4↑ 4↓ 5↑');
+      source.pitchAttempts.add(
+        PitchAttempt(
+          tab: '4↓',
+          absoluteCents: 11.5,
+          timestamp: DateTime.utc(2026, 11, 25, 10, 0),
+        ),
+      );
+      source.isProUnlocked = true;
+      source.firstInstallAt = DateTime.utc(2026, 11, 20);
+
+      final exported = source.exportBackupJson(
+        now: DateTime.utc(2026, 11, 25, 12, 30),
+      );
+      expect(exported.contains('isProUnlocked'), isFalse);
+      expect(exported.contains('firstInstallAt'), isFalse);
+
+      final preview = AppController.parseBackupPreview(exported);
+      expect(preview.schemaVersion, AppController.backupSchemaVersion);
+      expect(preview.exportedAt, DateTime.utc(2026, 11, 25, 12, 30));
+      expect(preview.displayName, 'BlueReed');
+      expect(preview.harmonicaKey, 'G');
+      expect(preview.completedLessonCount, 2);
+      expect(preview.customSongCount, 1);
+      expect(preview.practiceMinutes, 13);
+      expect(preview.scoreHistoryCount, 1);
+      expect(preview.presetCount, 2);
+
+      final target = AppController()
+        ..isProUnlocked = false
+        ..displayName = 'ExistingUser'
+        ..harmonicaKey = 'C';
+      addTearDown(target.dispose);
+
+      final tamperedMap = jsonDecode(exported) as Map<String, dynamic>;
+      final tamperedData = tamperedMap['data'] as Map<String, dynamic>;
+      tamperedData['isProUnlocked'] = true;
+      tamperedData['firstInstallAt'] = '2000-01-01T00:00:00Z';
+      final tamperedJson = jsonEncode(tamperedMap);
+
+      await target.importBackupJson(tamperedJson);
+      expect(target.displayName, 'BlueReed');
+      expect(target.harmonicaKey, 'G');
+      expect(target.activePresetId, 'preset_g');
+      expect(target.harmonicaPresets.map((p) => p.id), [
+        'preset_g',
+        'preset_c',
+      ]);
+      expect(target.metronomeEnabled, isFalse);
+      expect(target.strictOctave, isTrue);
+      expect(target.completedLessons, {'lesson_1', 'lesson_2'});
+      expect(target.lessonBestScores['lesson_2'], 94);
+      expect(target.practiceDates, {'2026-11-24', '2026-11-25'});
+      expect(target.practiceSeconds, 780);
+      expect(target.bestScore, 96);
+      expect(target.songBestScores['twinkle'], 91);
+      expect(target.songBestStars['twinkle'], 3);
+      expect(target.songScoreHistory, hasLength(1));
+      expect(target.songScoreHistory.first.weakestTab, '6↑');
+      expect(target.customSongs, hasLength(1));
+      expect(target.customSongs.first.title, 'Harbor Tune');
+      expect(target.pitchAttempts, hasLength(1));
+      expect(target.pitchAttempts.first.tab, '4↓');
+      // Sensitive entitlement/install fields must remain untouched.
+      expect(target.isProUnlocked, isFalse);
+      expect(target.firstInstallAt, isNull);
+
+      await expectLater(
+        () => target.importBackupJson('invalid'),
+        throwsFormatException,
+      );
+      expect(target.displayName, 'BlueReed');
+      expect(target.harmonicaKey, 'G');
+      expect(target.customSongs, hasLength(1));
+    },
+  );
+
+  testWidgets(
+    'LocalDataScreen exports JSON backup to clipboard and imports pasted JSON',
+    (tester) async {
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      String? clipboardText;
+      messenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') {
+          final args = Map<String, Object?>.from(call.arguments as Map);
+          clipboardText = args['text'] as String?;
+          return null;
+        }
+        if (call.method == 'Clipboard.getData') {
+          return clipboardText == null
+              ? null
+              : <String, Object?>{'text': clipboardText};
+        }
+        return null;
+      });
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+
+      final seedController = AppController()
+        ..displayName = 'RestoredPlayer'
+        ..harmonicaKey = 'A'
+        ..practiceSeconds = 600;
+      addTearDown(seedController.dispose);
+      await seedController.markLessonComplete('lesson_1', score: 90);
+      await seedController.markLessonComplete('lesson_2', score: 95);
+      await seedController.addCustomSong(title: 'River Bend', notation: '4↑ 5↑');
+      final validBackupJson = seedController.exportBackupJson(
+        now: DateTime.utc(2026, 11, 25, 8, 0),
+      );
+
+      final controller = AppController()
+        ..displayName = 'InitialPlayer'
+        ..harmonicaKey = 'C';
+      addTearDown(controller.dispose);
+
+      await pumpBreathnote(tester, controller: controller);
+
+      await tester.tap(find.text('我的'));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('本机数据与隐私'));
+      await tester.tap(find.text('本机数据与隐私'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(LocalDataScreen), findsOneWidget);
+
+      await tester.ensureVisible(find.byKey(const Key('export-backup-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('export-backup-button')));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pumpAndSettle();
+
+      final clipboardData = await Clipboard.getData('text/plain');
+      expect(clipboardData?.text, contains('breathnote.backup'));
+      expect(
+        find.text('当前环境不支持文件分享，已将 JSON 备份复制到剪贴板'),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(
+        find.byKey(const Key('import-backup-paste-button')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('import-backup-paste-button')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const Key('import-backup-text-field')),
+        validBackupJson,
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('import-backup-parse-button')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('import-backup-confirm-dialog')),
+        findsOneWidget,
+      );
+      expect(find.textContaining('RestoredPlayer'), findsOneWidget);
+      expect(find.textContaining('A 调'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('confirm-import-backup')));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pumpAndSettle();
+
+      expect(controller.displayName, 'RestoredPlayer');
+      expect(controller.harmonicaKey, 'A');
+      expect(controller.completedLessons, {'lesson_1', 'lesson_2'});
+      expect(controller.practiceSeconds, 600);
+      expect(controller.customSongs, hasLength(1));
+      expect(find.text('已从备份恢复本机数据'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'LearnScreen shows per-lesson score and star badges without overflow on compact screens',
+    (tester) async {
+      for (final size in const [Size(280, 640), Size(360, 792)]) {
+        final errors = <String>[];
+        final previousOnError = FlutterError.onError;
+        FlutterError.onError = (details) {
+          errors.add(details.exceptionAsString());
+        };
+        final controller = AppController();
+        try {
+          await controller.markLessonComplete('lesson_1', score: 85);
+          await controller.markLessonComplete('lesson_breath');
+          await controller.markLessonComplete('lesson_2', score: 92);
+          await controller.markLessonComplete('lesson_3');
+          await controller.markLessonComplete('lesson_4');
+          // Keep lesson_5 as active next stage while seeding linked song score.
+          controller.songBestScores['twinkle'] = 88;
+          controller.songBestStars['twinkle'] = 3;
+
+          await pumpBreathnote(tester, controller: controller, size: size);
+
+          final scrollable = find.byType(Scrollable).first;
+          await tester.scrollUntilVisible(
+            find.byKey(const Key('lesson-score-badge-lesson_2')),
+            180,
+            scrollable: scrollable,
+          );
+          await tester.pumpAndSettle();
+
+          final badge2 = find.byKey(const Key('lesson-score-badge-lesson_2'));
+          expect(badge2, findsOneWidget);
+          expect(
+            find.descendant(of: badge2, matching: find.text('92')),
+            findsOneWidget,
+          );
+
+          await tester.scrollUntilVisible(
+            find.byKey(const Key('lesson-score-badge-lesson_5')),
+            180,
+            scrollable: scrollable,
+          );
+          await tester.pumpAndSettle();
+
+          final badge5 = find.byKey(const Key('lesson-score-badge-lesson_5'));
+          expect(badge5, findsOneWidget);
+          expect(
+            find.descendant(of: badge5, matching: find.text('88')),
+            findsOneWidget,
+          );
+
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+        } finally {
+          FlutterError.onError = previousOnError;
+          controller.dispose();
+        }
+        expect(errors, isEmpty, reason: errors.join('\n\n'));
+      }
+    },
+  );
+
+  testWidgets(
+    'LegalDocumentScreen opens from Profile, LocalData, and Paywall and toggles tabs in zh and en',
+    (tester) async {
+      final errors = <String>[];
+      final previousOnError = FlutterError.onError;
+      FlutterError.onError = (details) {
+        errors.add(details.exceptionAsString());
+      };
+
+      final controller = AppController();
+      try {
+        await pumpBreathnote(
+          tester,
+          controller: controller,
+          isProUnlocked: false,
+        );
+
+        // 1. Open from ProfileScreen in zh and toggle Privacy <-> Terms
+        await tester.tap(find.text('我的'));
+        await tester.pumpAndSettle();
+
+        await tester.drag(
+          find.byType(ListView).first,
+          const Offset(0, -320),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('legal-privacy-setting')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(LegalDocumentScreen), findsOneWidget);
+        expect(find.text('1. 100% 端侧本地音频解析'), findsOneWidget);
+
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(const Key('legal-document-segment')),
+            matching: find.text('服务协议'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('1. 服务内容与授权范围'), findsOneWidget);
+
+        Navigator.of(
+          tester.element(find.byType(LegalDocumentScreen)),
+        ).pop();
+        await tester.pumpAndSettle();
+
+        // 2. Open from LocalDataScreen
+        await tester.ensureVisible(find.text('本机数据与隐私'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('本机数据与隐私'));
+        await tester.pumpAndSettle();
+
+        await tester.ensureVisible(
+          find.byKey(const Key('local-data-privacy-policy-btn')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('local-data-privacy-policy-btn')));
+        await tester.pumpAndSettle();
+        expect(find.byType(LegalDocumentScreen), findsOneWidget);
+        expect(find.text('1. 100% 端侧本地音频解析'), findsOneWidget);
+
+        Navigator.of(
+          tester.element(find.byType(LegalDocumentScreen)),
+        ).pop();
+        await tester.pumpAndSettle();
+        Navigator.of(tester.element(find.byType(LocalDataScreen))).pop();
+        await tester.pumpAndSettle();
+
+        // 3. Switch to en and verify LegalDocumentScreen + Paywall links
+        await controller.setLanguageCode('en');
+        await tester.pumpAndSettle();
+
+        await tester.ensureVisible(
+          find.byKey(const Key('legal-privacy-setting')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('legal-privacy-setting')));
+        await tester.pumpAndSettle();
+
+        expect(find.text('1. 100% On-Device Audio Analysis'), findsOneWidget);
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(const Key('legal-document-segment')),
+            matching: find.text('Terms of Service'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('1. License & Intended Use'), findsOneWidget);
+
+        Navigator.of(
+          tester.element(find.byType(LegalDocumentScreen)),
+        ).pop();
+        await tester.pumpAndSettle();
+
+        // 4. Open Paywall from ProfileScreen and verify Privacy & Terms links
+        await tester.drag(
+          find.byType(ListView).first,
+          const Offset(0, 320),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('BreathNote Pro · Early-Bird Lifetime'));
+        await tester.pumpAndSettle();
+
+        await tester.ensureVisible(
+          find.byKey(const Key('paywall-privacy-policy')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('paywall-privacy-policy')));
+        await tester.pumpAndSettle();
+        expect(find.byType(LegalDocumentScreen), findsOneWidget);
+        expect(find.text('1. 100% On-Device Audio Analysis'), findsOneWidget);
+
+        Navigator.of(
+          tester.element(find.byType(LegalDocumentScreen)),
+        ).pop();
+        await tester.pumpAndSettle();
+
+        await tester.ensureVisible(find.byKey(const Key('paywall-terms')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('paywall-terms')));
+        await tester.pumpAndSettle();
+        expect(find.byType(LegalDocumentScreen), findsOneWidget);
+        expect(find.text('1. License & Intended Use'), findsOneWidget);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      } finally {
+        FlutterError.onError = previousOnError;
+        controller.dispose();
+      }
+      expect(errors, isEmpty, reason: errors.join('\n\n'));
     },
   );
 }
