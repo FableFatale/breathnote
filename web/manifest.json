@@ -1,11 +1,18 @@
 {
+    "id": "./",
     "name": "初鸣｜见音口琴陪练",
     "short_name": "初鸣",
     "start_url": ".",
+    "scope": ".",
+    "lang": "zh-CN",
     "display": "standalone",
-    "background_color": "#F6F1E9",
+    "background_color": "#FFFFFF",
     "theme_color": "#376CFF",
-    "description": "见音口琴陪练",
+    "description": "初鸣｜见音十孔口琴实时陪练",
+    "categories": [
+        "music",
+        "education"
+    ],
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
