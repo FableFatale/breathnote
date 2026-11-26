@@ -1491,7 +1491,7 @@ void main() {
   ) async {
     await pumpBreathnote(tester);
 
-    expect(find.byType(HarmonicaBrandIcon), findsNothing);
+    expect(find.byType(HarmonicaBrandIcon), findsOneWidget);
     expect(find.byType(ChumingBird), findsWidgets);
 
     await tester.tap(find.text('调音'));
@@ -2604,8 +2604,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('tuner-live-hole-strip')), findsOneWidget);
+      expect(find.byKey(const Key('tuner-hole-checkup')), findsOneWidget);
       expect(find.text('稳吹一个单音，这里会实时显示音准'), findsOneWidget);
-      expect(find.text('吹吸任意孔即可点亮'), findsOneWidget);
+      expect(find.text('吹响准音自动高亮并点亮，轻点孔位可手动标记'), findsOneWidget);
 
       final startButton = find.ancestor(
         of: find.text('开始调音'),
@@ -3538,6 +3539,199 @@ void main() {
       expect(find.byKey(const Key('scoring-strict-octave-toggle')), findsOneWidget);
       expect(find.textContaining('休'), findsWidgets);
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Learn, Songs, and Tuner share unified TabPageHeader, HarmonicaKeyPill, and left bird coach trigger',
+    (tester) async {
+      final controller = AppController();
+      addTearDown(controller.dispose);
+      await pumpBreathnote(tester, controller: controller);
+
+      // Learn tab header
+      expect(find.byType(TabPageHeader), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(TabPageHeader),
+          matching: find.byKey(const Key('learn-key-selector')),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(HarmonicaKeyPill), findsOneWidget);
+
+      // Dismiss Learn coach banner -> ChumingBird appears LEFT of appTitle
+      await tester.tap(find.byKey(const Key('coach-dismiss-learn')));
+      await tester.pumpAndSettle();
+
+      final headerBird = find.descendant(
+        of: find.byType(TabPageHeader),
+        matching: find.byType(ChumingBird),
+      );
+      final headerTitle = find.descendant(
+        of: find.byType(TabPageHeader),
+        matching: find.text('初鸣'),
+      );
+      expect(headerBird, findsOneWidget);
+      expect(headerTitle, findsOneWidget);
+      expect(
+        tester.getRect(headerBird).left,
+        lessThan(tester.getRect(headerTitle).left),
+      );
+
+      // Songs tab header
+      await tester.tap(find.text('曲谱'));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(TabPageHeader),
+          matching: find.text('曲谱库'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(TabPageHeader),
+          matching: find.byKey(const Key('songs-key-chip')),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(HarmonicaKeyPill), findsWidgets);
+
+      // Tuner tab header
+      await tester.tap(find.text('调音'));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byType(TabPageHeader),
+          matching: find.byKey(const Key('tuner-key-chip')),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(TabPageHeader),
+          matching: find.text('调音'),
+        ),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'tuner removes redundant status text, merges 10-hole card with 2↓/3↑ dual highlight and checkup, and fits 280x640 and 360x792',
+    (tester) async {
+      const audioChannel = MethodChannel('app.breathnote/audio_control');
+      const pitchChannel = EventChannel('app.breathnote/pitch_events');
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      MockStreamHandlerEventSink? eventSink;
+
+      messenger.setMockMethodCallHandler(audioChannel, (call) async {
+        return switch (call.method) {
+          'requestMicrophonePermission' => 'granted',
+          'startPitchDetection' => true,
+          'stopPitchDetection' => null,
+          _ => null,
+        };
+      });
+      messenger.setMockStreamHandler(
+        pitchChannel,
+        MockStreamHandler.inline(
+          onListen: (_, events) {
+            eventSink = events;
+          },
+        ),
+      );
+      addTearDown(() {
+        messenger.setMockMethodCallHandler(audioChannel, null);
+        messenger.setMockStreamHandler(pitchChannel, null);
+      });
+
+      for (final size in const [Size(280, 640), Size(360, 792)]) {
+        final errors = <String>[];
+        final previousOnError = FlutterError.onError;
+        FlutterError.onError = (details) {
+          errors.add(details.exceptionAsString());
+        };
+
+        final controller = AppController();
+        await pumpBreathnote(tester, controller: controller, size: size);
+
+        await tester.tap(find.text('调音'));
+        await tester.pumpAndSettle();
+
+        // Redundant clutter removed
+        expect(find.text('准备聆听'), findsNothing);
+        expect(find.text('等待声音'), findsNothing);
+        expect(find.text('新琴 10 孔体检'), findsNothing);
+        expect(find.text('1–10 孔实时高亮'), findsNothing);
+
+        // Single merged 10-hole card holding both keys, no duplicate 10-hole grid
+        expect(find.byKey(const Key('tuner-hole-checkup')), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('tuner-hole-checkup')),
+            matching: find.byKey(const Key('tuner-live-hole-strip')),
+          ),
+          findsOneWidget,
+        );
+        for (var hole = 1; hole <= 10; hole++) {
+          expect(find.byKey(Key('tuner-hole-cell-$hole')), findsOneWidget);
+          expect(find.byKey(Key('checkup-hole-$hole')), findsOneWidget);
+        }
+
+        // Manual tap checkup + reset
+        expect(find.text('已点亮 0/10 孔'), findsOneWidget);
+        await tester.ensureVisible(find.byKey(const Key('checkup-hole-5')));
+        await tester.tap(find.byKey(const Key('checkup-hole-5')));
+        await tester.pumpAndSettle();
+        expect(find.text('已点亮 1/10 孔'), findsOneWidget);
+
+        await tester.tap(find.byKey(const Key('reset-hole-checkup')));
+        await tester.pumpAndSettle();
+        expect(find.text('已点亮 0/10 孔'), findsOneWidget);
+
+        // Dual highlight 2↓ / 3↑ + auto-checkup when in tune
+        await tester.ensureVisible(find.text('开始调音'));
+        await tester.tap(find.text('开始调音'));
+        await tester.pump(const Duration(milliseconds: 50));
+
+        eventSink?.success(<String, Object?>{
+          'detected': true,
+          'frequency': 392.0,
+          'note': 'G',
+          'octave': 4,
+          'cents': 0.0,
+          'confidence': 1.0,
+          'levelDb': -20.0,
+          'timestampMicros': 1000000,
+        });
+        await tester.pump(const Duration(milliseconds: 80));
+
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('tuner-hole-cell-2')),
+            matching: find.text('2↓'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: find.byKey(const Key('tuner-hole-cell-3')),
+            matching: find.text('3↑'),
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('已点亮 1/10 孔'), findsOneWidget);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+        controller.dispose();
+        FlutterError.onError = previousOnError;
+        expect(errors, isEmpty, reason: errors.join('\n\n'));
+      }
     },
   );
 }

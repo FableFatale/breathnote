@@ -15,6 +15,7 @@ import '../widgets/harmonica_guide.dart'
     show showHarmonicaGuide, showHarmonicaKeyPicker;
 import '../widgets/liquid_glass_tab_bar.dart';
 import '../widgets/pro_paywall_sheet.dart';
+import '../widgets/shared_widgets.dart';
 import 'lesson_routes.dart';
 
 class LearnScreen extends StatelessWidget {
@@ -35,11 +36,14 @@ class LearnScreen extends StatelessWidget {
       key: const PageStorageKey('learn'),
       slivers: [
         SliverPadding(
-          padding: EdgeInsets.fromLTRB(pagePadding, 20, pagePadding, 0),
+          padding: EdgeInsets.fromLTRB(pagePadding, 16, pagePadding, 0),
           sliver: SliverToBoxAdapter(
-            child: _Header(
+            child: TabPageHeader(
+              title: strings.t('appTitle'),
               harmonicaKey: controller.harmonicaKey,
+              keyPillKey: const Key('learn-key-selector'),
               showCoachTrigger: coachDismissed,
+              birdMood: ChumingMood.idle,
               onReopenCoach: () {
                 unawaited(AppHaptics.reedResonance(context));
                 unawaited(controller.reopenCoachTip('learn'));
@@ -209,106 +213,6 @@ class _ReedPathMeter extends StatelessWidget {
             ),
           ),
         ],
-      ],
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({
-    required this.harmonicaKey,
-    required this.showCoachTrigger,
-    required this.onReopenCoach,
-    required this.onChooseKey,
-  });
-
-  final String harmonicaKey;
-  final bool showCoachTrigger;
-  final VoidCallback onReopenCoach;
-  final VoidCallback onChooseKey;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.colors;
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            context.strings.t('appTitle'),
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontSize: 23,
-              letterSpacing: -0.4,
-            ),
-          ),
-        ),
-        if (showCoachTrigger) ...[
-          GestureDetector(
-            onTap: onReopenCoach,
-            child: Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: palette.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: palette.outline),
-              ),
-              alignment: Alignment.center,
-              child: const ChumingBird(
-                size: 28,
-                mood: ChumingMood.idle,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
-        Material(
-          color: palette.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: BorderSide(color: palette.outline),
-          ),
-          child: InkWell(
-            key: const Key('learn-key-selector'),
-            onTap: onChooseKey,
-            borderRadius: BorderRadius.circular(14),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 40),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 7,
-                      height: 7,
-                      decoration: BoxDecoration(
-                        color: palette.primary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 7),
-                    Text(
-                      context.strings.t('keyName', {'key': harmonicaKey}),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(width: 3),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: palette.muted,
-                      size: 18,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }

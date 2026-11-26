@@ -20,6 +20,7 @@ import '../widgets/gesture_guide.dart';
 import '../widgets/harmonica_guide.dart';
 import '../widgets/liquid_glass_tab_bar.dart';
 import '../widgets/motion_widgets.dart';
+import '../widgets/shared_widgets.dart';
 import 'help_screen.dart';
 
 class TunerScreen extends StatefulWidget {
@@ -340,64 +341,46 @@ class _TunerScreenState extends State<TunerScreen>
             key: const PageStorageKey('tuner'),
             padding: EdgeInsets.fromLTRB(
               pagePadding,
-              shortViewport ? 10 : 12,
+              shortViewport ? 10 : 16,
               pagePadding,
               16,
             ),
             child: Column(
               children: [
-                Row(
-                  children: [
-                    if (shortViewport ||
-                        AppScope.of(context).seenCoachTips.contains('tuner')) ...[
-                      GestureDetector(
-                        onTap: () {
-                          unawaited(AppHaptics.reedResonance(context));
-                          unawaited(
-                            AppScope.of(context).reopenCoachTip('tuner'),
-                          );
-                        },
-                        child: ChumingBird(
-                          size: 36,
-                          mood: detected
-                              ? ChumingMood.celebrating
-                              : ChumingMood.listening,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                    ],
-                    Expanded(
-                      child: Text(
-                        context.strings.t('tuner'),
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontSize: 22),
+                TabPageHeader(
+                  title: context.strings.t('tuner'),
+                  harmonicaKey: key,
+                  keyPillKey: const Key('tuner-key-chip'),
+                  showCoachTrigger:
+                      shortViewport ||
+                      AppScope.of(context).seenCoachTips.contains('tuner'),
+                  birdMood: detected
+                      ? ChumingMood.celebrating
+                      : ChumingMood.listening,
+                  onReopenCoach: () {
+                    unawaited(AppHaptics.reedResonance(context));
+                    unawaited(AppScope.of(context).reopenCoachTip('tuner'));
+                  },
+                  onChooseKey: () {
+                    unawaited(AppHaptics.selection(context));
+                    unawaited(showHarmonicaKeyPicker(context));
+                  },
+                  trailingAction: IconButton.filledTonal(
+                    tooltip: context.strings.t('tunerSettings'),
+                    onPressed: _showSettings,
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size(40, 40),
+                      fixedSize: const Size(40, 40),
+                      padding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    ActionChip(
-                      key: const Key('tuner-key-chip'),
-                      visualDensity: VisualDensity.compact,
-                      materialTapTargetSize: MaterialTapTargetSize.padded,
-                      avatar: const HarmonicaBrandIcon(size: 16),
-                      label: Text(
-                        context.strings.t('keyName', {'key': key}),
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      onPressed: () {
-                        unawaited(AppHaptics.selection(context));
-                        unawaited(showHarmonicaKeyPicker(context));
-                      },
-                    ),
-                    const SizedBox(width: 6),
-                    IconButton.filledTonal(
-                      tooltip: context.strings.t('tunerSettings'),
-                      onPressed: _showSettings,
-                      icon: const Icon(Icons.tune_rounded),
-                    ),
-                  ],
+                    icon: const Icon(Icons.tune_rounded, size: 20),
+                  ),
                 ),
                 if (!shortViewport) ...[
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   const ChumingCoachBanner(
                     featureId: 'tuner',
                     messageKey: 'coachTuner',
@@ -406,65 +389,58 @@ class _TunerScreenState extends State<TunerScreen>
                   ),
                 ],
                 SizedBox(
-                  height: shortViewport ? 6 : compact ? 8 : 10,
+                  height: shortViewport ? 8 : compact ? 10 : 12,
                 ),
-                _StatusLine(status: _status, detected: detected),
-                SizedBox(
-                  height: shortViewport ? 6 : compact ? 8 : 10,
-                ),
-                _NoteDisplay(
+                _PitchGaugeCard(
+                  listening: listening,
+                  detected: detected,
+                  inTune: detected && cents.abs() <= 5,
+                  hintText: _hintText,
                   note: detected ? _reading.note : '--',
                   octave: detected ? _reading.octave.toString() : '',
-                  subtitle: tab != null
+                  noteWithOctave: _reading.noteWithOctave,
+                  targetLabel: tab != null
                       ? context.strings.t(
                           tab.isBlow ? 'blowTab' : 'drawTab',
                           {'tab': tab.hole},
                         )
                       : detected
                       ? '${_reading.frequency.toStringAsFixed(1)} Hz'
-                      : context.strings.t('waitingSound'),
-                  active: detected,
+                      : null,
+                  cents: cents,
                 ),
                 SizedBox(
-                  height: shortViewport ? 6 : compact ? 8 : 12,
+                  height: shortViewport ? 8 : compact ? 10 : 12,
                 ),
-                _PitchArc(cents: cents, active: detected),
-                SizedBox(height: shortViewport ? 6 : 8),
-                Semantics(
-                  key: const Key('tuner-arc-summary'),
-                  container: true,
-                  label: detected
-                      ? context.strings.t('pitchArcSummary', {
-                          'note': _reading.noteWithOctave,
-                          'cents': '${cents >= 0 ? '+' : ''}$cents',
-                        })
-                      : _hintText,
-                  excludeSemantics: true,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 480),
-                    child: Text(
-                      _hintText,
-                      style: Theme.of(context).textTheme.titleMedium,
-                      textAlign: TextAlign.center,
-                    ),
+                KeyedSubtree(
+                  key: const Key('tuner-hole-checkup'),
+                  child: _UnifiedTenHoleCard(
+                    key: const Key('tuner-live-hole-strip'),
+                    harmonicaKey: key,
+                    activeTabs: activeTabs,
+                    detectedNote: detected ? _reading.noteWithOctave : null,
+                    inTune: detected && cents.abs() <= 10,
+                    verifiedHoles: _verifiedHoles,
+                    onToggleHole: (hole) {
+                      unawaited(AppHaptics.selection(context));
+                      setState(() {
+                        if (!_verifiedHoles.remove(hole)) {
+                          _verifiedHoles.add(hole);
+                        }
+                      });
+                    },
+                    onReset: () {
+                      unawaited(AppHaptics.selection(context));
+                      setState(_verifiedHoles.clear);
+                    },
                   ),
-                ),
-                SizedBox(
-                  height: shortViewport ? 6 : compact ? 10 : 12,
-                ),
-                _TunerLiveHoleStrip(
-                  key: const Key('tuner-live-hole-strip'),
-                  harmonicaKey: key,
-                  activeTabs: activeTabs,
-                  detectedNote: detected ? _reading.noteWithOctave : null,
-                  inTune: detected && cents.abs() <= 10,
                 ),
                 SizedBox(
                   height: shortViewport
                       ? 10
                       : compact
-                      ? 14
-                      : 16,
+                      ? 12
+                      : 14,
                 ),
                 Card(
             child: Padding(
@@ -569,24 +545,6 @@ class _TunerScreenState extends State<TunerScreen>
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          _TenHoleCheckupCard(
-            key: const Key('tuner-hole-checkup'),
-            verifiedHoles: _verifiedHoles,
-            activeHole: tab?.hole,
-            onToggleHole: (hole) {
-              unawaited(AppHaptics.selection(context));
-              setState(() {
-                if (!_verifiedHoles.remove(hole)) {
-                  _verifiedHoles.add(hole);
-                }
-              });
-            },
-            onReset: () {
-              unawaited(AppHaptics.selection(context));
-              setState(_verifiedHoles.clear);
-            },
           ),
           if (listening || _sessionCents.isNotEmpty) ...[
             const SizedBox(height: 16),
@@ -737,65 +695,236 @@ class _TunerScreenState extends State<TunerScreen>
   }
 }
 
-class _PitchArc extends StatelessWidget {
-  const _PitchArc({required this.cents, required this.active});
+class _PitchGaugeCard extends StatelessWidget {
+  const _PitchGaugeCard({
+    required this.listening,
+    required this.detected,
+    required this.inTune,
+    required this.hintText,
+    required this.note,
+    required this.octave,
+    required this.noteWithOctave,
+    required this.targetLabel,
+    required this.cents,
+  });
 
+  final bool listening;
+  final bool detected;
+  final bool inTune;
+  final String hintText;
+  final String note;
+  final String octave;
+  final String noteWithOctave;
+  final String? targetLabel;
   final int cents;
-  final bool active;
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.colors;
+    final shortViewport = MediaQuery.sizeOf(context).height <= 600;
+    final statusAccent = listening
+        ? (detected && inTune ? palette.success : palette.primary)
+        : palette.muted;
+
     return _ChartFrame(
       child: Column(
         children: [
-          _PitchArcPainter(cents: cents, active: active),
-          const SizedBox(height: 8),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                context.strings.t('low'),
-                style: TextStyle(color: context.colors.muted, fontSize: 11),
+              BreathingPulse(
+                active: listening,
+                color: palette.success,
+                shape: BoxShape.circle,
+                child: AnimatedContainer(
+                  duration: AppMotion.duration(context, AppMotion.fast),
+                  width: 9,
+                  height: 9,
+                  decoration: BoxDecoration(
+                    color: listening ? palette.success : palette.muted,
+                    shape: BoxShape.circle,
+                  ),
+                ),
               ),
-              Text(
-                context.strings.t('accurate'),
-                style: TextStyle(color: context.colors.primary, fontSize: 11),
-              ),
-              Text(
-                context.strings.t('high'),
-                style: TextStyle(color: context.colors.muted, fontSize: 11),
+              const SizedBox(width: 8),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: AppMotion.duration(context, AppMotion.fast),
+                  layoutBuilder: (currentChild, previousChildren) {
+                    return Stack(
+                      alignment: Alignment.centerLeft,
+                      children: [...previousChildren, ?currentChild],
+                    );
+                  },
+                  child: Align(
+                    key: ValueKey(hintText),
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      hintText,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: listening
+                            ? (inTune ? palette.success : palette.text)
+                            : palette.muted,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          TweenAnimationBuilder<double>(
-            tween: Tween<double>(begin: 0, end: active ? cents.toDouble() : 0),
-            duration: AppMotion.duration(context, AppMotion.fast),
-            curve: AppMotion.standardCurve,
-            builder: (context, animatedCents, _) {
-              final display = animatedCents.round();
-              return Text.rich(
-                TextSpan(
-                  text: active ? '${display >= 0 ? '+' : ''}$display ' : '-- ',
-                  style: TextStyle(
-                    color: context.colors.text,
-                    fontFamily: 'monospace',
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
+          SizedBox(height: shortViewport ? 6 : 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                key: const Key('tuner-note-transition'),
+                height: shortViewport ? 48 : 58,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.center,
+                  child: AnimatedSwitcher(
+                    duration: AppMotion.duration(context, AppMotion.base),
+                    layoutBuilder: (currentChild, previousChildren) {
+                      return Stack(
+                        alignment: Alignment.center,
+                        children: [...previousChildren, ?currentChild],
+                      );
+                    },
+                    child: Row(
+                      key: ValueKey('$note$octave'),
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          note,
+                          style: TextStyle(
+                            color: detected ? palette.text : palette.muted,
+                            fontSize: shortViewport ? 44 : 54,
+                            height: 1,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0,
+                          ),
+                        ),
+                        if (octave.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 3, left: 2),
+                            child: Text(
+                              octave,
+                              style: TextStyle(
+                                color: palette.muted,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                  children: [
-                    TextSpan(
-                      text: context.strings.t('cents'),
-                      style: TextStyle(
-                        color: context.colors.muted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (detected && targetLabel != null) ...[
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusAccent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: statusAccent.withValues(alpha: 0.28),
                       ),
+                    ),
+                    child: Text(
+                      targetLabel!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: statusAccent,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          SizedBox(height: shortViewport ? 6 : 8),
+          _PitchArcPainter(cents: cents, active: detected),
+          const SizedBox(height: 6),
+          Semantics(
+            key: const Key('tuner-arc-summary'),
+            container: true,
+            label: detected
+                ? context.strings.t('pitchArcSummary', {
+                    'note': noteWithOctave,
+                    'cents': '${cents >= 0 ? '+' : ''}$cents',
+                  })
+                : '-- ${context.strings.t('cents')}',
+            excludeSemantics: true,
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      context.strings.t('low'),
+                      style: TextStyle(color: palette.muted, fontSize: 11),
+                    ),
+                    Text(
+                      context.strings.t('accurate'),
+                      style: TextStyle(color: palette.primary, fontSize: 11),
+                    ),
+                    Text(
+                      context.strings.t('high'),
+                      style: TextStyle(color: palette.muted, fontSize: 11),
                     ),
                   ],
                 ),
-              );
-            },
+                const SizedBox(height: 4),
+                TweenAnimationBuilder<double>(
+                  tween: Tween<double>(
+                    begin: 0,
+                    end: detected ? cents.toDouble() : 0,
+                  ),
+                  duration: AppMotion.duration(context, AppMotion.fast),
+                  curve: AppMotion.standardCurve,
+                  builder: (context, animatedCents, _) {
+                    final display = animatedCents.round();
+                    return Text.rich(
+                      TextSpan(
+                        text: detected
+                            ? '${display >= 0 ? '+' : ''}$display '
+                            : '-- ',
+                        style: TextStyle(
+                          color: palette.text,
+                          fontFamily: 'monospace',
+                          fontSize: 19,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: context.strings.t('cents'),
+                            style: TextStyle(
+                              color: palette.muted,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -819,8 +948,8 @@ class _PitchArcPainter extends StatelessWidget {
       builder: (context, animatedCents, _) {
         return SizedBox(
           height: shortViewport
-              ? 72
-              : AppAdaptive.compactValue(context, compact: 90, regular: 108),
+              ? 68
+              : AppAdaptive.compactValue(context, compact: 80, regular: 92),
           child: CustomPaint(
             key: const Key('tuner-segmented-arc'),
             painter: _SegmentedArcPainter(
@@ -1031,168 +1160,6 @@ class _SensitivitySliderState extends State<_SensitivitySlider> {
             ),
           );
         },
-      ),
-    );
-  }
-}
-
-class _TenHoleCheckupCard extends StatelessWidget {
-  const _TenHoleCheckupCard({
-    required this.verifiedHoles,
-    required this.activeHole,
-    required this.onToggleHole,
-    required this.onReset,
-    super.key,
-  });
-
-  final Set<int> verifiedHoles;
-  final int? activeHole;
-  final ValueChanged<int> onToggleHole;
-  final VoidCallback onReset;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.colors;
-    final strings = context.strings;
-    final allClear = verifiedHoles.length == 10;
-
-    return _ChartFrame(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  strings.t('tenHoleCheckupTitle'),
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: (allClear ? palette.success : palette.primary)
-                        .withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    strings.t('tenHoleCheckupProgress', {
-                      'count': verifiedHoles.length,
-                    }),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: allClear ? palette.success : palette.primary,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-              if (verifiedHoles.isNotEmpty) ...[
-                const SizedBox(width: 4),
-                IconButton(
-                  key: const Key('reset-hole-checkup'),
-                  tooltip: strings.t('tenHoleCheckupReset'),
-                  onPressed: onReset,
-                  visualDensity: VisualDensity.compact,
-                  constraints: const BoxConstraints.tightFor(
-                    width: 32,
-                    height: 32,
-                  ),
-                  padding: EdgeInsets.zero,
-                  icon: Icon(
-                    Icons.refresh_rounded,
-                    size: 17,
-                    color: palette.muted,
-                  ),
-                ),
-              ],
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: List.generate(10, (index) {
-              final hole = index + 1;
-              final verified = verifiedHoles.contains(hole);
-              final active = activeHole == hole;
-              final cellColor = verified
-                  ? palette.success
-                  : active
-                  ? palette.primary
-                  : palette.muted;
-              return Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(left: index == 0 ? 0 : 3),
-                  child: GestureDetector(
-                    key: Key('checkup-hole-$hole'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => onToggleHole(hole),
-                    child: AnimatedContainer(
-                      duration: AppMotion.duration(context, AppMotion.fast),
-                      height: 38,
-                      decoration: BoxDecoration(
-                        color: verified
-                            ? palette.success.withValues(alpha: 0.14)
-                            : active
-                            ? palette.primary.withValues(alpha: 0.14)
-                            : palette.surfaceHigh,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: verified
-                              ? palette.success
-                              : active
-                              ? palette.primary
-                              : palette.outline,
-                          width: verified || active ? 1.5 : 1.0,
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              '$hole',
-                              style: TextStyle(
-                                color: cellColor,
-                                fontSize: 11,
-                                fontFamily: 'monospace',
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          if (verified)
-                            Icon(
-                              Icons.check_rounded,
-                              size: 11,
-                              color: palette.success,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            allClear
-                ? strings.t('tenHoleCheckupAllClear')
-                : strings.t('tenHoleCheckupHint'),
-            style: TextStyle(
-              color: allClear ? palette.success : palette.muted,
-              fontSize: 12,
-              fontWeight: allClear ? FontWeight.w700 : FontWeight.w500,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1514,162 +1481,16 @@ class _ChartFrame extends StatelessWidget {
   }
 }
 
-class _StatusLine extends StatelessWidget {
-  const _StatusLine({required this.status, required this.detected});
-
-  final _TunerStatus status;
-  final bool detected;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.colors;
-    final listening = status == _TunerStatus.listening;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: palette.surfaceHigh,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: palette.outline),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: BreathingPulse(
-              active: listening,
-              color: palette.success,
-              shape: BoxShape.circle,
-              child: AnimatedContainer(
-                duration: AppMotion.duration(context, AppMotion.fast),
-                width: 9,
-                height: 9,
-                decoration: BoxDecoration(
-                  color: listening ? palette.success : palette.muted,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: AnimatedSwitcher(
-              duration: AppMotion.duration(context, AppMotion.base),
-              child: Text(
-                listening
-                    ? detected
-                          ? context.strings.t('pitchDetected')
-                          : context.strings.t('listening')
-                    : context.strings.t('microphoneNotStarted'),
-                key: ValueKey((status, detected)),
-                style: TextStyle(
-                  color: listening ? palette.success : palette.muted,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                ),
-                softWrap: true,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NoteDisplay extends StatelessWidget {
-  const _NoteDisplay({
-    required this.note,
-    required this.octave,
-    required this.subtitle,
-    required this.active,
-  });
-
-  final String note;
-  final String octave;
-  final String subtitle;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.colors;
-    final shortViewport = MediaQuery.sizeOf(context).height <= 600;
-    return Column(
-      children: [
-        SizedBox(
-          key: const Key('tuner-note-transition'),
-          height: shortViewport
-              ? 58
-              : AppAdaptive.compactValue(context, compact: 72, regular: 86),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.topCenter,
-            child: AnimatedSwitcher(
-              duration: AppMotion.duration(context, AppMotion.base),
-              layoutBuilder: (currentChild, previousChildren) {
-                return Stack(
-                  alignment: Alignment.topCenter,
-                  children: [...previousChildren, ?currentChild],
-                );
-              },
-              child: Stack(
-                key: ValueKey('$note$octave'),
-                clipBehavior: Clip.none,
-                alignment: Alignment.topRight,
-                children: [
-                  Text(
-                    note,
-                    style: TextStyle(
-                      color: active ? palette.text : palette.muted,
-                      fontSize: AppAdaptive.compactValue(
-                        context,
-                        compact: shortViewport ? 54 : 68,
-                        regular: 80,
-                      ),
-                      height: 1,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                  if (octave.isNotEmpty)
-                    Positioned(
-                      right: -18,
-                      top: 2,
-                      child: Text(
-                        octave,
-                        style: TextStyle(
-                          color: palette.muted,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 5),
-        AnimatedSwitcher(
-          duration: AppMotion.duration(context, AppMotion.fast),
-          child: Text(
-            subtitle,
-            key: ValueKey(subtitle),
-            textAlign: TextAlign.center,
-            style: TextStyle(color: palette.muted, fontWeight: FontWeight.w600),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// 调音器 1–10 孔横向实时高亮条：与顶部音分表实时联动，支持 2↓ / 3↑ 同音同时点亮。
-class _TunerLiveHoleStrip extends StatelessWidget {
-  const _TunerLiveHoleStrip({
+/// 调音器合并十孔音位 & 新琴体检卡片：支持 2↓ / 3↑ 同音同时点亮、吹准自动打卡与轻点手动标记。
+class _UnifiedTenHoleCard extends StatelessWidget {
+  const _UnifiedTenHoleCard({
     required this.harmonicaKey,
     required this.activeTabs,
     required this.detectedNote,
     required this.inTune,
+    required this.verifiedHoles,
+    required this.onToggleHole,
+    required this.onReset,
     super.key,
   });
 
@@ -1677,6 +1498,9 @@ class _TunerLiveHoleStrip extends StatelessWidget {
   final List<HarmonicaTabMatch> activeTabs;
   final String? detectedNote;
   final bool inTune;
+  final Set<int> verifiedHoles;
+  final ValueChanged<int> onToggleHole;
+  final VoidCallback onReset;
 
   @override
   Widget build(BuildContext context) {
@@ -1686,63 +1510,122 @@ class _TunerLiveHoleStrip extends StatelessWidget {
     final activeLabels = activeTabs
         .map((match) => '${match.hole}${match.isBlow ? '↑' : '↓'}')
         .join(' / ');
+    final allClear = verifiedHoles.length == 10;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      decoration: BoxDecoration(
-        color: palette.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: palette.outline),
-      ),
+    return _ChartFrame(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              Flexible(
-                child: Text(
-                  strings.t('tunerHoleStripTitle'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: palette.muted,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  hasActive
-                      ? strings.t('tunerHoleStripActive', {
-                          'tabs': activeLabels,
-                          'note': detectedNote!,
-                        })
-                      : strings.t('tunerHoleStripIdle'),
+                  strings.t('tunerUnifiedHolesTitle'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: hasActive
-                        ? (inTune ? palette.success : palette.primary)
-                        : palette.muted,
-                    fontWeight: hasActive ? FontWeight.w800 : FontWeight.w600,
-                  ),
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (hasActive)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: (inTune ? palette.success : palette.primary)
+                              .withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '$activeLabels · $detectedNote',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: inTune ? palette.success : palette.primary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: (allClear ? palette.success : palette.primary)
+                            .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        strings.t('tenHoleCheckupProgress', {
+                          'count': verifiedHoles.length,
+                        }),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: allClear ? palette.success : palette.primary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    if (verifiedHoles.isNotEmpty)
+                      IconButton(
+                        key: const Key('reset-hole-checkup'),
+                        tooltip: strings.t('tenHoleCheckupReset'),
+                        onPressed: onReset,
+                        visualDensity: VisualDensity.compact,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 28,
+                          height: 28,
+                        ),
+                        padding: EdgeInsets.zero,
+                        icon: Icon(
+                          Icons.refresh_rounded,
+                          size: 16,
+                          color: palette.muted,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
-            children: [
-              for (var hole = 1; hole <= 10; hole++) ...[
-                if (hole > 1) const SizedBox(width: 3),
-                Expanded(
+            children: List.generate(10, (index) {
+              final hole = index + 1;
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(left: index == 0 ? 0 : 3),
                   child: _buildHoleCell(context, hole),
                 ),
-              ],
-            ],
+              );
+            }),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              allClear
+                  ? strings.t('tenHoleCheckupAllClear')
+                  : strings.t('tunerUnifiedHolesHint'),
+              style: TextStyle(
+                color: allClear ? palette.success : palette.muted,
+                fontSize: 11.5,
+                fontWeight: allClear ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),
@@ -1760,55 +1643,83 @@ class _TunerLiveHoleStrip extends StatelessWidget {
     }
     final isActive = match != null;
     final isBlow = match?.isBlow ?? true;
+    final verified = verifiedHoles.contains(hole);
     final activeColor = inTune
         ? palette.success
         : (isBlow ? palette.primary : palette.accent);
+    final highlightColor = isActive
+        ? activeColor
+        : verified
+        ? palette.success
+        : null;
     final noteName = isActive
         ? shortNoteNameForHole(hole, isBlow: isBlow, key: harmonicaKey)
         : shortNoteNameForHole(hole, isBlow: true, key: harmonicaKey);
 
-    return AnimatedContainer(
-      key: Key('tuner-hole-cell-$hole'),
-      duration: AppMotion.duration(context, AppMotion.fast),
-      padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 2),
-      decoration: BoxDecoration(
-        color: isActive
-            ? activeColor.withValues(alpha: 0.16)
-            : palette.surfaceHigh.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isActive ? activeColor : palette.outline,
-          width: isActive ? 1.5 : 1,
+    return GestureDetector(
+      key: Key('checkup-hole-$hole'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => onToggleHole(hole),
+      child: AnimatedContainer(
+        key: Key('tuner-hole-cell-$hole'),
+        duration: AppMotion.duration(context, AppMotion.fast),
+        constraints: const BoxConstraints(minHeight: 44),
+        decoration: BoxDecoration(
+          color: highlightColor != null
+              ? highlightColor.withValues(alpha: isActive ? 0.16 : 0.12)
+              : palette.surfaceHigh.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: highlightColor ?? palette.outline,
+            width: isActive || verified ? 1.5 : 1.0,
+          ),
         ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              isActive ? '$hole${isBlow ? '↑' : '↓'}' : '$hole',
-              style: TextStyle(
-                fontSize: 11.5,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.w800,
-                color: isActive ? activeColor : palette.text,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      isActive ? '$hole${isBlow ? '↑' : '↓'}' : '$hole',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w800,
+                        color: highlightColor ?? palette.text,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      noteName,
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: isActive || verified
+                            ? FontWeight.w800
+                            : FontWeight.w600,
+                        color: highlightColor ?? palette.muted,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 1),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              noteName,
-              style: TextStyle(
-                fontSize: 9.5,
-                fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
-                color: isActive ? activeColor : palette.muted,
+            if (verified)
+              Positioned(
+                top: 2,
+                right: 2,
+                child: Icon(
+                  Icons.check_circle_rounded,
+                  size: 10,
+                  color: highlightColor ?? palette.success,
+                ),
               ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

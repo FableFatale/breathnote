@@ -921,3 +921,133 @@ Future<void> showAchievementCardSheet(
     },
   );
 }
+
+class HarmonicaKeyPill extends StatelessWidget {
+  const HarmonicaKeyPill({
+    super.key,
+    required this.harmonicaKey,
+    required this.onTap,
+  });
+
+  final String harmonicaKey;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.colors;
+    return Material(
+      color: palette.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: palette.outline),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 40),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const HarmonicaBrandIcon(size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  context.strings.t('keyName', {'key': harmonicaKey}),
+                  style: TextStyle(
+                    color: palette.primary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(width: 2),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 17,
+                  color: palette.muted,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class TabPageHeader extends StatelessWidget {
+  const TabPageHeader({
+    super.key,
+    required this.title,
+    required this.harmonicaKey,
+    required this.onChooseKey,
+    this.keyPillKey,
+    this.showCoachTrigger = false,
+    this.birdMood = ChumingMood.idle,
+    this.onReopenCoach,
+    this.trailingAction,
+  });
+
+  final String title;
+  final String harmonicaKey;
+  final VoidCallback onChooseKey;
+  final Key? keyPillKey;
+  final bool showCoachTrigger;
+  final ChumingMood birdMood;
+  final VoidCallback? onReopenCoach;
+  final Widget? trailingAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.colors;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (showCoachTrigger && onReopenCoach != null) ...[
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onReopenCoach,
+            child: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: palette.surface,
+                shape: BoxShape.circle,
+                border: Border.all(color: palette.outline),
+              ),
+              alignment: Alignment.center,
+              child: ChumingBird(
+                size: 28,
+                mood: birdMood,
+                interactive: false,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+        ],
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontSize: 22,
+              letterSpacing: -0.3,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        HarmonicaKeyPill(
+          key: keyPillKey,
+          harmonicaKey: harmonicaKey,
+          onTap: onChooseKey,
+        ),
+        if (trailingAction != null) ...[
+          const SizedBox(width: 8),
+          trailingAction!,
+        ],
+      ],
+    );
+  }
+}

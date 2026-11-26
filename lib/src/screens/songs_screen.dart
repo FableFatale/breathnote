@@ -147,120 +147,57 @@ class _SongsScreenState extends State<SongsScreen> {
       key: const PageStorageKey('songs'),
       slivers: [
         SliverPadding(
-          padding: EdgeInsets.fromLTRB(pagePadding, 20, pagePadding, 12),
+          padding: EdgeInsets.fromLTRB(pagePadding, 16, pagePadding, 12),
           sliver: SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  children: [
-                    if (controller.seenCoachTips.contains('songs')) ...[
-                      GestureDetector(
-                        onTap: () {
-                          unawaited(AppHaptics.reedResonance(context));
-                          unawaited(controller.reopenCoachTip('songs'));
-                        },
-                        child: Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: palette.surface,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: palette.outline),
-                          ),
-                          alignment: Alignment.center,
-                          child: const ChumingBird(
-                            size: 28,
-                            mood: ChumingMood.listening,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                    ],
-                    Expanded(
-                      child: Text(
-                        context.strings.t('songsLibrary'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontSize: 22),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    InkWell(
-                      key: const Key('songs-key-chip'),
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () => showHarmonicaKeyPicker(context),
-                      child: Container(
-                        constraints: const BoxConstraints(minHeight: 44),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: palette.surface,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: palette.outline),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              context.strings.t('keyName', {
-                                'key': controller.harmonicaKey,
-                              }),
-                              style: Theme.of(context).textTheme.labelMedium
-                                  ?.copyWith(
-                                    color: palette.primary,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                            const SizedBox(width: 2),
-                            Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              size: 16,
-                              color: palette.muted,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            const Color(0xFF5B93FF),
-                            palette.primary,
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: palette.primary.withValues(alpha: 0.24),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
-                          ),
+                TabPageHeader(
+                  title: context.strings.t('songsLibrary'),
+                  harmonicaKey: controller.harmonicaKey,
+                  keyPillKey: const Key('songs-key-chip'),
+                  showCoachTrigger: controller.seenCoachTips.contains('songs'),
+                  birdMood: ChumingMood.listening,
+                  onReopenCoach: () {
+                    unawaited(AppHaptics.reedResonance(context));
+                    unawaited(controller.reopenCoachTip('songs'));
+                  },
+                  onChooseKey: () => showHarmonicaKeyPicker(context),
+                  trailingAction: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFF5B93FF),
+                          palette.primary,
                         ],
                       ),
-                      child: IconButton(
-                        key: const Key('add-custom-song'),
-                        tooltip: context.strings.t('addCustomSong'),
-                        onPressed: _createSong,
-                        style: IconButton.styleFrom(
-                          foregroundColor: palette.onPrimary,
-                          minimumSize: const Size(44, 44),
-                          fixedSize: const Size(44, 44),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: palette.primary.withValues(alpha: 0.24),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
                         ),
-                        icon: const Icon(Icons.add_rounded),
-                      ),
+                      ],
                     ),
-                  ],
+                    child: IconButton(
+                      key: const Key('add-custom-song'),
+                      tooltip: context.strings.t('addCustomSong'),
+                      onPressed: _createSong,
+                      style: IconButton.styleFrom(
+                        foregroundColor: palette.onPrimary,
+                        minimumSize: const Size(40, 40),
+                        fixedSize: const Size(40, 40),
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      icon: const Icon(Icons.add_rounded),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 16),
                 const ChumingCoachBanner(
