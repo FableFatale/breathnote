@@ -12,10 +12,12 @@ permissions:
 jobs:
   build-ios:
     runs-on: macos-latest
-    env:
-      BREATHNOTE_CAS_CACHE_DIR: ${{ runner.temp }}/xcode-shared-cas
     steps:
       - uses: actions/checkout@v4
+
+      - name: Configure shared CAS cache path
+        run: |
+          echo "BREATHNOTE_CAS_CACHE_DIR=$RUNNER_TEMP/xcode-shared-cas" >> "$GITHUB_ENV"
 
       - name: Select latest Xcode
         run: |
@@ -38,7 +40,7 @@ jobs:
       - name: Restore global shared Xcode CAS cache
         uses: actions/cache@v4
         with:
-          path: ${{ env.BREATHNOTE_CAS_CACHE_DIR }}
+          path: ${{ runner.temp }}/xcode-shared-cas
           key: xcode-cas-ios-${{ runner.os }}-${{ hashFiles('pubspec.lock', 'ios/Flutter/CompilationCache.xcconfig') }}-${{ github.sha }}
           restore-keys: |
             xcode-cas-ios-${{ runner.os }}-${{ hashFiles('pubspec.lock', 'ios/Flutter/CompilationCache.xcconfig') }}-
