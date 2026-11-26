@@ -3460,9 +3460,11 @@ void main() {
       expect(find.text('评级 S'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('share-achievement-image')));
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 300)),
-      );
+      await tester.runAsync(() async {
+        for (var i = 0; i < 60 && sharedFileName == null; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        }
+      });
       await tester.pumpAndSettle();
 
       expect(sharedFileName, 'breathnote_twinkle.png');
@@ -3488,9 +3490,11 @@ void main() {
       await tester.tap(find.byKey(const Key('open-share-sheet')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('share-achievement-image')));
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 500)),
-      );
+      await tester.runAsync(() async {
+        for (var i = 0; i < 60 && copiedText == null; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        }
+      });
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(sharedFileName, 'breathnote_twinkle.png');
