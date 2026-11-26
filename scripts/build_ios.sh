@@ -61,7 +61,7 @@ fi
 # 3. Apply per-worktree DerivedData + shared CAS + worktree prefix mapping to Runner & Podfile
 bash "$WORKTREE_ROOT/scripts/configure_ios_cache.sh"
 
-if [[ -f "$WORKTREE_ROOT/ios/Podfile" ]]; then
+if [[ -f "$WORKTREE_ROOT/ios/Podfile" ]] && find "$WORKTREE_ROOT/ios/Flutter" -maxdepth 2 -name "Flutter.podspec" 2>/dev/null | grep -q .; then
   (cd "$WORKTREE_ROOT/ios" && pod install)
   # Re-apply after pod install in case CocoaPods regenerated target support files
   bash "$WORKTREE_ROOT/scripts/configure_ios_cache.sh"

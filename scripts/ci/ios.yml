@@ -19,10 +19,15 @@ jobs:
 
       - name: Select latest Xcode
         run: |
-          LATEST_XCODE=$(ls -d /Applications/Xcode*.app | sort -V | tail -n 1)
+          LATEST_XCODE=$(ls -d /Applications/Xcode*.app | grep -vi beta | sort -V | tail -n 1 || true)
+          if [[ -z "$LATEST_XCODE" ]]; then
+            LATEST_XCODE=$(ls -d /Applications/Xcode*.app | sort -V | tail -n 1)
+          fi
           echo "Using Xcode: $LATEST_XCODE"
           sudo xcode-select -s "$LATEST_XCODE/Contents/Developer"
           xcodebuild -version
+          clang --version
+          swiftc --version
 
       - uses: subosito/flutter-action@v2
         with:
@@ -47,7 +52,7 @@ jobs:
 
       - name: Build iOS Release IPA & Simulator App (Worktree A)
         run: |
-          chmod +x scripts/configure_ios_cache.sh scripts/build_ios.sh
+          chmod +x scripts/configure_ios_cache.sh scripts/build_ios.sh scripts/verify_worktree_cas_hit.sh
           ./scripts/build_ios.sh --cas-remarks 2>&1 | tee /tmp/wt_a_build.log
 
       - name: Verify cross-worktree CAS cache hit rate (Worktree B with isolated DerivedData)
@@ -64,7 +69,7 @@ jobs:
           import os, pathlib, re
 
           log = pathlib.Path("/tmp/wt_b_build.log").read_text(encoding="utf-8", errors="replace")
-          hits = len(re.findall(r"cache hit|replay output from", log, flags=re.IGNORECASE))
+          hits = len(re.findall(r"cache hit|replay output (?:from|file)", log, flags=re.IGNORECASE))
           misses = len(re.findall(r"cache miss", log, flags=re.IGNORECASE))
           total = hits + misses
           pct = (hits * 100.0 / total) if total > 0 else 0.0

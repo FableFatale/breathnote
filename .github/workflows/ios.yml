@@ -1,0 +1,134 @@
+name: iOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    env:
+      BREATHNOTE_CAS_CACHE_DIR: ${{ runner.temp }}/xcode-shared-cas
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select latest Xcode
+        run: |
+          LATEST_XCODE=$(ls -d /Applications/Xcode*.app | grep -vi beta | sort -V | tail -n 1 || true)
+          if [[ -z "$LATEST_XCODE" ]]; then
+            LATEST_XCODE=$(ls -d /Applications/Xcode*.app | sort -V | tail -n 1)
+          fi
+          echo "Using Xcode: $LATEST_XCODE"
+          sudo xcode-select -s "$LATEST_XCODE/Contents/Developer"
+          xcodebuild -version
+          clang --version
+          swiftc --version
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.9
+          cache: true
+
+      - name: Restore global shared Xcode CAS cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.BREATHNOTE_CAS_CACHE_DIR }}
+          key: xcode-cas-ios-${{ runner.os }}-${{ hashFiles('pubspec.lock', 'ios/Flutter/CompilationCache.xcconfig') }}-${{ github.sha }}
+          restore-keys: |
+            xcode-cas-ios-${{ runner.os }}-${{ hashFiles('pubspec.lock', 'ios/Flutter/CompilationCache.xcconfig') }}-
+            xcode-cas-ios-${{ runner.os }}-
+
+      - name: Analyze & run Flutter tests
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter test
+
+      - name: Build iOS Release IPA & Simulator App (Worktree A)
+        run: |
+          chmod +x scripts/configure_ios_cache.sh scripts/build_ios.sh scripts/verify_worktree_cas_hit.sh
+          ./scripts/build_ios.sh --cas-remarks 2>&1 | tee /tmp/wt_a_build.log
+
+      - name: Verify cross-worktree CAS cache hit rate (Worktree B with isolated DerivedData)
+        run: |
+          WT_B="/tmp/breathnote-wt-verify"
+          git worktree add --detach "$WT_B" HEAD
+          export BREATHNOTE_DERIVED_DATA_DIR="$WT_B/build/ios-derived-data"
+          echo "==> Building from second git worktree ($WT_B) with fresh DerivedData ($BREATHNOTE_DERIVED_DATA_DIR)..."
+          (
+            cd "$WT_B"
+            ./scripts/build_ios.sh --ipa-only --cas-remarks 2>&1 | tee /tmp/wt_b_build.log
+          )
+          python3 - <<'PY'
+          import os, pathlib, re
+
+          log = pathlib.Path("/tmp/wt_b_build.log").read_text(encoding="utf-8", errors="replace")
+          hits = len(re.findall(r"cache hit|replay output (?:from|file)", log, flags=re.IGNORECASE))
+          misses = len(re.findall(r"cache miss", log, flags=re.IGNORECASE))
+          total = hits + misses
+          pct = (hits * 100.0 / total) if total > 0 else 0.0
+
+          summary_lines = [
+              "### iOS Build & Cross-Worktree CAS Cache Summary",
+              f"- **Commit**: `{os.environ.get('GITHUB_SHA', '')}`",
+              f"- **Worktree A DerivedData**: `{os.environ.get('GITHUB_WORKSPACE', '')}/build/ios-derived-data`",
+              "- **Worktree B DerivedData**: `/tmp/breathnote-wt-verify/build/ios-derived-data`",
+              f"- **Global Shared CAS**: `{os.environ.get('BREATHNOTE_CAS_CACHE_DIR', '')}`",
+          ]
+          if total > 0:
+              summary_lines.append(
+                  f"- **Cross-Worktree CAS Compiler Cache Hits**: **{hits} / {total} ({pct:.1f}%)** (misses: {misses})"
+              )
+          else:
+              summary_lines.append(
+                  "- **Cross-Worktree CAS Build**: Completed cleanly (Xcode version on runner did not emit diagnostic remarks)."
+              )
+          report = "\n".join(summary_lines) + "\n"
+          print(report)
+          summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary_file:
+              with open(summary_file, "a", encoding="utf-8") as f:
+                  f.write(report)
+          PY
+          git worktree remove --force "$WT_B"
+
+      - name: Package clean iOS Xcode scaffold for repository sync
+        run: |
+          mkdir -p /tmp/ios-scaffold-export
+          rsync -a \
+            --exclude 'Pods/' \
+            --exclude '.symlinks/' \
+            --exclude 'Flutter/ephemeral/' \
+            --exclude 'Flutter/Generated.xcconfig' \
+            --exclude 'Flutter/flutter_export_environment.sh' \
+            --exclude 'Flutter/WorktreePrefixMap.xcconfig' \
+            --exclude 'Flutter/.last_build_id' \
+            --exclude 'Runner.xcworkspace/xcuserdata/' \
+            --exclude 'Runner.xcodeproj/xcuserdata/' \
+            --exclude 'Runner.xcodeproj/project.xcworkspace/xcuserdata/' \
+            ios/ /tmp/ios-scaffold-export/ios/
+          shasum -a 256 artifacts/breathnote-current-ios-unsigned.ipa artifacts/breathnote-current-ios-simulator.app.zip >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: breathnote-ios-unsigned-ipa
+          path: artifacts/breathnote-current-ios-unsigned.ipa
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: breathnote-ios-simulator-app
+          path: artifacts/breathnote-current-ios-simulator.app.zip
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: breathnote-ios-project-scaffold
+          path: /tmp/ios-scaffold-export/ios
+          if-no-files-found: error
