@@ -1,0 +1,76 @@
+platform :ios, '15.0'
+
+# CocoaPods analytics sends network stats synchronously affecting flutter build latency.
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
+  end
+
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_ios_podfile_setup
+
+target 'Runner' do
+  use_frameworks!
+  use_modular_headers!
+
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+end
+
+post_install do |installer|
+  # BEGIN BREATHNOTE_CAS_PREFIX_MAP
+  cas_path = ENV['BREATHNOTE_CAS_CACHE_DIR'] || File.expand_path('~/Library/Developer/Xcode/CompilationCache.noindex')
+  prefix_xcconfig = File.expand_path('Flutter/WorktreePrefixMap.xcconfig', __dir__)
+  clang_prefix_flags = ''
+  swift_prefix_flags = ''
+  if File.exist?(prefix_xcconfig)
+    File.readlines(prefix_xcconfig).each do |line|
+      if line.start_with?('BREATHNOTE_CLANG_PREFIX_MAP_FLAGS =')
+        clang_prefix_flags = line.sub('BREATHNOTE_CLANG_PREFIX_MAP_FLAGS =', '').strip
+      elsif line.start_with?('BREATHNOTE_SWIFT_PREFIX_MAP_FLAGS =')
+        swift_prefix_flags = line.sub('BREATHNOTE_SWIFT_PREFIX_MAP_FLAGS =', '').strip
+      end
+    end
+  end
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target) if defined?(flutter_additional_ios_build_settings)
+    target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
+      config.build_settings['COMPILATION_CACHE_ENABLE_CACHING'] = 'YES'
+      config.build_settings['COMPILATION_CACHE_CAS_PATH'] = cas_path
+      config.build_settings['COMPILATION_CACHE_KEEP_LOCAL_DIRECTORY'] = 'YES'
+      config.build_settings['MODULE_CACHE_DIR'] = File.join(cas_path, 'ModuleCache.noindex')
+      config.build_settings['SWIFT_USE_INTEGRATED_DRIVER'] = 'YES'
+      config.build_settings['SWIFT_ENABLE_EXPLICIT_MODULES'] = 'YES'
+      config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
+      config.build_settings['CLANG_ENABLE_PREFIX_MAPPING'] = 'YES'
+      config.build_settings['CLANG_ENABLE_PROJECT_PREFIX_MAPPING'] = 'YES'
+      config.build_settings['SWIFT_ENABLE_PREFIX_MAPPING'] = 'YES'
+      config.build_settings['SWIFT_ENABLE_PROJECT_PREFIX_MAPPING'] = 'YES'
+      unless clang_prefix_flags.empty?
+        config.build_settings['OTHER_CFLAGS'] = "$(inherited) #{clang_prefix_flags}"
+        config.build_settings['OTHER_CPLUSPLUSFLAGS'] = "$(inherited) #{clang_prefix_flags}"
+      end
+      unless swift_prefix_flags.empty?
+        config.build_settings['OTHER_SWIFT_FLAGS'] = "$(inherited) #{swift_prefix_flags}"
+      end
+    end
+  end
+  # END BREATHNOTE_CAS_PREFIX_MAP
+end

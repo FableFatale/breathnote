@@ -1,0 +1,2 @@
+"CFBundleDisplayName" = "Breathnote";
+"NSMicrophoneUsageDescription" = "Breathnote uses your microphone locally for real-time harmonica pitch and tuning feedback. Raw audio is never saved or uploaded.";

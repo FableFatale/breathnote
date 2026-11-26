@@ -1,0 +1,2 @@
+"CFBundleDisplayName" = "初鳴";
+"NSMicrophoneUsageDescription" = "初鳴はハーモニカの音高とピッチを端末内でリアルタイム判定するためにマイクを使用します。音声データは保存・送信されません。";

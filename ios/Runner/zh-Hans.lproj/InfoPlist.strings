@@ -1,0 +1,2 @@
+"CFBundleDisplayName" = "初鸣";
+"NSMicrophoneUsageDescription" = "初鸣需要麦克风权限用于本地实时检测口琴吹吸音高与音准反馈，原始录音不会保存或上传。";
