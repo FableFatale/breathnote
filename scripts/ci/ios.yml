@@ -17,7 +17,9 @@ jobs:
 
       - name: Configure shared CAS cache path
         run: |
-          echo "BREATHNOTE_CAS_CACHE_DIR=$RUNNER_TEMP/xcode-shared-cas" >> "$GITHUB_ENV"
+          CAS_DIR="$(cd "$RUNNER_TEMP" && pwd -P)/xcode-shared-cas"
+          mkdir -p "$CAS_DIR"
+          echo "BREATHNOTE_CAS_CACHE_DIR=$CAS_DIR" >> "$GITHUB_ENV"
 
       - name: Select latest Xcode
         run: |
@@ -54,12 +56,14 @@ jobs:
 
       - name: Build iOS Release IPA & Simulator App (Worktree A)
         run: |
+          set -euo pipefail
           chmod +x scripts/configure_ios_cache.sh scripts/build_ios.sh scripts/verify_worktree_cas_hit.sh
           ./scripts/build_ios.sh --cas-remarks 2>&1 | tee /tmp/wt_a_build.log
 
       - name: Verify cross-worktree CAS cache hit rate (Worktree B with isolated DerivedData)
         run: |
-          WT_B="/tmp/breathnote-wt-verify"
+          set -euo pipefail
+          WT_B="$(cd "$RUNNER_TEMP" && pwd -P)/breathnote-wt-verify"
           git worktree add --detach "$WT_B" HEAD
           export BREATHNOTE_DERIVED_DATA_DIR="$WT_B/build/ios-derived-data"
           echo "==> Building from second git worktree ($WT_B) with fresh DerivedData ($BREATHNOTE_DERIVED_DATA_DIR)..."
@@ -71,6 +75,7 @@ jobs:
           import os, pathlib, re
 
           log = pathlib.Path("/tmp/wt_b_build.log").read_text(encoding="utf-8", errors="replace")
+          metrics = re.findall(r"note:\s*(\d+)\s*hits\s*/\s*(\d+)\s*cacheable tasks\s*\((\d+(?:\.\d+)?)%\)", log)
           hits = len(re.findall(r"cache hit|replay output (?:from|file)", log, flags=re.IGNORECASE))
           misses = len(re.findall(r"cache miss", log, flags=re.IGNORECASE))
           total = hits + misses
@@ -80,16 +85,17 @@ jobs:
               "### iOS Build & Cross-Worktree CAS Cache Summary",
               f"- **Commit**: `{os.environ.get('GITHUB_SHA', '')}`",
               f"- **Worktree A DerivedData**: `{os.environ.get('GITHUB_WORKSPACE', '')}/build/ios-derived-data`",
-              "- **Worktree B DerivedData**: `/tmp/breathnote-wt-verify/build/ios-derived-data`",
+              f"- **Worktree B DerivedData**: `{os.environ.get('BREATHNOTE_DERIVED_DATA_DIR', '')}`",
               f"- **Global Shared CAS**: `{os.environ.get('BREATHNOTE_CAS_CACHE_DIR', '')}`",
           ]
+          if metrics:
+              m_hits, m_total, m_pct = metrics[-1]
+              summary_lines.append(
+                  f"- **Xcode CompilationCacheMetrics (Worktree B)**: **{m_hits} / {m_total} cacheable tasks ({m_pct}%)**"
+              )
           if total > 0:
               summary_lines.append(
-                  f"- **Cross-Worktree CAS Compiler Cache Hits**: **{hits} / {total} ({pct:.1f}%)** (misses: {misses})"
-              )
-          else:
-              summary_lines.append(
-                  "- **Cross-Worktree CAS Build**: Completed cleanly (Xcode version on runner did not emit diagnostic remarks)."
+                  f"- **Diagnostic Remarks Hits**: **{hits} / {total} ({pct:.1f}%)** (misses: {misses})"
               )
           report = "\n".join(summary_lines) + "\n"
           print(report)
@@ -102,6 +108,7 @@ jobs:
 
       - name: Package clean iOS Xcode scaffold for repository sync
         run: |
+          set -euo pipefail
           mkdir -p /tmp/ios-scaffold-export
           rsync -a \
             --exclude 'Pods/' \

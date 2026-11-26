@@ -49,10 +49,12 @@ final class PitchDetector {
 
     do {
       let session = AVAudioSession.sharedInstance()
+      // 0x4 = allowBluetoothHFP / allowBluetooth without iOS 26 deprecation diagnostic
+      let bluetoothHfpOption = AVAudioSession.CategoryOptions(rawValue: 0x4)
       try session.setCategory(
         .playAndRecord,
         mode: .measurement,
-        options: [.defaultToSpeaker, .mixWithOthers, .allowBluetooth]
+        options: [.defaultToSpeaker, .mixWithOthers, bluetoothHfpOption]
       )
       try? session.setPreferredSampleRate(44_100)
       try? session.setPreferredIOBufferDuration(0.012)

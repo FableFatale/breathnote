@@ -58,6 +58,7 @@ post_install do |installer|
       config.build_settings['MODULE_CACHE_DIR'] = File.join(cas_path, 'ModuleCache.noindex')
       config.build_settings['SWIFT_USE_INTEGRATED_DRIVER'] = 'YES'
       config.build_settings['SWIFT_ENABLE_EXPLICIT_MODULES'] = 'YES'
+      config.build_settings['SWIFT_ENABLE_BATCH_MODE'] = 'NO'
       config.build_settings['CLANG_ENABLE_MODULES'] = 'YES'
       config.build_settings['CLANG_ENABLE_PREFIX_MAPPING'] = 'YES'
       config.build_settings['CLANG_ENABLE_PROJECT_PREFIX_MAPPING'] = 'YES'

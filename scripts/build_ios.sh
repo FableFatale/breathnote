@@ -37,9 +37,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 WORKTREE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
 cd "$WORKTREE_ROOT"
 
-export BREATHNOTE_DERIVED_DATA_DIR="${BREATHNOTE_DERIVED_DATA_DIR:-$WORKTREE_ROOT/build/ios-derived-data}"
-export BREATHNOTE_CAS_CACHE_DIR="${BREATHNOTE_CAS_CACHE_DIR:-$HOME/Library/Developer/Xcode/CompilationCache.noindex}"
-mkdir -p "$BREATHNOTE_DERIVED_DATA_DIR" "$BREATHNOTE_CAS_CACHE_DIR" "$WORKTREE_ROOT/artifacts"
+RAW_DERIVED_DATA_DIR="${BREATHNOTE_DERIVED_DATA_DIR:-$WORKTREE_ROOT/build/ios-derived-data}"
+RAW_CAS_CACHE_DIR="${BREATHNOTE_CAS_CACHE_DIR:-$HOME/Library/Developer/Xcode/CompilationCache.noindex}"
+mkdir -p "$RAW_DERIVED_DATA_DIR" "$RAW_CAS_CACHE_DIR" "$WORKTREE_ROOT/artifacts"
+export BREATHNOTE_DERIVED_DATA_DIR="$(cd "$RAW_DERIVED_DATA_DIR" && pwd -P)"
+export BREATHNOTE_CAS_CACHE_DIR="$(cd "$RAW_CAS_CACHE_DIR" && pwd -P)"
 
 # 1. Bootstrap missing Xcode project files without overwriting existing custom Swift/Info.plist/icons
 if [[ ! -f "$WORKTREE_ROOT/ios/Runner.xcodeproj/project.pbxproj" ]]; then
@@ -84,6 +86,7 @@ EXTRA_XCODE_ARGS=(
   "SWIFT_ENABLE_PROJECT_PREFIX_MAPPING=YES"
   "SWIFT_USE_INTEGRATED_DRIVER=YES"
   "SWIFT_ENABLE_EXPLICIT_MODULES=YES"
+  "SWIFT_ENABLE_BATCH_MODE=NO"
 )
 
 if [[ "$CAS_REMARKS" -eq 1 ]]; then

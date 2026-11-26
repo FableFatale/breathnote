@@ -19,8 +19,11 @@ COMPILATION_CACHE_KEEP_LOCAL_DIRECTORY = YES
 MODULE_CACHE_DIR = $(BREATHNOTE_CAS_CACHE_DIR)/ModuleCache.noindex
 
 // Explicit modules + integrated driver are required by swiftc for `-cache-compile-job`
+// Disable multi-file Debug batch mode for per-file CAS granularity and to avoid
+// Swift 6.3 FileSpecificDiagnosticConsumer crashes on virtual `/^worktree` paths.
 SWIFT_USE_INTEGRATED_DRIVER = YES
 SWIFT_ENABLE_EXPLICIT_MODULES = YES
+SWIFT_ENABLE_BATCH_MODE = NO
 CLANG_ENABLE_MODULES = YES
 
 // Xcode native SDK, toolchain, DerivedData, and project prefix mapping
