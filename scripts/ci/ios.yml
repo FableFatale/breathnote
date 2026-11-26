@@ -7,7 +7,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  actions: read
 
 jobs:
   build-ios:
@@ -141,3 +142,37 @@ jobs:
           name: breathnote-ios-project-scaffold
           path: /tmp/ios-scaffold-export/ios
           if-no-files-found: error
+
+      - name: Publish iOS & Android packages to GitHub Release on main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RAW_VER=$(grep -E '^version:\s*' pubspec.yaml | head -n 1 | awk '{print $2}' | tr -d '\r')
+          REL_VER="${RAW_VER/+/.}"
+          TAG="v${REL_VER}"
+          rm -rf /tmp/release-assets /tmp/android-apk-dl
+          mkdir -p /tmp/release-assets /tmp/android-apk-dl
+          cp artifacts/breathnote-current-ios-unsigned.ipa "/tmp/release-assets/breathnote-${TAG}-ios-unsigned.ipa"
+          cp artifacts/breathnote-current-ios-simulator.app.zip "/tmp/release-assets/breathnote-${TAG}-ios-simulator.app.zip"
+
+          for _ in $(seq 1 18); do
+            ANDROID_RUN_ID=$(gh run list --workflow=Android --commit "${GITHUB_SHA}" --json databaseId,status,conclusion --jq 'map(select(.status=="completed" and .conclusion=="success")) | .[0].databaseId // empty' || true)
+            if [[ -n "${ANDROID_RUN_ID:-}" ]]; then
+              if gh run download "$ANDROID_RUN_ID" -n breathnote-debug-apk -D /tmp/android-apk-dl; then
+                cp /tmp/android-apk-dl/app-debug.apk "/tmp/release-assets/breathnote-${TAG}-debug.apk"
+              fi
+              break
+            fi
+            sleep 10
+          done
+
+          shasum -a 256 /tmp/release-assets/* >> "$GITHUB_STEP_SUMMARY"
+          NOTES="BreathNote ${TAG} dual-platform build (Android Debug APK + iOS Unsigned Release IPA + iOS Simulator App) built from commit ${GITHUB_SHA}."
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" /tmp/release-assets/* --clobber
+            gh release edit "$TAG" --latest
+          else
+            gh release create "$TAG" /tmp/release-assets/* --title "BreathNote ${TAG} (Android APK & iOS IPA)" --notes "$NOTES" --latest
+          fi
