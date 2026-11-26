@@ -6,7 +6,7 @@
         android:required="true"/>
 
     <application
-        android:label="初鸣"
+        android:label="${appLabel}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"

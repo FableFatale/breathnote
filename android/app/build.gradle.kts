@@ -49,17 +49,9 @@ android {
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://flutter.dev/to/review-gradle-config)
-        val ciRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
-        versionCode = if (ciRunNumber != null) {
-            100 + flutter.versionCode + ciRunNumber
-        } else {
-            flutter.versionCode
-        }
-        versionName = if (ciRunNumber != null) {
-            "${flutter.versionName}.$ciRunNumber"
-        } else {
-            flutter.versionName
-        }
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+        manifestPlaceholders["appLabel"] = "初鸣"
     }
 
     signingConfigs {
@@ -81,7 +73,11 @@ android {
 
     buildTypes {
         debug {
+            val ciRunNumber = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
             signingConfig = signingConfigs.getByName("debug")
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = if (ciRunNumber != null) "-ci.$ciRunNumber" else "-debug"
+            manifestPlaceholders["appLabel"] = "初鸣 Debug"
         }
         release {
             signingConfig = if (hasReleaseSigning) {
